@@ -232,10 +232,10 @@ export default function DosingPage() {
                 <label className="block text-sm mb-3">Schedule Type</label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <button 
-                    className={`btn ${data.settings.dosingSchedule === 'Auto' ? '' : 'btn-secondary'}`}
-                    onClick={() => updateDosingSchedule('Auto')}
+                    className={`btn ${data.settings.dosingSchedule === 'Continuous' ? '' : 'btn-secondary'}`}
+                    onClick={() => updateDosingSchedule('Continuous')}
                   >
-                    Auto
+                    Continuous
                   </button>
                   <button 
                     className={`btn ${data.settings.dosingSchedule === 'Timed' ? '' : 'btn-secondary'}`}

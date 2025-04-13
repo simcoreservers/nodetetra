@@ -9,18 +9,15 @@ export interface PhEcRange {
 }
 
 export interface DosingHistoryEntry {
-  id?: number;
   timestamp: string;
-  time: string;
   action: string;
-  details?: string;
-  pump: string;
+  details: string;
 }
 
 export interface DosingSettings {
   targetPh: PhEcRange;
   targetEc: PhEcRange;
-  dosingSchedule: 'Auto' | 'Timed' | 'Scheduled';
+  dosingSchedule: 'Continuous' | 'Timed' | 'Scheduled';
   dosingLimits: {
     phUp: number;
     phDown: number;
@@ -118,7 +115,7 @@ export function useDosingData({ refreshInterval = 30000 }: UseDosingDataProps = 
             max: profile ? profile.targetEc.max : 1.5,
             current: 1.35
           },
-          dosingSchedule: "Auto",
+          dosingSchedule: "Continuous",
           dosingLimits: {
             phUp: 50,
             phDown: 50,
@@ -138,7 +135,7 @@ export function useDosingData({ refreshInterval = 30000 }: UseDosingDataProps = 
   };
 
   // Update dosing schedule
-  const updateDosingSchedule = async (schedule: 'Auto' | 'Timed' | 'Scheduled') => {
+  const updateDosingSchedule = async (schedule: 'Continuous' | 'Timed' | 'Scheduled') => {
     try {
       const response = await fetch('/api/dosing/schedule', {
         method: 'POST',

@@ -103,23 +103,6 @@ export async function initializeSimulation(): Promise<void> {
  */
 export async function getSimulationConfig(): Promise<SimulationConfig> {
   try {
-    // Ensure data directory exists
-    if (!fs.existsSync(DATA_DIR)) {
-      await mkdirAsync(DATA_DIR, { recursive: true });
-    }
-
-    // Check if config file exists, create if not
-    if (!fs.existsSync(SIMULATION_CONFIG_FILE)) {
-      // Create default config
-      await writeFileAsync(
-        SIMULATION_CONFIG_FILE,
-        JSON.stringify(DEFAULT_SIMULATION_CONFIG, null, 2),
-        'utf8'
-      );
-      return DEFAULT_SIMULATION_CONFIG;
-    }
-
-    // Read existing config
     const data = await readFileAsync(SIMULATION_CONFIG_FILE, 'utf8');
     return JSON.parse(data) as SimulationConfig;
   } catch (error) {
