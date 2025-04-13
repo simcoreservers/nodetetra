@@ -1,0 +1,14 @@
+<svg width="400" height="100" viewBox="0 0 400 100" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .logo-text { font-family: 'Arial', sans-serif; font-weight: bold; letter-spacing: -0.5px; }
+    .accent { fill: #00a3e0; }
+    .secondary { fill: #00c49a; }
+    .main { fill: #ffffff; }
+  </style>
+  <!-- Text with refined spacing and subtle connecting element -->
+  <g>  
+    <!-- Text with adjusted spacing -->
+    <text x="0" y="70" class="logo-text main" font-size="100">Nu</text>
+    <text x="125" y="70" class="logo-text accent" font-size="100">Tetra</text>
+  </g>
+</svg> 

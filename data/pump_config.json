@@ -1,0 +1,44 @@
+{
+  "pH Up": {
+    "nutrient": null
+  },
+  "pH Down": {
+    "nutrient": null
+  },
+  "Pump 1": {
+    "nutrient": {
+      "productId": 1681234104,
+      "brandId": 1681234001,
+      "brandName": "General Hydroponics",
+      "productName": "CaliMagic",
+      "npk": "1-0-0"
+    }
+  },
+  "Pump 2": {
+    "nutrient": {
+      "productId": 1681234101,
+      "brandId": 1681234001,
+      "brandName": "General Hydroponics",
+      "productName": "Flora Micro",
+      "npk": "5-0-1"
+    }
+  },
+  "Pump 3": {
+    "nutrient": {
+      "productId": 1681234102,
+      "brandId": 1681234001,
+      "brandName": "General Hydroponics",
+      "productName": "Flora Gro",
+      "npk": "2-1-6"
+    }
+  },
+  "Pump 4": {
+    "nutrient": {
+      "productId": 1681234103,
+      "brandId": 1681234001,
+      "brandName": "General Hydroponics",
+      "productName": "Flora Bloom",
+      "npk": "0-5-4"
+    }
+  }
+}

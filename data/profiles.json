@@ -1,0 +1,915 @@
+[
+  {
+    "name": "Lettuce",
+    "cropType": "Leafy Greens",
+    "targetPh": {
+      "min": 5.8,
+      "max": 6.2
+    },
+    "targetEc": {
+      "min": 0.8,
+      "max": 1.2
+    },
+    "notes": "Best for butterhead, romaine, and loose-leaf varieties. Low nutrient requirements make it perfect for beginners.",
+    "createdAt": "2023-04-12T10:00:00Z",
+    "updatedAt": "2023-06-18T14:30:00Z"
+  },
+  {
+    "name": "Spinach",
+    "cropType": "Leafy Greens",
+    "targetPh": {
+      "min": 6,
+      "max": 7
+    },
+    "targetEc": {
+      "min": 1,
+      "max": 1.6
+    },
+    "notes": "Prefers cooler temperatures. Harvest outer leaves to extend growing period.",
+    "createdAt": "2023-05-15T09:30:00Z",
+    "updatedAt": "2023-05-15T09:30:00Z"
+  },
+  {
+    "name": "Kale",
+    "cropType": "Leafy Greens",
+    "targetPh": {
+      "min": 5.5,
+      "max": 6.5
+    },
+    "targetEc": {
+      "min": 1.2,
+      "max": 1.8
+    },
+    "notes": "Hardy plant that grows well in hydroponics. Rich in nutrients and antioxidants.",
+    "createdAt": "2023-05-16T11:20:00Z",
+    "updatedAt": "2023-05-16T11:20:00Z"
+  },
+  {
+    "name": "Basil",
+    "cropType": "Herbs",
+    "targetPh": {
+      "min": 5.5,
+      "max": 6.5
+    },
+    "targetEc": {
+      "min": 1,
+      "max": 1.6
+    },
+    "notes": "Maintain temperatures between 65-80°F for best results. Pinch off flower buds to promote leaf growth.",
+    "createdAt": "2023-02-23T09:15:00Z",
+    "updatedAt": "2023-05-17T11:45:00Z"
+  },
+  {
+    "name": "Cilantro",
+    "cropType": "Herbs",
+    "targetPh": {
+      "min": 6.2,
+      "max": 6.8
+    },
+    "targetEc": {
+      "min": 1.2,
+      "max": 1.8
+    },
+    "notes": "Prefers cooler temperatures. Harvest regularly to delay bolting.",
+    "createdAt": "2023-05-18T13:45:00Z",
+    "updatedAt": "2023-05-18T13:45:00Z"
+  },
+  {
+    "name": "Mint",
+    "cropType": "Herbs",
+    "targetPh": {
+      "min": 5.5,
+      "max": 6.5
+    },
+    "targetEc": {
+      "min": 1,
+      "max": 1.5
+    },
+    "notes": "Fast-growing herb that spreads quickly. Consider using dedicated system or regularly trimming roots.",
+    "createdAt": "2023-05-19T15:30:00Z",
+    "updatedAt": "2023-05-19T15:30:00Z"
+  },
+  {
+    "name": "Strawberry",
+    "cropType": "Fruit",
+    "targetPh": {
+      "min": 5.5,
+      "max": 6.2
+    },
+    "targetEc": {
+      "min": 1.2,
+      "max": 1.8
+    },
+    "notes": "Requires pollination for fruit production. Consider using a small brush to hand-pollinate flowers.",
+    "createdAt": "2023-03-10T16:20:00Z",
+    "updatedAt": "2023-06-05T13:10:00Z"
+  },
+  {
+    "name": "Tomato",
+    "cropType": "Fruit",
+    "targetPh": {
+      "min": 5.8,
+      "max": 6.3
+    },
+    "targetEc": {
+      "min": 2,
+      "max": 3.5
+    },
+    "notes": "Increase EC during fruiting stage. Requires physical support and manual pollination for best yields.",
+    "createdAt": "2023-01-05T14:00:00Z",
+    "updatedAt": "2023-04-20T09:30:00Z"
+  },
+  {
+    "name": "Bell Pepper",
+    "cropType": "Fruit",
+    "targetPh": {
+      "min": 5.8,
+      "max": 6.3
+    },
+    "targetEc": {
+      "min": 1.8,
+      "max": 2.4
+    },
+    "notes": "Requires hand pollination and good airflow to prevent blossom end rot. Stake for support.",
+    "createdAt": "2023-05-20T10:15:00Z",
+    "updatedAt": "2023-05-20T10:15:00Z"
+  },
+  {
+    "name": "Cucumber",
+    "cropType": "Fruit",
+    "targetPh": {
+      "min": 5.8,
+      "max": 6
+    },
+    "targetEc": {
+      "min": 1.7,
+      "max": 2.3
+    },
+    "notes": "Fast-growing vining plant that needs trellising. Look for self-pollinating varieties for best results.",
+    "createdAt": "2023-05-21T11:45:00Z",
+    "updatedAt": "2023-05-21T11:45:00Z"
+  },
+  {
+    "name": "Arugula",
+    "cropType": "Leafy Greens",
+    "targetPh": {
+      "target": 6.4,
+      "buffer": 0.4,
+      "min": 6,
+      "max": 6.8
+    },
+    "targetEc": {
+      "target": 1,
+      "buffer": 0.2,
+      "min": 0.8,
+      "max": 1.2
+    },
+    "notes": "",
+    "createdAt": "2023-05-22T14:30:00Z",
+    "updatedAt": "2025-04-12T19:57:41.092Z",
+    "growthSchedule": [],
+    "growthPhase": "Vegetative",
+    "pumpAssignments": [
+      {
+        "pumpName": "Pump 1",
+        "dosage": 1.6,
+        "nutrientId": 1681234104,
+        "brandId": 1681234001,
+        "productName": "CaliMagic",
+        "brandName": "General Hydroponics",
+        "isAutoDosage": true
+      },
+      {
+        "pumpName": "Pump 2",
+        "dosage": 1.2,
+        "nutrientId": 1681234101,
+        "brandId": 1681234001,
+        "productName": "Flora Micro",
+        "brandName": "General Hydroponics",
+        "isAutoDosage": true
+      },
+      {
+        "pumpName": "Pump 3",
+        "dosage": 1.6,
+        "nutrientId": 1681234102,
+        "brandId": 1681234001,
+        "productName": "Flora Gro",
+        "brandName": "General Hydroponics",
+        "isAutoDosage": true
+      },
+      {
+        "pumpName": "Pump 4",
+        "dosage": 2,
+        "nutrientId": 1681234103,
+        "brandId": 1681234001,
+        "productName": "Flora Bloom",
+        "brandName": "General Hydroponics",
+        "isAutoDosage": true
+      }
+    ]
+  },
+  {
+    "name": "Bok Choy",
+    "cropType": "Leafy Greens",
+    "targetPh": {
+      "min": 6,
+      "max": 7
+    },
+    "targetEc": {
+      "min": 1,
+      "max": 1.5
+    },
+    "notes": "Quick-growing Asian green. Ready to harvest in 30-45 days.",
+    "createdAt": "2023-05-23T16:20:00Z",
+    "updatedAt": "2023-05-23T16:20:00Z"
+  },
+  {
+    "name": "Sage",
+    "cropType": "Herbs",
+    "targetPh": {
+      "min": 5.5,
+      "max": 6.5
+    },
+    "targetEc": {
+      "min": 1,
+      "max": 1.4
+    },
+    "notes": "Perennial herb that requires good drainage. Allow to dry slightly between waterings.",
+    "createdAt": "2023-05-24T09:15:00Z",
+    "updatedAt": "2023-05-24T09:15:00Z"
+  },
+  {
+    "name": "Rosemary",
+    "cropType": "Herbs",
+    "targetPh": {
+      "min": 5.5,
+      "max": 6
+    },
+    "targetEc": {
+      "min": 1,
+      "max": 1.4
+    },
+    "notes": "Mediterranean herb that prefers drier conditions. Good for NFT and Kratky methods.",
+    "createdAt": "2023-05-25T10:45:00Z",
+    "updatedAt": "2023-05-25T10:45:00Z"
+  },
+  {
+    "name": "Thyme",
+    "cropType": "Herbs",
+    "targetPh": {
+      "min": 5.5,
+      "max": 6.5
+    },
+    "targetEc": {
+      "min": 0.8,
+      "max": 1.2
+    },
+    "notes": "Low-maintenance herb that thrives in hydroponics. Harvest regularly to promote growth.",
+    "createdAt": "2023-05-26T13:30:00Z",
+    "updatedAt": "2023-05-26T13:30:00Z"
+  },
+  {
+    "name": "Cannabis",
+    "cropType": "Cannabis",
+    "targetPh": {
+      "target": 6,
+      "buffer": 0.2,
+      "min": 5.8,
+      "max": 6.2
+    },
+    "targetEc": {
+      "target": 1.3,
+      "buffer": 0.3,
+      "min": 1,
+      "max": 1.6
+    },
+    "growthSchedule": [
+      {
+        "week": 1,
+        "growthPhase": "Seedling",
+        "ph": {
+          "target": 6.2,
+          "buffer": 0.1,
+          "min": 6.1,
+          "max": 6.3
+        },
+        "ec": {
+          "target": 0.8,
+          "buffer": 0.2,
+          "min": 0.6,
+          "max": 1
+        },
+        "pumpSettings": [],
+        "pumpDosages": [
+          {
+            "pumpName": "Pump 1",
+            "dosage": 0,
+            "nutrientId": 1681234104,
+            "brandId": 1681234001,
+            "productName": "CaliMagic",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 2",
+            "dosage": 0,
+            "nutrientId": 1681234101,
+            "brandId": 1681234001,
+            "productName": "Flora Micro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 3",
+            "dosage": 0,
+            "nutrientId": 1681234102,
+            "brandId": 1681234001,
+            "productName": "Flora Gro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 4",
+            "dosage": 0,
+            "nutrientId": 1681234103,
+            "brandId": 1681234001,
+            "productName": "Flora Bloom",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          }
+        ]
+      },
+      {
+        "week": 2,
+        "growthPhase": "Seedling",
+        "ph": {
+          "target": 6.2,
+          "buffer": 0.1,
+          "min": 6.1,
+          "max": 6.3
+        },
+        "ec": {
+          "target": 1.2,
+          "buffer": 0.2,
+          "min": 1,
+          "max": 1.4
+        },
+        "pumpSettings": [],
+        "pumpDosages": [
+          {
+            "pumpName": "Pump 1",
+            "dosage": 0,
+            "nutrientId": 1681234104,
+            "brandId": 1681234001,
+            "productName": "CaliMagic",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 2",
+            "dosage": 0,
+            "nutrientId": 1681234101,
+            "brandId": 1681234001,
+            "productName": "Flora Micro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 3",
+            "dosage": 0,
+            "nutrientId": 1681234102,
+            "brandId": 1681234001,
+            "productName": "Flora Gro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 4",
+            "dosage": 0,
+            "nutrientId": 1681234103,
+            "brandId": 1681234001,
+            "productName": "Flora Bloom",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          }
+        ]
+      },
+      {
+        "week": 3,
+        "growthPhase": "Vegetative",
+        "ph": {
+          "target": 6.3,
+          "buffer": 0.1,
+          "min": 6.2,
+          "max": 6.4
+        },
+        "ec": {
+          "target": 1.2,
+          "buffer": 0.2,
+          "min": 1,
+          "max": 1.4
+        },
+        "pumpSettings": [],
+        "pumpDosages": [
+          {
+            "pumpName": "Pump 1",
+            "dosage": 1,
+            "nutrientId": 1681234104,
+            "brandId": 1681234001,
+            "productName": "CaliMagic",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 2",
+            "dosage": 2,
+            "nutrientId": 1681234101,
+            "brandId": 1681234001,
+            "productName": "Flora Micro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 3",
+            "dosage": 1,
+            "nutrientId": 1681234102,
+            "brandId": 1681234001,
+            "productName": "Flora Gro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 4",
+            "dosage": 1,
+            "nutrientId": 1681234103,
+            "brandId": 1681234001,
+            "productName": "Flora Bloom",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          }
+        ]
+      },
+      {
+        "week": 4,
+        "growthPhase": "Vegetative",
+        "ph": {
+          "target": 6.3,
+          "buffer": 0.1,
+          "min": 6.2,
+          "max": 6.4
+        },
+        "ec": {
+          "target": 1.2,
+          "buffer": 0.2,
+          "min": 1,
+          "max": 1.4
+        },
+        "pumpSettings": [],
+        "pumpDosages": [
+          {
+            "pumpName": "Pump 1",
+            "dosage": 1,
+            "nutrientId": 1681234104,
+            "brandId": 1681234001,
+            "productName": "CaliMagic",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 2",
+            "dosage": 4,
+            "nutrientId": 1681234101,
+            "brandId": 1681234001,
+            "productName": "Flora Micro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 3",
+            "dosage": 1,
+            "nutrientId": 1681234102,
+            "brandId": 1681234001,
+            "productName": "Flora Gro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 4",
+            "dosage": 2,
+            "nutrientId": 1681234103,
+            "brandId": 1681234001,
+            "productName": "Flora Bloom",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          }
+        ]
+      },
+      {
+        "week": 5,
+        "growthPhase": "Vegetative",
+        "ph": {
+          "target": 6.3,
+          "buffer": 0.1,
+          "min": 6.2,
+          "max": 6.4
+        },
+        "ec": {
+          "target": 1.2,
+          "buffer": 0.2,
+          "min": 1,
+          "max": 1.4
+        },
+        "pumpSettings": [],
+        "pumpDosages": [
+          {
+            "pumpName": "Pump 1",
+            "dosage": 1,
+            "nutrientId": 1681234104,
+            "brandId": 1681234001,
+            "productName": "CaliMagic",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 2",
+            "dosage": 5,
+            "nutrientId": 1681234101,
+            "brandId": 1681234001,
+            "productName": "Flora Micro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 3",
+            "dosage": 1,
+            "nutrientId": 1681234102,
+            "brandId": 1681234001,
+            "productName": "Flora Gro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 4",
+            "dosage": 3,
+            "nutrientId": 1681234103,
+            "brandId": 1681234001,
+            "productName": "Flora Bloom",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          }
+        ]
+      },
+      {
+        "week": 6,
+        "growthPhase": "Vegetative",
+        "ph": {
+          "target": 6.4,
+          "buffer": 0.1,
+          "min": 6.3,
+          "max": 6.5
+        },
+        "ec": {
+          "target": 1.2,
+          "buffer": 0.2,
+          "min": 1,
+          "max": 1.4
+        },
+        "pumpSettings": [],
+        "pumpDosages": [
+          {
+            "pumpName": "Pump 1",
+            "dosage": 1,
+            "nutrientId": 1681234104,
+            "brandId": 1681234001,
+            "productName": "CaliMagic",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 2",
+            "dosage": 6,
+            "nutrientId": 1681234101,
+            "brandId": 1681234001,
+            "productName": "Flora Micro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 3",
+            "dosage": 1,
+            "nutrientId": 1681234102,
+            "brandId": 1681234001,
+            "productName": "Flora Gro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 4",
+            "dosage": 3,
+            "nutrientId": 1681234103,
+            "brandId": 1681234001,
+            "productName": "Flora Bloom",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          }
+        ]
+      },
+      {
+        "week": 7,
+        "growthPhase": "Early Flower",
+        "ph": {
+          "target": 6.4,
+          "buffer": 0.1,
+          "min": 6.3,
+          "max": 6.5
+        },
+        "ec": {
+          "target": 1.2,
+          "buffer": 0.2,
+          "min": 1,
+          "max": 1.4
+        },
+        "pumpSettings": [],
+        "pumpDosages": [
+          {
+            "pumpName": "Pump 1",
+            "dosage": 1,
+            "nutrientId": 1681234104,
+            "brandId": 1681234001,
+            "productName": "CaliMagic",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 2",
+            "dosage": 5,
+            "nutrientId": 1681234101,
+            "brandId": 1681234001,
+            "productName": "Flora Micro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 3",
+            "dosage": 2,
+            "nutrientId": 1681234102,
+            "brandId": 1681234001,
+            "productName": "Flora Gro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 4",
+            "dosage": 5,
+            "nutrientId": 1681234103,
+            "brandId": 1681234001,
+            "productName": "Flora Bloom",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          }
+        ]
+      },
+      {
+        "week": 8,
+        "growthPhase": "Mid Flower",
+        "ph": {
+          "target": 6.5,
+          "buffer": 0.1,
+          "min": 6.4,
+          "max": 6.6
+        },
+        "ec": {
+          "target": 1.2,
+          "buffer": 0.2,
+          "min": 1,
+          "max": 1.4
+        },
+        "pumpSettings": [],
+        "pumpDosages": [
+          {
+            "pumpName": "Pump 1",
+            "dosage": 1,
+            "nutrientId": 1681234104,
+            "brandId": 1681234001,
+            "productName": "CaliMagic",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 2",
+            "dosage": 4,
+            "nutrientId": 1681234101,
+            "brandId": 1681234001,
+            "productName": "Flora Micro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 3",
+            "dosage": 3,
+            "nutrientId": 1681234102,
+            "brandId": 1681234001,
+            "productName": "Flora Gro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 4",
+            "dosage": 6,
+            "nutrientId": 1681234103,
+            "brandId": 1681234001,
+            "productName": "Flora Bloom",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          }
+        ]
+      },
+      {
+        "week": 9,
+        "growthPhase": "Mid Flower",
+        "ph": {
+          "target": 6.5,
+          "buffer": 0.1,
+          "min": 6.4,
+          "max": 6.6
+        },
+        "ec": {
+          "target": 1.2,
+          "buffer": 0.2,
+          "min": 1,
+          "max": 1.4
+        },
+        "pumpSettings": [],
+        "pumpDosages": [
+          {
+            "pumpName": "Pump 1",
+            "dosage": 1,
+            "nutrientId": 1681234104,
+            "brandId": 1681234001,
+            "productName": "CaliMagic",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 2",
+            "dosage": 4,
+            "nutrientId": 1681234101,
+            "brandId": 1681234001,
+            "productName": "Flora Micro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 3",
+            "dosage": 4,
+            "nutrientId": 1681234102,
+            "brandId": 1681234001,
+            "productName": "Flora Gro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 4",
+            "dosage": 7,
+            "nutrientId": 1681234103,
+            "brandId": 1681234001,
+            "productName": "Flora Bloom",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          }
+        ]
+      },
+      {
+        "week": 10,
+        "growthPhase": "Late Flower",
+        "ph": {
+          "target": 6.4,
+          "buffer": 0.1,
+          "min": 6.3,
+          "max": 6.5
+        },
+        "ec": {
+          "target": 1.2,
+          "buffer": 0.2,
+          "min": 1,
+          "max": 1.4
+        },
+        "pumpSettings": [],
+        "pumpDosages": [
+          {
+            "pumpName": "Pump 1",
+            "dosage": 1,
+            "nutrientId": 1681234104,
+            "brandId": 1681234001,
+            "productName": "CaliMagic",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 2",
+            "dosage": 4,
+            "nutrientId": 1681234101,
+            "brandId": 1681234001,
+            "productName": "Flora Micro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 3",
+            "dosage": 3,
+            "nutrientId": 1681234102,
+            "brandId": 1681234001,
+            "productName": "Flora Gro",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          },
+          {
+            "pumpName": "Pump 4",
+            "dosage": 9,
+            "nutrientId": 1681234103,
+            "brandId": 1681234001,
+            "productName": "Flora Bloom",
+            "brandName": "General Hydroponics",
+            "isAutoDosage": false
+          }
+        ]
+      },
+      {
+        "week": 11,
+        "growthPhase": "Vegetative",
+        "ph": {
+          "target": 6,
+          "buffer": 0.2,
+          "min": 5.8,
+          "max": 6.2
+        },
+        "ec": {
+          "target": 1.2,
+          "buffer": 0.2,
+          "min": 1,
+          "max": 1.4
+        },
+        "pumpSettings": []
+      },
+      {
+        "week": 12,
+        "growthPhase": "Vegetative",
+        "ph": {
+          "target": 6,
+          "buffer": 0.2,
+          "min": 5.8,
+          "max": 6.2
+        },
+        "ec": {
+          "target": 1.2,
+          "buffer": 0.2,
+          "min": 1,
+          "max": 1.4
+        },
+        "pumpSettings": []
+      }
+    ],
+    "growthPhase": "Seedling",
+    "pumpAssignments": [
+      {
+        "pumpName": "Pump 1",
+        "dosage": 0,
+        "nutrientId": 1681234104,
+        "brandId": 1681234001,
+        "productName": "CaliMagic",
+        "brandName": "General Hydroponics",
+        "isAutoDosage": true
+      },
+      {
+        "pumpName": "Pump 2",
+        "dosage": 0,
+        "nutrientId": 1681234101,
+        "brandId": 1681234001,
+        "productName": "Flora Micro",
+        "brandName": "General Hydroponics",
+        "isAutoDosage": true
+      },
+      {
+        "pumpName": "Pump 3",
+        "dosage": 0,
+        "nutrientId": 1681234102,
+        "brandId": 1681234001,
+        "productName": "Flora Gro",
+        "brandName": "General Hydroponics",
+        "isAutoDosage": true
+      },
+      {
+        "pumpName": "Pump 4",
+        "dosage": 0,
+        "nutrientId": 1681234103,
+        "brandId": 1681234001,
+        "productName": "Flora Bloom",
+        "brandName": "General Hydroponics",
+        "isAutoDosage": true
+      }
+    ],
+    "notes": "",
+    "createdAt": "2025-04-12T20:53:56.016Z",
+    "updatedAt": "2025-04-12T21:12:28.480Z"
+  }
+]

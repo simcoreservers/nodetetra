@@ -1,26 +1,309 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
+  /* AC Infinity inspired color palette */
+  --background: #0F0F0F;
+  --surface-1: #1A1A1A;
+  --surface-2: #252525;
+  --foreground: #FFFFFF;
+  --card-text: #FFFFFF;
+  --primary: #00A3E0;
+  --secondary: #2D2D2D;
+  --border: #333333;
+  --danger: #FF3B30;
+  --success: #26D07C;
+  --warning: #FFB840;
+  --text-muted: #AAAAAA;
+  --primary-light: rgba(0, 163, 224, 0.15);
+  
+  /* Shadow system */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 3px 8px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.8);
+  
+  /* Theme mapping variables */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--primary);
+  --color-border: var(--border);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --card-text: #212529;
   }
 }
 
 body {
   background: var(--background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.nutetra-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* AC Infinity Card Design */
+.card {
+  background-color: var(--surface-1);
+  border-radius: 4px;
+  border: none;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  color: var(--card-text);
+  overflow: hidden;
+}
+
+.card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  opacity: 0.6;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0, 163, 224, 0.05);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.card-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.data-value {
+  font-size: 2.25rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.75rem;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.data-label {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+
+/* AC Infinity Sidebar */
+.sidebar {
+  background-color: var(--surface-1);
+  border-right: 1px solid var(--border);
+  height: 100vh;
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  left: 0;
+  top: 0;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-link {
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+  padding: 0.9rem 1.5rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-left: 2px solid transparent;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Add a new class for collapsed sidebar links */
+.sidebar-link.justify-center {
+  padding: 0.9rem 0.5rem;
+  justify-content: center;
+}
+
+.sidebar-link.active {
+  color: var(--primary);
+  background-color: var(--surface-2);
+  border-left: 2px solid var(--primary);
+  font-weight: 500;
+}
+
+.sidebar-link:hover:not(.active) {
+  background-color: var(--surface-2);
+}
+
+.sidebar-link svg {
+  color: var(--text-muted);
+  margin-right: 1rem;
+}
+
+.sidebar-link.justify-center svg {
+  margin-right: 0;
+}
+
+.sidebar-link.active svg {
+  color: var(--primary);
+}
+
+/* AC Infinity Button Styles */
+.btn {
+  background-color: var(--surface-2);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.btn:hover {
+  background-color: var(--secondary);
+  border-color: var(--primary);
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover {
+  background-color: rgba(0, 163, 224, 0.9);
+  box-shadow: 0 0 8px rgba(0, 163, 224, 0.5);
+}
+
+.btn-secondary {
+  background-color: var(--surface-2);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background-color: var(--secondary);
+}
+
+.btn-danger {
+  background-color: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+.btn-danger:hover {
+  background-color: rgba(255, 59, 48, 0.1);
+}
+
+.btn-success {
+  background-color: transparent;
+  color: var(--success);
+  border: 1px solid var(--success);
+}
+
+.btn-success:hover {
+  background-color: rgba(38, 208, 124, 0.1);
+}
+
+/* Status Indicators */
+.sensor-status {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.75rem;
+  position: relative;
+}
+
+.status-indicator::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 50%;
+  opacity: 0.4;
+  z-index: -1;
+}
+
+.status-good {
+  background-color: var(--success);
+}
+
+.status-good::after {
+  background-color: var(--success);
+  box-shadow: 0 0 5px var(--success);
+}
+
+.status-warning {
+  background-color: var(--warning);
+}
+
+.status-warning::after {
+  background-color: var(--warning);
+  box-shadow: 0 0 5px var(--warning);
+}
+
+.status-danger {
+  background-color: var(--danger);
+}
+
+.status-danger::after {
+  background-color: var(--danger);
+  box-shadow: 0 0 5px var(--danger);
+}
+
+/* Calibration page specific styles */
+.space-y-6 > .card {
+  opacity: 1;
+  transform: none;
+  animation: none;
+}
+
+/* Main content area styles to work with sidebar */
+.main-content {
+  flex: 1;
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.main-content.sidebar-expanded {
+  margin-left: 260px;
+}
+
+.main-content.sidebar-collapsed {
+  margin-left: 70px;
 }
