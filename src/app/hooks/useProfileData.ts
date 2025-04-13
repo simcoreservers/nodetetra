@@ -33,11 +33,13 @@ export interface ProfileSettings {
   }[];
 }
 
-interface UseProfileDataProps {
+interface ProfileDataOptions {
   refreshInterval?: number;
+  activeProfileRefreshInterval?: number;
 }
 
-export function useProfileData({ refreshInterval = 60000 }: UseProfileDataProps = {}) {
+export function useProfileData(options: ProfileDataOptions = {}) {
+  const { refreshInterval = 0, activeProfileRefreshInterval = 30000 } = options;
   const [profiles, setProfiles] = useState<ProfileSettings[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
@@ -259,11 +261,21 @@ export function useProfileData({ refreshInterval = 60000 }: UseProfileDataProps 
     
     const intervalId = setInterval(() => {
       fetchProfiles();
-      fetchActiveProfile();
     }, refreshInterval);
     
     return () => clearInterval(intervalId);
   }, [refreshInterval]);
+
+  // Set up separate interval for active profile if activeProfileRefreshInterval > 0
+  useEffect(() => {
+    if (activeProfileRefreshInterval <= 0) return;
+    
+    const intervalId = setInterval(() => {
+      fetchActiveProfile();
+    }, activeProfileRefreshInterval);
+    
+    return () => clearInterval(intervalId);
+  }, [activeProfileRefreshInterval]);
 
   // Combined refresh function to refresh both profiles and active profile
   const refreshAll = async () => {

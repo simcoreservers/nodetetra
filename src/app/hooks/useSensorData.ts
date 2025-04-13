@@ -11,7 +11,7 @@ export interface SensorError {
  * Custom hook for fetching and managing real-time sensor data
  * @param refreshInterval - How often to poll for new data (in ms)
  */
-export function useSensorData(refreshInterval = 5000) {
+export function useSensorData(refreshInterval = 1000) {
   const [data, setData] = useState<SensorData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<SensorError | null>(null);

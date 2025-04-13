@@ -51,9 +51,9 @@ const DEFAULT_SIMULATION_CONFIG: SimulationConfig = {
     waterTemp: 0.2
   },
   drift: {
-    ph: 0.002,
-    ec: 0.001,
-    waterTemp: 0.005
+    ph: 0.0004,
+    ec: 0.0002,
+    waterTemp: 0.001
   },
   lastUpdated: new Date().toISOString()
 };
