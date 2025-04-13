@@ -16,7 +16,8 @@ const PUMP_CONFIG_FILE = path.join(DATA_PATH, 'pump_config.json');
 const isClient = typeof window !== 'undefined';
 let mockExec: any;
 let execAsync: any;
-let lgpio: any;
+let Gpio: any = null;
+let gpioInstances: Record<number, any> = {};
 
 if (!isClient) {
   // Only import Node.js modules on the server
@@ -24,19 +25,20 @@ if (!isClient) {
   const { promisify } = require('util');
   execAsync = promisify(exec);
   
-  // Import lgpio for direct GPIO control
+  // Try to import onoff for direct GPIO control
   try {
-    lgpio = require('lgpio');
-    console.log('Successfully loaded lgpio library');
+    const onoff = require('onoff');
+    Gpio = onoff.Gpio;
+    console.log('Successfully loaded onoff library for GPIO control');
   } catch (error) {
-    console.error('Failed to load lgpio library:', error);
-    throw new Error(`Failed to load lgpio library: ${error}. Please ensure the lgpio package is installed.`);
+    console.error('Failed to load onoff library:', error);
+    throw new Error(`Failed to load onoff library: ${error}. Please install it using: npm install onoff`);
   }
 } else {
   // Client-side mock implementation
   mockExec = async () => ({ stdout: 'mock output', stderr: '' });
   execAsync = mockExec;
-  lgpio = null;
+  Gpio = null;
 }
 
 // Define GPIO pins for each pump
@@ -195,16 +197,16 @@ export async function initializePumps(): Promise<void> {
     // Load saved configurations first
     loadPumpConfig();
 
-    // For each pump, export the GPIO pin and set it as output
+    // For each pump, configure the GPIO pin and set it as output
     for (const [name, pin] of Object.entries(PUMP_GPIO)) {
       try {
-        // Configure pin as output
-        lgpio.gpioSetMode(pin, lgpio.OUTPUT);
+        // Configure pin as output using onoff
+        gpioInstances[pin] = new Gpio(pin, 'out');
         
-        // Initialize as OFF
-        lgpio.gpioWrite(pin, 0);
+        // Initialize as OFF (0)
+        gpioInstances[pin].writeSync(0);
         
-        console.log(`Initialized pump ${name} on GPIO ${pin}`);
+        console.log(`Initialized pump ${name} on GPIO ${pin} using onoff`);
       } catch (error) {
         console.error(`Error initializing GPIO for pump ${name}:`, error);
         throw new Error(`Failed to initialize GPIO for pump ${name}: ${error}`);
@@ -234,7 +236,14 @@ export async function activatePump(pumpName: PumpName): Promise<void> {
 
     // Set GPIO pin high to turn on pump
     try {
-      lgpio.gpioWrite(pin, 1);
+      // Get the Gpio instance for this pin
+      const gpio = gpioInstances[pin];
+      if (!gpio) {
+        throw new Error(`GPIO instance for pin ${pin} not found. Has initializePumps() been called?`);
+      }
+      
+      // Write 1 to turn on
+      gpio.writeSync(1);
     } catch (error) {
       console.error(`Error writing to GPIO pin ${pin}:`, error);
       throw new Error(`Failed to write to GPIO pin ${pin}: ${error}`);
@@ -278,7 +287,14 @@ export async function deactivatePump(pumpName: PumpName): Promise<void> {
 
     // Set GPIO pin low to turn off pump
     try {
-      lgpio.gpioWrite(pin, 0);
+      // Get the Gpio instance for this pin
+      const gpio = gpioInstances[pin];
+      if (!gpio) {
+        throw new Error(`GPIO instance for pin ${pin} not found. Has initializePumps() been called?`);
+      }
+      
+      // Write 0 to turn off
+      gpio.writeSync(0);
     } catch (error) {
       console.error(`Error writing to GPIO pin ${pin}:`, error);
       throw new Error(`Failed to write to GPIO pin ${pin}: ${error}`);
@@ -450,5 +466,32 @@ export function ensureDevPumpsInitialized(): void {
     console.log('Pump configurations loaded for development');
   } catch (error) {
     console.error('Error initializing development pumps:', error);
+  }
+}
+
+/**
+ * Cleanup GPIO resources when shutting down the application
+ * This should be called when the server is shutting down to release GPIO resources
+ */
+export function cleanupGpio(): void {
+  if (isClient) {
+    return;
+  }
+  
+  console.log('Cleaning up GPIO resources...');
+  
+  // Ensure all pumps are turned off and GPIO resources are released
+  for (const [pin, gpio] of Object.entries(gpioInstances)) {
+    try {
+      // Turn off the pump
+      gpio.writeSync(0);
+      
+      // Unexport the GPIO to free resources
+      gpio.unexport();
+      
+      console.log(`Cleaned up GPIO pin ${pin}`);
+    } catch (error) {
+      console.error(`Error cleaning up GPIO pin ${pin}:`, error);
+    }
   }
 } 
