@@ -250,38 +250,39 @@ export async function activatePump(pumpName: PumpName): Promise<void> {
       // Use gpio command to set pin high
       await execAsync(`gpio -g write ${pin} 1`);
     } catch (error) {
-      console.error(`Error writing to GPIO pin ${pin}:`, error);
-      
-      // Set error status for this pump
-      pumpStatus[pumpName].error = `GPIO error: ${error}`;
-      
-      // Log the error event
-      logErrorEvent(`Failed to control pump ${pumpName}: ${error}`);
-      
-      throw new Error(`Failed to write to GPIO pin ${pin}: ${error}`);
+      console.error(`Error activating pump ${pumpName}:`, error);
+      throw new Error(`Failed to activate pump ${pumpName}: ${error}`);
     }
     
-    // Update pump status
+    // Update the pump status
     pumpStatus[pumpName].active = true;
     pumpStatus[pumpName].lastActivated = new Date();
     
-    // Log event
-    const event: PumpEvent = {
-      time: new Date().toLocaleTimeString(),
-      event: `${pumpName} activated`,
-      timestamp: new Date()
-    };
-    recentEvents.unshift(event);
-    if (recentEvents.length > 10) recentEvents.pop(); // Keep only 10 most recent events
+    console.log(`Pump ${pumpName} activated`);
     
-    console.log(`Activated pump: ${pumpName}`);
+    // Log the activation event
+    recentEvents.unshift({
+      time: new Date().toLocaleTimeString(),
+      event: `Pump ${pumpName} activated`,
+      timestamp: new Date()
+    });
+    
+    // Limit event history to most recent 100 events
+    if (recentEvents.length > 100) {
+      recentEvents.length = 100;
+    }
   } catch (error) {
     console.error(`Error activating pump ${pumpName}:`, error);
     
     // Log the error event
-    logErrorEvent(`Failed to activate pump ${pumpName}: ${error}`);
+    recentEvents.unshift({
+      time: new Date().toLocaleTimeString(),
+      event: `Failed to activate pump ${pumpName}: ${error}`,
+      timestamp: new Date(),
+      isError: true
+    });
     
-    throw new Error(`Failed to activate pump ${pumpName}: ${error}`);
+    throw error;
   }
 }
 
@@ -305,43 +306,44 @@ export async function deactivatePump(pumpName: PumpName): Promise<void> {
       // Use gpio command to set pin low
       await execAsync(`gpio -g write ${pin} 0`);
     } catch (error) {
-      console.error(`Error writing to GPIO pin ${pin}:`, error);
-      
-      // Set error status for this pump
-      pumpStatus[pumpName].error = `GPIO error: ${error}`;
-      
-      // Log the error event
-      logErrorEvent(`Failed to control pump ${pumpName}: ${error}`);
-      
-      throw new Error(`Failed to write to GPIO pin ${pin}: ${error}`);
+      console.error(`Error deactivating pump ${pumpName}:`, error);
+      throw new Error(`Failed to deactivate pump ${pumpName}: ${error}`);
     }
     
-    // Update pump status
+    // Update the pump status
     pumpStatus[pumpName].active = false;
     
-    // Log event
-    const event: PumpEvent = {
-      time: new Date().toLocaleTimeString(),
-      event: `${pumpName} deactivated`,
-      timestamp: new Date()
-    };
-    recentEvents.unshift(event);
-    if (recentEvents.length > 10) recentEvents.pop(); // Keep only 10 most recent events
+    console.log(`Pump ${pumpName} deactivated`);
     
-    console.log(`Deactivated pump: ${pumpName}`);
+    // Log the deactivation event
+    recentEvents.unshift({
+      time: new Date().toLocaleTimeString(),
+      event: `Pump ${pumpName} deactivated`,
+      timestamp: new Date()
+    });
+    
+    // Limit event history to most recent 100 events
+    if (recentEvents.length > 100) {
+      recentEvents.length = 100;
+    }
   } catch (error) {
     console.error(`Error deactivating pump ${pumpName}:`, error);
     
     // Log the error event
-    logErrorEvent(`Failed to deactivate pump ${pumpName}: ${error}`);
+    recentEvents.unshift({
+      time: new Date().toLocaleTimeString(),
+      event: `Failed to deactivate pump ${pumpName}: ${error}`,
+      timestamp: new Date(),
+      isError: true
+    });
     
-    throw new Error(`Failed to deactivate pump ${pumpName}: ${error}`);
+    throw error;
   }
 }
 
 /**
  * Dispense a specific amount from a pump
- * @param pumpName - Name of the pump to use
+ * @param pumpName - Name of the pump
  * @param amount - Amount to dispense in mL
  * @param flowRate - Flow rate in mL per second
  */
@@ -351,58 +353,67 @@ export async function dispensePump(pumpName: PumpName, amount: number, flowRate:
   }
   
   try {
+    // Input validation
+    if (amount <= 0) {
+      throw new Error('Dispense amount must be greater than 0');
+    }
+    
+    if (flowRate <= 0) {
+      throw new Error('Flow rate must be greater than 0');
+    }
+    
+    // Calculate how long to run the pump
+    const durationMs = (amount / flowRate) * 1000;
+    
     // Check if pump has an error
     if (pumpStatus[pumpName].error) {
       throw new Error(`Cannot dispense from pump with error: ${pumpStatus[pumpName].error}`);
     }
     
-    if (amount <= 0) {
-      throw new Error('Amount must be greater than 0');
-    }
-    if (flowRate <= 0) {
-      throw new Error('Flow rate must be greater than 0');
-    }
+    console.log(`Dispensing ${amount}mL from ${pumpName} (duration: ${durationMs}ms at ${flowRate}mL/s)`);
     
-    // Calculate run time in milliseconds
-    const runTimeMs = (amount / flowRate) * 1000;
+    // Store flow rate in the pump status
+    pumpStatus[pumpName].flowRate = flowRate;
     
-    // Activate pump
+    // Activate the pump
     await activatePump(pumpName);
     
-    // Wait for the calculated time
-    await new Promise(resolve => setTimeout(resolve, runTimeMs));
+    // Wait for the calculated duration
+    await new Promise(resolve => setTimeout(resolve, durationMs));
     
-    // Deactivate pump
+    // Deactivate the pump
     await deactivatePump(pumpName);
     
-    // Log event
-    const event: PumpEvent = {
+    // Add the dispense event
+    recentEvents.unshift({
       time: new Date().toLocaleTimeString(),
-      event: `${pumpName} dispensed ${amount}mL`,
+      event: `Dispensed ${amount}mL from pump ${pumpName}`,
       timestamp: new Date()
-    };
-    recentEvents.unshift(event);
-    if (recentEvents.length > 10) recentEvents.pop();
+    });
     
-    console.log(`Dispensed ${amount}mL from pump ${pumpName}`);
+    // Save updated configuration (flow rate)
+    savePumpConfig();
+    
+    console.log(`Dispensed ${amount}mL from ${pumpName}`);
   } catch (error) {
     console.error(`Error dispensing from pump ${pumpName}:`, error);
     
-    // Ensure pump is off in case of error
+    // Log the error event
+    recentEvents.unshift({
+      time: new Date().toLocaleTimeString(),
+      event: `Failed to dispense from pump ${pumpName}: ${error}`,
+      timestamp: new Date(),
+      isError: true
+    });
+    
+    // Make sure pump is off in case of error
     try {
       await deactivatePump(pumpName);
-    } catch (e) {
-      console.error('Error during emergency pump shutdown:', e);
-      logErrorEvent(`Emergency shutdown failed for pump ${pumpName}: ${e}`);
+    } catch (deactivateError) {
+      console.error(`Error ensuring pump ${pumpName} is off after dispense error:`, deactivateError);
     }
     
-    // Set error status for this pump
-    pumpStatus[pumpName].error = `Dispensing error: ${error}`;
-    
-    // Log the error event
-    logErrorEvent(`Failed to dispense from pump ${pumpName}: ${error}`);
-    
-    throw new Error(`Failed to dispense from pump ${pumpName}: ${error}`);
+    throw error;
   }
 }
 
@@ -497,15 +508,27 @@ export function getRecentEvents(limit: number = 10): PumpEvent[] {
 }
 
 /**
- * Ensure development pumps would error appropriately
+ * Initialize pumps for development mode (now using real hardware)
  */
 export function ensureDevPumpsInitialized(): void {
   if (isClient) {
     return;
   }
   
-  console.error('NuTetra is designed to operate with real sensor data only. Development mode is not supported.');
-  throw new Error('NuTetra requires real hardware. Development mode is not supported.');
+  // Initialize for real hardware access in development mode
+  console.log('NuTetra development mode now using real hardware access');
+  
+  // Load configuration if available
+  try {
+    loadPumpConfig();
+  } catch (error) {
+    console.warn('Could not load pump configuration in dev mode:', error);
+  }
+  
+  // Initialize pumps using the same method as production
+  initializePumps().catch(error => {
+    console.error('Error initializing pumps in development mode:', error);
+  });
 }
 
 /**

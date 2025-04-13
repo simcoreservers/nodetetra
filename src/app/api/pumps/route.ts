@@ -38,21 +38,20 @@ try {
       console.error('Please install WiringPi: https://github.com/WiringPi/WiringPi');
     }
     
-    // Use different initialization for development vs production
-    if (process.env.NODE_ENV === 'development') {
-      // Initialize for development (no hardware)
-      ensureDevPumpsInitialized();
-    } else {
-      // Production initialization
-      loadPumpConfig();
-      
-      // Initialize the pumps
-      try {
+    // Use consistent initialization for both development and production
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        // Initialize in development mode - now with real hardware access
+        console.log('Initializing pumps in development mode with real hardware access');
+        ensureDevPumpsInitialized();
+      } else {
+        // Production initialization
+        loadPumpConfig();
         await initializePumps();
         console.log('Pumps initialized successfully in production mode');
-      } catch (initError) {
-        console.error('Failed to initialize pumps:', initError);
       }
+    } catch (initError) {
+      console.error('Failed to initialize pumps:', initError);
     }
     
     console.log(`Pump initialization triggered in ${process.env.NODE_ENV} mode`);
@@ -70,6 +69,7 @@ export async function GET() {
   try {
     // Ensure configuration is loaded before responding
     if (process.env.NODE_ENV === 'development') {
+      // Initialize for development mode with real hardware access
       ensureDevPumpsInitialized();
     } else {
       loadPumpConfig();
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
   try {
     // Check if GPIO utility is available
     const gpioAvailable = await checkGpioUtility();
-    if (!gpioAvailable && process.env.NODE_ENV === 'production') {
+    if (!gpioAvailable) {
       return NextResponse.json(
         { 
           error: 'GPIO utility (WiringPi) not found. Please install WiringPi for pump control.',
@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
     
     // Ensure configuration is loaded before making changes
     if (process.env.NODE_ENV === 'development') {
+      // Initialize for development mode with real hardware access
       ensureDevPumpsInitialized();
     } else {
       loadPumpConfig();
