@@ -72,6 +72,24 @@ body {
   color: var(--foreground);
 }
 
+/* Additional text color fixes */
+.card p:not([class*="text-"]),
+.card h1:not([class*="text-"]),
+.card h2:not([class*="text-"]),
+.card h3:not([class*="text-"]),
+.card h4:not([class*="text-"]),
+.card h5:not([class*="text-"]),
+.card h6:not([class*="text-"]),
+.card label:not([class*="text-"]),
+.card div:not([class*="text-"]) > div:not([class*="text-"]) {
+  color: var(--foreground);
+}
+
+/* Ensure form elements have proper text color */
+input, select, textarea {
+  color: var(--foreground);
+}
+
 .card::after {
   content: '';
   position: absolute;

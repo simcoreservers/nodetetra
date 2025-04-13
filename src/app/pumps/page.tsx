@@ -274,13 +274,13 @@ export default function PumpsPage() {
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div className="bg-[#1a1a1a] p-3 rounded">
                         <span className="text-sm text-gray-400 block">Flow Rate</span>
-                        <span className="text-xl font-semibold">
+                        <span className="text-xl font-semibold text-white">
                           {currentPump.flowRate || 'Not calibrated'} {currentPump.flowRate ? 'ml/s' : ''}
                         </span>
                       </div>
                       <div className="bg-[#1a1a1a] p-3 rounded">
                         <span className="text-sm text-gray-400 block">Status</span>
-                        <span className="text-xl font-semibold">
+                        <span className="text-xl font-semibold text-white">
                           {currentPump.active ? 'Running' : 'Stopped'}
                         </span>
                       </div>
@@ -305,7 +305,7 @@ export default function PumpsPage() {
                         <div className="mt-2">
                           <div className="flex items-center">
                             <div>
-                              <span className="font-semibold block">pH Up Solution</span>
+                              <span className="font-semibold block text-white">pH Up Solution</span>
                               <span className="text-sm text-gray-400">Dedicated pH increasing solution</span>
                             </div>
                           </div>
@@ -314,7 +314,7 @@ export default function PumpsPage() {
                         <div className="mt-2">
                           <div className="flex items-center">
                             <div>
-                              <span className="font-semibold block">pH Down Solution</span>
+                              <span className="font-semibold block text-white">pH Down Solution</span>
                               <span className="text-sm text-gray-400">Dedicated pH decreasing solution</span>
                             </div>
                           </div>
@@ -323,7 +323,7 @@ export default function PumpsPage() {
                         <div className="mt-2">
                           <div className="flex justify-between items-center">
                             <div>
-                              <span className="font-semibold block">{currentPump.nutrient.productName}</span>
+                              <span className="font-semibold block text-white">{currentPump.nutrient.productName}</span>
                               <span className="text-sm text-gray-400">{currentPump.nutrient.brandName} • NPK: {currentPump.nutrient.npk}</span>
                             </div>
                             <button 
@@ -415,9 +415,9 @@ export default function PumpsPage() {
                   <div className="mt-6">
                     {calibrationStep === 1 && (
                       <div className="space-y-4">
-                        <p>Step 1: Prepare a graduated cylinder or measuring container.</p>
+                        <p className="text-white">Step 1: Prepare a graduated cylinder or measuring container.</p>
                         <div>
-                          <label className="block text-sm mb-2">Calibration Amount (ml)</label>
+                          <label className="block text-sm mb-2 text-white">Calibration Amount (ml)</label>
                           <input 
                             type="number" 
                             className="w-full bg-[#1e1e1e] border border-[#333333] rounded p-2 mb-4"
@@ -446,8 +446,8 @@ export default function PumpsPage() {
                     
                     {calibrationStep === 2 && (
                       <div className="space-y-4">
-                        <p>Step 2: Position the output tube into the measuring container.</p>
-                        <p>When ready, click "Run Test" to dispense {calibrationAmount}ml of liquid.</p>
+                        <p className="text-white">Step 2: Position the output tube into the measuring container.</p>
+                        <p className="text-white">When ready, click "Run Test" to dispense {calibrationAmount}ml of liquid.</p>
                         <div className="flex justify-between">
                           <button 
                             className="btn btn-secondary" 
@@ -467,9 +467,9 @@ export default function PumpsPage() {
                     
                     {calibrationStep === 3 && (
                       <div className="space-y-4">
-                        <p>Step 3: Enter the actual amount dispensed as measured in your container.</p>
+                        <p className="text-white">Step 3: Enter the actual amount dispensed as measured in your container.</p>
                         <div>
-                          <label className="block text-sm mb-2">Measured Amount (ml)</label>
+                          <label className="block text-sm mb-2 text-white">Measured Amount (ml)</label>
                           <input 
                             type="number" 
                             className="w-full bg-[#1e1e1e] border border-[#333333] rounded p-2 mb-4"
@@ -564,7 +564,7 @@ export default function PumpsPage() {
               
               {nutrientsLoading ? (
                 <div className="animate-pulse text-center py-8 flex-grow">
-                  <p>Loading nutrients...</p>
+                  <p className="text-white">Loading nutrients...</p>
                 </div>
               ) : nutrientsError ? (
                 <div className="bg-red-900/30 border border-red-700 rounded-md p-4 mb-4 text-red-200">
@@ -572,7 +572,7 @@ export default function PumpsPage() {
                 </div>
               ) : products.length === 0 ? (
                 <div className="text-center py-8 flex-grow">
-                  <p className="mb-4">No nutrients available</p>
+                  <p className="mb-4 text-white">No nutrients available</p>
                   <Link href="/nutrients" className="btn" onClick={() => setIsSelectingNutrient(false)}>
                     Go to Nutrient Database
                   </Link>
@@ -581,7 +581,7 @@ export default function PumpsPage() {
                 <div className="overflow-y-auto flex-grow">
                   {/* Brand Selection Dropdown */}
                   <div className="mb-4">
-                    <label className="block text-sm mb-2 font-medium">Brand</label>
+                    <label className="block text-sm mb-2 font-medium text-white">Brand</label>
                     <select
                       className="w-full bg-[#121212] border border-[#333333] rounded-md p-3 text-base"
                       value={selectedBrandId || ""}
@@ -606,7 +606,7 @@ export default function PumpsPage() {
                   {/* Product Selection Dropdown */}
                   {selectedBrandId && (
                     <div className="mb-6">
-                      <label className="block text-sm mb-2 font-medium">Product</label>
+                      <label className="block text-sm mb-2 font-medium text-white">Product</label>
                       <select
                         className="w-full bg-[#121212] border border-[#333333] rounded-md p-3 text-base"
                         value={selectedProductId || ""}
@@ -639,10 +639,10 @@ export default function PumpsPage() {
                         
                         return (
                           <div>
-                            <h3 className="font-medium mb-3 text-lg">{selectedProduct.name}</h3>
-                            <p className="mb-1"><span className="text-gray-400">Brand:</span> {selectedProduct.brandName}</p>
-                            <p className="mb-1"><span className="text-gray-400">NPK:</span> {selectedProduct.npk}</p>
-                            <p className="mb-4"><span className="text-gray-400">Description:</span> {selectedProduct.description}</p>
+                            <h3 className="font-medium mb-3 text-lg text-white">{selectedProduct.name}</h3>
+                            <p className="mb-1 text-white"><span className="text-gray-400">Brand:</span> {selectedProduct.brandName}</p>
+                            <p className="mb-1 text-white"><span className="text-gray-400">NPK:</span> {selectedProduct.npk}</p>
+                            <p className="mb-4 text-white"><span className="text-gray-400">Description:</span> {selectedProduct.description}</p>
                             <button 
                               className="btn w-full" 
                               onClick={() => handleAssignNutrient(selectedProduct)}
