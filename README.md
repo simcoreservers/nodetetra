@@ -72,6 +72,21 @@ These instructions will help you set up the NuTetra dashboard on a Raspberry Pi 
    npm -v
    ```
 
+5. Install WiringPi for GPIO control (required for Raspberry Pi 5):
+   ```bash
+   sudo apt install build-essential -y
+   cd ~
+   git clone https://github.com/WiringPi/WiringPi
+   cd WiringPi
+   ./build
+   ```
+
+6. Verify WiringPi installation:
+   ```bash
+   gpio -v
+   ```
+   You should see the version information of the gpio utility.
+
 ### Step 4: Clone and Set Up the NuTetra Dashboard
 
 1. Clone the repository:
@@ -90,9 +105,9 @@ These instructions will help you set up the NuTetra dashboard on a Raspberry Pi 
    npm run build
    ```
 
-4. Start the application:
+4. Start the application (must run with sudo for GPIO access):
    ```bash
-   npm start
+   sudo npm start
    ```
 
 ### Step 5: Set Up Autostart
@@ -112,7 +127,7 @@ To have the NuTetra dashboard start automatically when the Raspberry Pi boots:
 
    [Service]
    Type=simple
-   User=pi
+   User=root
    WorkingDirectory=/home/pi/nutetra
    ExecStart=/usr/bin/npm start
    Restart=on-failure
@@ -121,6 +136,7 @@ To have the NuTetra dashboard start automatically when the Raspberry Pi boots:
    [Install]
    WantedBy=multi-user.target
    ```
+   Note: We use `User=root` to ensure GPIO access permissions.
 
 3. Enable and start the service:
    ```bash
@@ -169,8 +185,21 @@ To have the NuTetra dashboard start automatically when the Raspberry Pi boots:
 
 ### Connecting Dosing Pumps
 
-1. Connect your dosing pumps to the appropriate relay pins on the shield
+1. Connect your dosing pumps to the appropriate GPIO pins:
+   - pH Up: GPIO 17
+   - pH Down: GPIO 27
+   - Pump 1: GPIO 22
+   - Pump 2: GPIO 23
+   - Pump 3: GPIO 24
+   - Pump 4: GPIO 25
 2. Ensure proper wiring and power supply for the pumps
+3. Test GPIO connections:
+   ```bash
+   # Example for testing pH Up pump (GPIO 17)
+   gpio -g mode 17 out
+   gpio -g write 17 1  # Turn on
+   gpio -g write 17 0  # Turn off
+   ```
 
 ## Sensor Error Handling
 
@@ -198,6 +227,12 @@ When a sensor error occurs, the dashboard will display detailed troubleshooting 
    - Recalibrate sensors
    - Replace probes if they continue to provide abnormal readings
 
+3. **For GPIO/Pump Errors**:
+   - Verify the WiringPi installation with `gpio -v`
+   - Check wiring connections between Raspberry Pi and pump relays
+   - Ensure proper power is supplied to the relays and pumps
+   - Test GPIO pins directly using the `gpio` command-line utility
+
 ## Usage
 
 The NuTetra dashboard provides the following sections:
@@ -209,6 +244,15 @@ The NuTetra dashboard provides the following sections:
 - **Data Logs**: View and export historical data
 - **System Settings**: Configure network and system preferences
 
+## Production Deployment
+
+For production deployments, always run the application with sudo to ensure proper GPIO access:
+
+```bash
+sudo npm run build
+sudo npm start
+```
+
 ## Development
 
 To run the development server:
@@ -216,6 +260,27 @@ To run the development server:
 ```bash
 npm run dev
 ```
+
+Note: Development mode does not support real hardware access. For testing hardware functionality, use production mode.
+
+## Troubleshooting
+
+### Common Issues
+
+1. **GPIO Permission Errors**:
+   - Make sure you're running the application with sudo
+   - Verify WiringPi is properly installed with `gpio -v`
+   - Check GPIO pin numbers in the configuration match your hardware setup
+
+2. **Sensor Reading Errors**:
+   - Verify I2C is enabled with `sudo raspi-config`
+   - Check connections with `sudo i2cdetect -y 1`
+   - Make sure the correct I2C addresses are configured
+
+3. **Build Errors**:
+   - Clear Next.js cache: `rm -rf .next`
+   - Clean npm cache: `npm cache clean --force`
+   - Rebuild: `sudo npm run build`
 
 ## License
 

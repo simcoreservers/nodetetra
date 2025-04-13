@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { 
   getAllPumpStatus, 
   getRecentEvents, 
@@ -12,24 +14,51 @@ import {
   ensureDevPumpsInitialized
 } from '../../lib/pumps';
 
+// Promisify exec for async/await usage
+const execAsync = promisify(exec);
+
+// Check if WiringPi/GPIO utility is installed
+async function checkGpioUtility() {
+  try {
+    const { stdout } = await execAsync('gpio -v');
+    console.log('GPIO utility version:', stdout.split('\n')[0]);
+    return true;
+  } catch (error) {
+    console.error('GPIO utility not available:', error);
+    return false;
+  }
+}
+
 // Initialize pumps when the server starts
 try {
-  // Use different initialization for development vs production
-  if (process.env.NODE_ENV === 'development') {
-    // Initialize for development (no hardware)
-    ensureDevPumpsInitialized();
-  } else {
-    // Production initialization
-    loadPumpConfig();
+  // Check if we have GPIO utility installed
+  checkGpioUtility().then(async (gpioAvailable) => {
+    if (!gpioAvailable) {
+      console.error('WARNING: WiringPi GPIO utility not found. Pump control will not work properly.');
+      console.error('Please install WiringPi: https://github.com/WiringPi/WiringPi');
+    }
     
-    // Initialize the pumps (this is a no-op in client-side)
-    // We're not awaiting this because Next.js route handlers should be synchronous at the top level
-    initializePumps().catch(error => {
-      console.error('Failed to initialize pumps:', error);
-    });
-  }
-  
-  console.log(`Pump initialization triggered in ${process.env.NODE_ENV} mode`);
+    // Use different initialization for development vs production
+    if (process.env.NODE_ENV === 'development') {
+      // Initialize for development (no hardware)
+      ensureDevPumpsInitialized();
+    } else {
+      // Production initialization
+      loadPumpConfig();
+      
+      // Initialize the pumps
+      try {
+        await initializePumps();
+        console.log('Pumps initialized successfully in production mode');
+      } catch (initError) {
+        console.error('Failed to initialize pumps:', initError);
+      }
+    }
+    
+    console.log(`Pump initialization triggered in ${process.env.NODE_ENV} mode`);
+  }).catch(error => {
+    console.error('Error checking GPIO utility:', error);
+  });
 } catch (error) {
   console.error('Error during pump initialization:', error);
 }
@@ -69,6 +98,18 @@ export async function GET() {
 // POST endpoint for pump control actions
 export async function POST(request: NextRequest) {
   try {
+    // Check if GPIO utility is available
+    const gpioAvailable = await checkGpioUtility();
+    if (!gpioAvailable && process.env.NODE_ENV === 'production') {
+      return NextResponse.json(
+        { 
+          error: 'GPIO utility (WiringPi) not found. Please install WiringPi for pump control.',
+          details: 'Run: git clone https://github.com/WiringPi/WiringPi && cd WiringPi && ./build'
+        },
+        { status: 500 }
+      );
+    }
+    
     // Ensure configuration is loaded before making changes
     if (process.env.NODE_ENV === 'development') {
       ensureDevPumpsInitialized();

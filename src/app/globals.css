@@ -37,7 +37,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --card-text: #212529;
+    --card-text: #FFFFFF;
   }
 }
 
