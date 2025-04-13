@@ -4528,5 +4528,35 @@
     "created": "2025-04-13T22:12:09.332Z",
     "acknowledged": false,
     "resolved": false
+  },
+  {
+    "id": 454,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.59",
+    "timestamp": "2025-04-13T22:12:09.773Z",
+    "created": "2025-04-13T22:12:09.773Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 455,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.09 mS/cm",
+    "timestamp": "2025-04-13T22:12:09.777Z",
+    "created": "2025-04-13T22:12:09.777Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 456,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.01 mS/cm",
+    "timestamp": "2025-04-13T22:12:10.806Z",
+    "created": "2025-04-13T22:12:10.806Z",
+    "acknowledged": false,
+    "resolved": false
   }
 ]
