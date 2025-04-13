@@ -206,16 +206,16 @@ export default function PumpsPage() {
                         <div>
                           {/* Show the appropriate display name based on pump type */}
                           {pump.name === "pH Up" && (
-                            <span>pH Up</span>
+                            <span className="text-white">pH Up</span>
                           )}
                           {pump.name === "pH Down" && (
-                            <span>pH Down</span>
+                            <span className="text-white">pH Down</span>
                           )}
                           {pump.name !== "pH Up" && pump.name !== "pH Down" && pump.nutrient && (
-                            <span>{pump.nutrient.productName}</span>
+                            <span className="text-white">{pump.nutrient.productName}</span>
                           )}
                           {pump.name !== "pH Up" && pump.name !== "pH Down" && !pump.nutrient && (
-                            <span>{pump.name}</span>
+                            <span className="text-white">{pump.name}</span>
                           )}
 
                           {/* Show pump ID/identifier as secondary label for normal pumps */}

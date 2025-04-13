@@ -67,6 +67,11 @@ body {
   overflow: hidden;
 }
 
+/* Ensure text inside cards is white/light */
+.card span:not(.text-gray-400):not(.text-xs):not([class*="text-"]) {
+  color: var(--foreground);
+}
+
 .card::after {
   content: '';
   position: absolute;

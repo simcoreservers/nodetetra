@@ -371,9 +371,9 @@ export default function Home() {
                   <div key={index} className="flex justify-between items-center border-b border-[#333333] pb-2 last:border-0">
                     <div className="flex items-center">
                       <div className={`status-indicator ${pump.active ? 'status-good' : ''}`}></div>
-                      <span>{pump.name}</span>
+                      <span className="text-white">{pump.name}</span>
                     </div>
-                    <span>{pump.active ? 'Active' : 'Idle'}</span>
+                    <span className="text-gray-300">{pump.active ? 'Active' : 'Idle'}</span>
                   </div>
                 ))
               )}
@@ -402,7 +402,7 @@ export default function Home() {
                 pumpData?.recentEvents.map((event, index) => (
                   <div key={index} className="flex border-b border-[#333333] pb-2 last:border-0">
                     <div className="text-sm text-[#a0a0a0] w-24">{event.time}</div>
-                    <div className="text-sm">{event.event}</div>
+                    <div className="text-sm text-white">{event.event}</div>
                   </div>
                 ))
               )}
