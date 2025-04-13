@@ -8,16 +8,22 @@
 import fs from 'fs';
 import path from 'path';
 
+// Define interface for Gpio
+interface GpioType {
+  writeSync(value: number): void;
+  unexport(): void;
+  // Add other needed methods from onoff.Gpio
+}
+
 // Define data path for persistence
 const DATA_PATH = path.join(process.cwd(), 'data');
 const PUMP_CONFIG_FILE = path.join(DATA_PATH, 'pump_config.json');
 
-// Mock implementation for client-side use
+// Check if we're on the client side (browser)
 const isClient = typeof window !== 'undefined';
-let mockExec: any;
 let execAsync: any;
 let Gpio: any = null;
-let gpioInstances: Record<number, any> = {};
+let gpioInstances: Record<number, GpioType> = {};
 
 if (!isClient) {
   // Only import Node.js modules on the server
@@ -25,20 +31,24 @@ if (!isClient) {
   const { promisify } = require('util');
   execAsync = promisify(exec);
   
-  // Try to import onoff for direct GPIO control
+  // Import onoff for GPIO control
   try {
-    const onoff = require('onoff');
-    Gpio = onoff.Gpio;
-    console.log('Successfully loaded onoff library for GPIO control');
+    // In Next.js, we need special handling for native modules
+    if (process.env.NODE_ENV === 'production' || process.argv.includes('start')) {
+      // In production/start mode, use require to load onoff
+      const onoff = require('onoff');
+      Gpio = onoff.Gpio;
+      console.log('Successfully loaded onoff library for GPIO control');
+    } else {
+      // In development/build, we can't load native modules
+      console.error('NuTetra requires hardware GPIO access. This is only available in production mode.');
+      console.error('Please run with "npm start" for full hardware functionality.');
+      throw new Error('Hardware GPIO access unavailable in development mode');
+    }
   } catch (error) {
     console.error('Failed to load onoff library:', error);
-    throw new Error(`Failed to load onoff library: ${error}. Please install it using: npm install onoff`);
+    throw new Error(`Failed to load onoff library. NuTetra requires real hardware access and cannot run without it. Error: ${error}`);
   }
-} else {
-  // Client-side mock implementation
-  mockExec = async () => ({ stdout: 'mock output', stderr: '' });
-  execAsync = mockExec;
-  Gpio = null;
 }
 
 // Define GPIO pins for each pump
@@ -66,6 +76,7 @@ export interface PumpStatus {
     productName: string;
     npk: string;
   } | null;
+  error?: string; // Store error message if pump has issues
 }
 
 // Store current status of pumps
@@ -83,6 +94,7 @@ export interface PumpEvent {
   time: string;
   event: string;
   timestamp: Date;
+  isError?: boolean;
 }
 
 const recentEvents: PumpEvent[] = [];
@@ -92,7 +104,6 @@ const recentEvents: PumpEvent[] = [];
  */
 export function loadPumpConfig(): void {
   if (isClient) {
-    console.log('[CLIENT] Mock load pump config');
     return;
   }
 
@@ -128,7 +139,8 @@ export function loadPumpConfig(): void {
     console.log('Pump configurations loaded from file');
   } catch (error) {
     console.error('Error loading pump configurations:', error);
-    // Continue with default config if load fails
+    logErrorEvent('Failed to load pump configurations from file');
+    throw new Error(`Failed to load pump configuration: ${error}`);
   }
 }
 
@@ -137,7 +149,6 @@ export function loadPumpConfig(): void {
  */
 export function savePumpConfig(): void {
   if (isClient) {
-    console.log('[CLIENT] Mock save pump config');
     return;
   }
 
@@ -180,6 +191,7 @@ export function savePumpConfig(): void {
     console.log('Pump configurations saved to file');
   } catch (error) {
     console.error('Error saving pump configurations:', error);
+    logErrorEvent('Failed to save pump configurations to file');
     throw new Error(`Failed to save pump configuration: ${error}`);
   }
 }
@@ -189,7 +201,6 @@ export function savePumpConfig(): void {
  */
 export async function initializePumps(): Promise<void> {
   if (isClient) {
-    console.log('[CLIENT] Mock pump initialization');
     return;
   }
   
@@ -200,20 +211,39 @@ export async function initializePumps(): Promise<void> {
     // For each pump, configure the GPIO pin and set it as output
     for (const [name, pin] of Object.entries(PUMP_GPIO)) {
       try {
+        if (!Gpio) {
+          throw new Error('GPIO library not initialized');
+        }
+
         // Configure pin as output using onoff
-        gpioInstances[pin] = new Gpio(pin, 'out');
+        gpioInstances[pin] = Gpio(pin, 'out');
         
         // Initialize as OFF (0)
         gpioInstances[pin].writeSync(0);
         
-        console.log(`Initialized pump ${name} on GPIO ${pin} using onoff`);
+        // Clear any previous error
+        if (pumpStatus[name as PumpName]) {
+          delete pumpStatus[name as PumpName].error;
+        }
+        
+        console.log(`Initialized pump ${name} on GPIO ${pin}`);
       } catch (error) {
         console.error(`Error initializing GPIO for pump ${name}:`, error);
+        
+        // Set error status for this pump
+        if (pumpStatus[name as PumpName]) {
+          pumpStatus[name as PumpName].error = `Initialization error: ${error}`;
+        }
+        
+        // Log the error event
+        logErrorEvent(`Failed to initialize pump ${name}: ${error}`);
+        
         throw new Error(`Failed to initialize GPIO for pump ${name}: ${error}`);
       }
     }
   } catch (error) {
     console.error('Error initializing pumps:', error);
+    logErrorEvent('Failed to initialize pump system');
     throw new Error(`Failed to initialize pumps: ${error}`);
   }
 }
@@ -224,11 +254,15 @@ export async function initializePumps(): Promise<void> {
  */
 export async function activatePump(pumpName: PumpName): Promise<void> {
   if (isClient) {
-    console.log(`[CLIENT] Mock activate pump: ${pumpName}`);
     return;
   }
   
   try {
+    // Check if pump has an error
+    if (pumpStatus[pumpName].error) {
+      throw new Error(`Cannot activate pump with error: ${pumpStatus[pumpName].error}`);
+    }
+    
     const pin = PUMP_GPIO[pumpName];
     if (!pin) {
       throw new Error(`Unknown pump: ${pumpName}`);
@@ -246,6 +280,13 @@ export async function activatePump(pumpName: PumpName): Promise<void> {
       gpio.writeSync(1);
     } catch (error) {
       console.error(`Error writing to GPIO pin ${pin}:`, error);
+      
+      // Set error status for this pump
+      pumpStatus[pumpName].error = `GPIO error: ${error}`;
+      
+      // Log the error event
+      logErrorEvent(`Failed to control pump ${pumpName}: ${error}`);
+      
       throw new Error(`Failed to write to GPIO pin ${pin}: ${error}`);
     }
     
@@ -265,6 +306,10 @@ export async function activatePump(pumpName: PumpName): Promise<void> {
     console.log(`Activated pump: ${pumpName}`);
   } catch (error) {
     console.error(`Error activating pump ${pumpName}:`, error);
+    
+    // Log the error event
+    logErrorEvent(`Failed to activate pump ${pumpName}: ${error}`);
+    
     throw new Error(`Failed to activate pump ${pumpName}: ${error}`);
   }
 }
@@ -275,7 +320,6 @@ export async function activatePump(pumpName: PumpName): Promise<void> {
  */
 export async function deactivatePump(pumpName: PumpName): Promise<void> {
   if (isClient) {
-    console.log(`[CLIENT] Mock deactivate pump: ${pumpName}`);
     return;
   }
   
@@ -297,6 +341,13 @@ export async function deactivatePump(pumpName: PumpName): Promise<void> {
       gpio.writeSync(0);
     } catch (error) {
       console.error(`Error writing to GPIO pin ${pin}:`, error);
+      
+      // Set error status for this pump
+      pumpStatus[pumpName].error = `GPIO error: ${error}`;
+      
+      // Log the error event
+      logErrorEvent(`Failed to control pump ${pumpName}: ${error}`);
+      
       throw new Error(`Failed to write to GPIO pin ${pin}: ${error}`);
     }
     
@@ -315,6 +366,10 @@ export async function deactivatePump(pumpName: PumpName): Promise<void> {
     console.log(`Deactivated pump: ${pumpName}`);
   } catch (error) {
     console.error(`Error deactivating pump ${pumpName}:`, error);
+    
+    // Log the error event
+    logErrorEvent(`Failed to deactivate pump ${pumpName}: ${error}`);
+    
     throw new Error(`Failed to deactivate pump ${pumpName}: ${error}`);
   }
 }
@@ -327,11 +382,15 @@ export async function deactivatePump(pumpName: PumpName): Promise<void> {
  */
 export async function dispensePump(pumpName: PumpName, amount: number, flowRate: number): Promise<void> {
   if (isClient) {
-    console.log(`[CLIENT] Mock dispense ${amount}mL from pump: ${pumpName}`);
     return;
   }
   
   try {
+    // Check if pump has an error
+    if (pumpStatus[pumpName].error) {
+      throw new Error(`Cannot dispense from pump with error: ${pumpStatus[pumpName].error}`);
+    }
+    
     if (amount <= 0) {
       throw new Error('Amount must be greater than 0');
     }
@@ -363,14 +422,37 @@ export async function dispensePump(pumpName: PumpName, amount: number, flowRate:
     console.log(`Dispensed ${amount}mL from pump ${pumpName}`);
   } catch (error) {
     console.error(`Error dispensing from pump ${pumpName}:`, error);
+    
     // Ensure pump is off in case of error
     try {
       await deactivatePump(pumpName);
     } catch (e) {
       console.error('Error during emergency pump shutdown:', e);
+      logErrorEvent(`Emergency shutdown failed for pump ${pumpName}: ${e}`);
     }
+    
+    // Set error status for this pump
+    pumpStatus[pumpName].error = `Dispensing error: ${error}`;
+    
+    // Log the error event
+    logErrorEvent(`Failed to dispense from pump ${pumpName}: ${error}`);
+    
     throw new Error(`Failed to dispense from pump ${pumpName}: ${error}`);
   }
+}
+
+/**
+ * Log an error event to the recent events list
+ */
+function logErrorEvent(message: string): void {
+  const event = {
+    time: new Date().toLocaleTimeString(),
+    event: `ERROR: ${message}`,
+    timestamp: new Date(),
+    isError: true
+  };
+  recentEvents.unshift(event);
+  if (recentEvents.length > 10) recentEvents.pop();
 }
 
 /**
@@ -418,6 +500,7 @@ export function assignNutrientToPump(
     // Revert the change if saving to file fails
     pumpStatus[pumpName].nutrient = previousNutrient;
     console.error(`Failed to save nutrient assignment for ${pumpName}:`, error);
+    logErrorEvent(`Failed to assign nutrient to ${pumpName}: ${error}`);
     throw new Error(`Failed to save nutrient assignment: ${error}`);
   }
 }
@@ -449,24 +532,15 @@ export function getRecentEvents(limit: number = 10): PumpEvent[] {
 }
 
 /**
- * Ensure pumps are initialized for development mode
- * This function is useful when running in a development environment
- * where the actual hardware initialization code would not run
+ * Ensure development pumps would error appropriately
  */
 export function ensureDevPumpsInitialized(): void {
-  if (isClient || process.env.NODE_ENV !== 'development') {
-    return; // Only run this in development server-side
+  if (isClient) {
+    return;
   }
   
-  console.log('Initializing pumps for development mode');
-  
-  try {
-    // Load saved configurations
-    loadPumpConfig();
-    console.log('Pump configurations loaded for development');
-  } catch (error) {
-    console.error('Error initializing development pumps:', error);
-  }
+  console.error('NuTetra is designed to operate with real sensor data only. Development mode is not supported.');
+  throw new Error('NuTetra requires real hardware. Development mode is not supported.');
 }
 
 /**
