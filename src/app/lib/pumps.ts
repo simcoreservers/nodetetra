@@ -7,23 +7,13 @@
 
 import fs from 'fs';
 import path from 'path';
-
-// Define interface for Gpio
-interface GpioType {
-  writeSync(value: number): void;
-  unexport(): void;
-  // Add other needed methods from onoff.Gpio
-}
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
 // Define type for exec result
 interface ExecResult {
   stdout: string;
   stderr: string;
-}
-
-// Define interface for onoff module
-interface OnoffModule {
-  Gpio: (pin: number, direction: string) => GpioType;
 }
 
 // Define data path for persistence
@@ -32,51 +22,7 @@ const PUMP_CONFIG_FILE = path.join(DATA_PATH, 'pump_config.json');
 
 // Check if we're on the client side (browser)
 const isClient = typeof window !== 'undefined';
-let Gpio: ((pin: number, direction: string) => GpioType) | null = null;
-const gpioInstances: Record<number, GpioType> = {};
-
-// Only import Node.js modules on the server
-if (!isClient) {
-  // Dynamic imports to avoid require() style
-  // Need to use a try/catch because Next.js can't import these during build time
-  try {
-    // Only load in production or start mode
-    if (process.env.NODE_ENV === 'production' || process.argv.includes('start')) {
-      Promise.all([
-        // Import modules dynamically
-        import('child_process'),
-        import('util')
-      ]).then(([childProcess, util]) => {
-        const exec = childProcess.exec;
-        const promisify = util.promisify;
-        
-        // Create promisified exec function
-        const execAsync = promisify(exec);
-        
-        // Now try to load onoff - the 'as any' is needed to avoid type errors during build
-        // TypeScript will complain about this during compilation but it's necessary
-        (import('onoff') as unknown as Promise<OnoffModule>).then((onoffModule) => {
-          Gpio = onoffModule.Gpio;
-          console.log('Successfully loaded onoff library for GPIO control');
-        }).catch(err => {
-          console.error('Failed to load onoff library:', err);
-          throw new Error(`Failed to load onoff library. NuTetra requires real hardware access and cannot run without it. Error: ${err}`);
-        });
-      }).catch(err => {
-        console.error('Failed to load Node.js modules:', err);
-        throw new Error(`Failed to load required Node.js modules: ${err}`);
-      });
-    } else {
-      // In development/build, we can't load native modules
-      console.error('NuTetra requires hardware GPIO access. This is only available in production mode.');
-      console.error('Please run with "npm start" for full hardware functionality.');
-      throw new Error('Hardware GPIO access unavailable in development mode');
-    }
-  } catch (error) {
-    console.error('Error in GPIO setup:', error);
-    throw new Error(`Failed to set up GPIO: ${error}`);
-  }
-}
+const execAsync = promisify(exec);
 
 // Define GPIO pins for each pump
 const PUMP_GPIO = {
@@ -238,20 +184,24 @@ export async function initializePumps(): Promise<void> {
     // For each pump, configure the GPIO pin and set it as output
     for (const [name, pin] of Object.entries(PUMP_GPIO)) {
       try {
-        if (!Gpio) {
-          throw new Error('GPIO library not initialized');
-        }
-
-        // Configure pin as output using onoff
-        gpioInstances[pin] = Gpio(pin, 'out');
-        
-        // Initialize as OFF (0)
-        gpioInstances[pin].writeSync(0);
-        
         // Clear any previous error
         if (pumpStatus[name as PumpName]) {
           delete pumpStatus[name as PumpName].error;
         }
+        
+        // First check if gpio utility is working
+        try {
+          const { stdout } = await execAsync('gpio -v');
+          console.log('GPIO utility version:', stdout.split('\n')[0]);
+        } catch (gpioError) {
+          throw new Error(`GPIO utility not available: ${gpioError}. Please install WiringPi/GPIO utility.`);
+        }
+        
+        // Configure pin as output using gpio command
+        await execAsync(`gpio -g mode ${pin} out`);
+        
+        // Initialize as OFF (0)
+        await execAsync(`gpio -g write ${pin} 0`);
         
         console.log(`Initialized pump ${name} on GPIO ${pin}`);
       } catch (error) {
@@ -297,14 +247,8 @@ export async function activatePump(pumpName: PumpName): Promise<void> {
 
     // Set GPIO pin high to turn on pump
     try {
-      // Get the Gpio instance for this pin
-      const gpio = gpioInstances[pin];
-      if (!gpio) {
-        throw new Error(`GPIO instance for pin ${pin} not found. Has initializePumps() been called?`);
-      }
-      
-      // Write 1 to turn on
-      gpio.writeSync(1);
+      // Use gpio command to set pin high
+      await execAsync(`gpio -g write ${pin} 1`);
     } catch (error) {
       console.error(`Error writing to GPIO pin ${pin}:`, error);
       
@@ -358,14 +302,8 @@ export async function deactivatePump(pumpName: PumpName): Promise<void> {
 
     // Set GPIO pin low to turn off pump
     try {
-      // Get the Gpio instance for this pin
-      const gpio = gpioInstances[pin];
-      if (!gpio) {
-        throw new Error(`GPIO instance for pin ${pin} not found. Has initializePumps() been called?`);
-      }
-      
-      // Write 0 to turn off
-      gpio.writeSync(0);
+      // Use gpio command to set pin low
+      await execAsync(`gpio -g write ${pin} 0`);
     } catch (error) {
       console.error(`Error writing to GPIO pin ${pin}:`, error);
       
@@ -581,14 +519,13 @@ export function cleanupGpio(): void {
   
   console.log('Cleaning up GPIO resources...');
   
-  // Ensure all pumps are turned off and GPIO resources are released
-  for (const [pin, gpio] of Object.entries(gpioInstances)) {
+  // Ensure all pumps are turned off by setting pins low
+  for (const [name, pin] of Object.entries(PUMP_GPIO)) {
     try {
       // Turn off the pump
-      gpio.writeSync(0);
-      
-      // Unexport the GPIO to free resources
-      gpio.unexport();
+      execAsync(`gpio -g write ${pin} 0`).catch(err => {
+        console.error(`Error cleaning up GPIO pin ${pin}:`, err);
+      });
       
       console.log(`Cleaned up GPIO pin ${pin}`);
     } catch (error) {
