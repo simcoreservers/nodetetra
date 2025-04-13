@@ -15,30 +15,57 @@ interface GpioType {
   // Add other needed methods from onoff.Gpio
 }
 
+// Define type for exec result
+interface ExecResult {
+  stdout: string;
+  stderr: string;
+}
+
+// Define interface for onoff module
+interface OnoffModule {
+  Gpio: (pin: number, direction: string) => GpioType;
+}
+
 // Define data path for persistence
 const DATA_PATH = path.join(process.cwd(), 'data');
 const PUMP_CONFIG_FILE = path.join(DATA_PATH, 'pump_config.json');
 
 // Check if we're on the client side (browser)
 const isClient = typeof window !== 'undefined';
-let execAsync: any;
-let Gpio: any = null;
-let gpioInstances: Record<number, GpioType> = {};
+let Gpio: ((pin: number, direction: string) => GpioType) | null = null;
+const gpioInstances: Record<number, GpioType> = {};
 
+// Only import Node.js modules on the server
 if (!isClient) {
-  // Only import Node.js modules on the server
-  const { exec } = require('child_process');
-  const { promisify } = require('util');
-  execAsync = promisify(exec);
-  
-  // Import onoff for GPIO control
+  // Dynamic imports to avoid require() style
+  // Need to use a try/catch because Next.js can't import these during build time
   try {
-    // In Next.js, we need special handling for native modules
+    // Only load in production or start mode
     if (process.env.NODE_ENV === 'production' || process.argv.includes('start')) {
-      // In production/start mode, use require to load onoff
-      const onoff = require('onoff');
-      Gpio = onoff.Gpio;
-      console.log('Successfully loaded onoff library for GPIO control');
+      Promise.all([
+        // Import modules dynamically
+        import('child_process'),
+        import('util')
+      ]).then(([childProcess, util]) => {
+        const exec = childProcess.exec;
+        const promisify = util.promisify;
+        
+        // Create promisified exec function
+        const execAsync = promisify(exec);
+        
+        // Now try to load onoff - the 'as any' is needed to avoid type errors during build
+        // TypeScript will complain about this during compilation but it's necessary
+        (import('onoff') as unknown as Promise<OnoffModule>).then((onoffModule) => {
+          Gpio = onoffModule.Gpio;
+          console.log('Successfully loaded onoff library for GPIO control');
+        }).catch(err => {
+          console.error('Failed to load onoff library:', err);
+          throw new Error(`Failed to load onoff library. NuTetra requires real hardware access and cannot run without it. Error: ${err}`);
+        });
+      }).catch(err => {
+        console.error('Failed to load Node.js modules:', err);
+        throw new Error(`Failed to load required Node.js modules: ${err}`);
+      });
     } else {
       // In development/build, we can't load native modules
       console.error('NuTetra requires hardware GPIO access. This is only available in production mode.');
@@ -46,8 +73,8 @@ if (!isClient) {
       throw new Error('Hardware GPIO access unavailable in development mode');
     }
   } catch (error) {
-    console.error('Failed to load onoff library:', error);
-    throw new Error(`Failed to load onoff library. NuTetra requires real hardware access and cannot run without it. Error: ${error}`);
+    console.error('Error in GPIO setup:', error);
+    throw new Error(`Failed to set up GPIO: ${error}`);
   }
 }
 
@@ -159,7 +186,7 @@ export function savePumpConfig(): void {
     }
 
     // Create a simplified config object with just the persistent fields
-    const configToSave: Record<string, any> = {};
+    const configToSave: Record<string, { nutrient: PumpStatus['nutrient'], flowRate?: number }> = {};
     
     for (const [name, status] of Object.entries(pumpStatus)) {
       configToSave[name] = {
@@ -295,7 +322,7 @@ export async function activatePump(pumpName: PumpName): Promise<void> {
     pumpStatus[pumpName].lastActivated = new Date();
     
     // Log event
-    const event = {
+    const event: PumpEvent = {
       time: new Date().toLocaleTimeString(),
       event: `${pumpName} activated`,
       timestamp: new Date()
@@ -355,7 +382,7 @@ export async function deactivatePump(pumpName: PumpName): Promise<void> {
     pumpStatus[pumpName].active = false;
     
     // Log event
-    const event = {
+    const event: PumpEvent = {
       time: new Date().toLocaleTimeString(),
       event: `${pumpName} deactivated`,
       timestamp: new Date()
@@ -411,7 +438,7 @@ export async function dispensePump(pumpName: PumpName, amount: number, flowRate:
     await deactivatePump(pumpName);
     
     // Log event
-    const event = {
+    const event: PumpEvent = {
       time: new Date().toLocaleTimeString(),
       event: `${pumpName} dispensed ${amount}mL`,
       timestamp: new Date()
@@ -445,7 +472,7 @@ export async function dispensePump(pumpName: PumpName, amount: number, flowRate:
  * Log an error event to the recent events list
  */
 function logErrorEvent(message: string): void {
-  const event = {
+  const event: PumpEvent = {
     time: new Date().toLocaleTimeString(),
     event: `ERROR: ${message}`,
     timestamp: new Date(),
@@ -485,7 +512,7 @@ export function assignNutrientToPump(
     savePumpConfig();
     
     // Log event if nutrient is assigned or removed
-    const event = {
+    const event: PumpEvent = {
       time: new Date().toLocaleTimeString(),
       event: nutrient ? 
         `${nutrient.productName} assigned to ${pumpName}` : 
