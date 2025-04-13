@@ -40,21 +40,35 @@ try {
     
     // Use consistent initialization for both development and production
     try {
+      console.log(`Starting pump initialization in ${process.env.NODE_ENV} mode`);
+      
+      // Load configuration first (this will also restore saved pump states)
+      loadPumpConfig();
+      
       if (process.env.NODE_ENV === 'development') {
-        // Initialize in development mode - now with real hardware access
+        // Initialize in development mode with real hardware access
         console.log('Initializing pumps in development mode with real hardware access');
-        ensureDevPumpsInitialized();
+        
+        // Use the shared initialization for all environments
+        await initializePumps();
       } else {
-        // Production initialization
-        loadPumpConfig();
+        // Production initialization (same steps)
         await initializePumps();
         console.log('Pumps initialized successfully in production mode');
       }
+      
+      // Get current pump status after initialization
+      const currentStatus = getAllPumpStatus();
+      const activeCount = currentStatus.filter(pump => pump.active).length;
+      
+      if (activeCount > 0) {
+        console.log(`Warning: ${activeCount} pumps are currently active after initialization`);
+      }
+      
+      console.log('Pump initialization completed successfully');
     } catch (initError) {
       console.error('Failed to initialize pumps:', initError);
     }
-    
-    console.log(`Pump initialization triggered in ${process.env.NODE_ENV} mode`);
   }).catch(error => {
     console.error('Error checking GPIO utility:', error);
   });
@@ -67,13 +81,9 @@ try {
  */
 export async function GET() {
   try {
-    // Ensure configuration is loaded before responding
-    if (process.env.NODE_ENV === 'development') {
-      // Initialize for development mode with real hardware access
-      ensureDevPumpsInitialized();
-    } else {
-      loadPumpConfig();
-    }
+    // No need to reinitialize every time - just make sure config is loaded
+    // This maintains the pump state between requests
+    loadPumpConfig();
     
     const pumpStatus = getAllPumpStatus();
     const recentEvents = getRecentEvents(10); // Get 10 most recent events
@@ -111,12 +121,8 @@ export async function POST(request: NextRequest) {
     }
     
     // Ensure configuration is loaded before making changes
-    if (process.env.NODE_ENV === 'development') {
-      // Initialize for development mode with real hardware access
-      ensureDevPumpsInitialized();
-    } else {
-      loadPumpConfig();
-    }
+    // This will also restore saved pump states
+    loadPumpConfig();
     
     const data = await request.json();
     const { action, pumpName } = data;

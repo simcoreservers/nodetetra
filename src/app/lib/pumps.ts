@@ -19,6 +19,7 @@ interface ExecResult {
 // Define data path for persistence
 const DATA_PATH = path.join(process.cwd(), 'data');
 const PUMP_CONFIG_FILE = path.join(DATA_PATH, 'pump_config.json');
+const PUMP_STATE_FILE = path.join(DATA_PATH, 'pump_state.json');
 
 // Check if we're on the client side (browser)
 const isClient = typeof window !== 'undefined';
@@ -109,11 +110,104 @@ export function loadPumpConfig(): void {
       }
     }
 
+    // Also load pump active states if state file exists
+    loadPumpStates();
+
     console.log('Pump configurations loaded from file');
   } catch (error) {
     console.error('Error loading pump configurations:', error);
     logErrorEvent('Failed to load pump configurations from file');
     throw new Error(`Failed to load pump configuration: ${error}`);
+  }
+}
+
+/**
+ * Load the active state of pumps from file
+ */
+function loadPumpStates(): void {
+  if (isClient) {
+    return;
+  }
+
+  try {
+    // Check if the pump state file exists
+    if (!fs.existsSync(PUMP_STATE_FILE)) {
+      // No state file, all pumps are assumed to be off
+      return;
+    }
+
+    // Read the saved states
+    const rawData = fs.readFileSync(PUMP_STATE_FILE, 'utf8');
+    const savedStates = JSON.parse(rawData);
+
+    // For each pump in the saved states
+    for (const pumpName in savedStates) {
+      if (pumpStatus[pumpName as PumpName]) {
+        // Get the saved state
+        const isActive = Boolean(savedStates[pumpName].active);
+        
+        // If the saved state is active, ensure the pump is actually on
+        if (isActive) {
+          const pin = PUMP_GPIO[pumpName as PumpName];
+          if (pin) {
+            try {
+              // Set GPIO pin to match saved state (synchronous to ensure state is applied)
+              exec(`gpio -g write ${pin} 1`, (error) => {
+                if (error) {
+                  console.error(`Error reapplying active state to pump ${pumpName}:`, error);
+                  pumpStatus[pumpName as PumpName].active = false;
+                } else {
+                  pumpStatus[pumpName as PumpName].active = true;
+                  console.log(`Restored active state for pump ${pumpName}`);
+                }
+              });
+            } catch (error) {
+              console.error(`Error reapplying active state to pump ${pumpName}:`, error);
+              pumpStatus[pumpName as PumpName].active = false;
+            }
+          }
+        }
+      }
+    }
+
+    console.log('Pump active states loaded from file');
+  } catch (error) {
+    console.error('Error loading pump states:', error);
+    // Don't throw error, just log it - non-critical
+  }
+}
+
+/**
+ * Save the current active state of pumps to file
+ */
+function savePumpStates(): void {
+  if (isClient) {
+    return;
+  }
+
+  try {
+    // Ensure the data directory exists
+    if (!fs.existsSync(DATA_PATH)) {
+      fs.mkdirSync(DATA_PATH, { recursive: true });
+    }
+
+    // Create a state object with just the active state for each pump
+    const statesToSave: Record<string, { active: boolean, lastActivated?: Date }> = {};
+    
+    for (const [name, status] of Object.entries(pumpStatus)) {
+      statesToSave[name] = {
+        active: status.active,
+        lastActivated: status.lastActivated
+      };
+    }
+
+    // Write the state object to file
+    fs.writeFileSync(PUMP_STATE_FILE, JSON.stringify(statesToSave, null, 2), 'utf8');
+    
+    console.log('Pump active states saved to file');
+  } catch (error) {
+    console.error('Error saving pump states:', error);
+    // Don't throw error, just log it - non-critical
   }
 }
 
@@ -258,6 +352,9 @@ export async function activatePump(pumpName: PumpName): Promise<void> {
     pumpStatus[pumpName].active = true;
     pumpStatus[pumpName].lastActivated = new Date();
     
+    // Save the pump states to maintain activation between server restarts
+    savePumpStates();
+    
     console.log(`Pump ${pumpName} activated`);
     
     // Log the activation event
@@ -312,6 +409,9 @@ export async function deactivatePump(pumpName: PumpName): Promise<void> {
     
     // Update the pump status
     pumpStatus[pumpName].active = false;
+    
+    // Save the pump states to file
+    savePumpStates();
     
     console.log(`Pump ${pumpName} deactivated`);
     
@@ -508,19 +608,25 @@ export function getRecentEvents(limit: number = 10): PumpEvent[] {
 }
 
 /**
- * Initialize pumps for development mode (now using real hardware)
+ * Initialize pumps for development mode
+ * Now uses the same approach as production mode
  */
 export function ensureDevPumpsInitialized(): void {
   if (isClient) {
     return;
   }
   
-  // Initialize for real hardware access in development mode
-  console.log('NuTetra development mode now using real hardware access');
+  console.log('NuTetra development mode using real hardware access (same as production)');
   
-  // Load configuration if available
+  // Just use the standard initialization flow
   try {
+    // Load configuration (including pump states)
     loadPumpConfig();
+    
+    // Initialize pump hardware
+    initializePumps().catch(error => {
+      console.error('Error initializing pumps in development mode:', error);
+    });
   } catch (error) {
     console.warn('Could not load pump configuration in dev mode:', error);
   }
