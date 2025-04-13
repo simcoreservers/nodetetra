@@ -24,13 +24,13 @@ if (!isClient) {
   const { promisify } = require('util');
   execAsync = promisify(exec);
   
-  // Try to import lgpio, with a fallback if not available
+  // Import lgpio for direct GPIO control
   try {
     lgpio = require('lgpio');
     console.log('Successfully loaded lgpio library');
   } catch (error) {
-    console.warn('Failed to load lgpio library. GPIO operations will use command line utilities:', error);
-    lgpio = null;
+    console.error('Failed to load lgpio library:', error);
+    throw new Error(`Failed to load lgpio library: ${error}. Please ensure the lgpio package is installed.`);
   }
 } else {
   // Client-side mock implementation
@@ -197,21 +197,17 @@ export async function initializePumps(): Promise<void> {
 
     // For each pump, export the GPIO pin and set it as output
     for (const [name, pin] of Object.entries(PUMP_GPIO)) {
-      if (lgpio) {
-        // Use lgpio library if available
-        try {
-          lgpio.gpioSetMode(pin, lgpio.OUTPUT);
-          lgpio.gpioWrite(pin, 0); // Initialize as OFF
-          console.log(`Initialized pump ${name} on GPIO ${pin} using lgpio`);
-        } catch (lgpioError) {
-          console.error(`Error initializing GPIO with lgpio for pump ${name}:`, lgpioError);
-          throw new Error(`Failed to initialize GPIO for pump ${name} with lgpio: ${lgpioError}`);
-        }
-      } else {
-        // Fallback to command line if lgpio is not available
-        await execAsync(`gpio -g mode ${pin} out`);
-        await execAsync(`gpio -g write ${pin} 0`); // Initialize as OFF
-        console.log(`Initialized pump ${name} on GPIO ${pin} using gpio command`);
+      try {
+        // Configure pin as output
+        lgpio.gpioSetMode(pin, lgpio.OUTPUT);
+        
+        // Initialize as OFF
+        lgpio.gpioWrite(pin, 0);
+        
+        console.log(`Initialized pump ${name} on GPIO ${pin}`);
+      } catch (error) {
+        console.error(`Error initializing GPIO for pump ${name}:`, error);
+        throw new Error(`Failed to initialize GPIO for pump ${name}: ${error}`);
       }
     }
   } catch (error) {
@@ -237,15 +233,11 @@ export async function activatePump(pumpName: PumpName): Promise<void> {
     }
 
     // Set GPIO pin high to turn on pump
-    if (lgpio) {
-      try {
-        lgpio.gpioWrite(pin, 1);
-      } catch (lgpioError) {
-        console.error(`Error writing to GPIO with lgpio for pump ${pumpName}:`, lgpioError);
-        throw new Error(`Failed to control pump ${pumpName} with lgpio: ${lgpioError}`);
-      }
-    } else {
-      await execAsync(`gpio -g write ${pin} 1`);
+    try {
+      lgpio.gpioWrite(pin, 1);
+    } catch (error) {
+      console.error(`Error writing to GPIO pin ${pin}:`, error);
+      throw new Error(`Failed to write to GPIO pin ${pin}: ${error}`);
     }
     
     // Update pump status
@@ -285,15 +277,11 @@ export async function deactivatePump(pumpName: PumpName): Promise<void> {
     }
 
     // Set GPIO pin low to turn off pump
-    if (lgpio) {
-      try {
-        lgpio.gpioWrite(pin, 0);
-      } catch (lgpioError) {
-        console.error(`Error writing to GPIO with lgpio for pump ${pumpName}:`, lgpioError);
-        throw new Error(`Failed to control pump ${pumpName} with lgpio: ${lgpioError}`);
-      }
-    } else {
-      await execAsync(`gpio -g write ${pin} 0`);
+    try {
+      lgpio.gpioWrite(pin, 0);
+    } catch (error) {
+      console.error(`Error writing to GPIO pin ${pin}:`, error);
+      throw new Error(`Failed to write to GPIO pin ${pin}: ${error}`);
     }
     
     // Update pump status
