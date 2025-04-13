@@ -4648,5 +4648,2585 @@
     "created": "2025-04-13T22:12:17.918Z",
     "acknowledged": false,
     "resolved": false
+  },
+  {
+    "id": 466,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.36 mS/cm",
+    "timestamp": "2025-04-13T22:12:18.953Z",
+    "created": "2025-04-13T22:12:18.953Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 467,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.50 mS/cm",
+    "timestamp": "2025-04-13T22:12:19.962Z",
+    "created": "2025-04-13T22:12:19.962Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 468,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.61",
+    "timestamp": "2025-04-13T22:12:20.340Z",
+    "created": "2025-04-13T22:12:20.340Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 469,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.50 mS/cm",
+    "timestamp": "2025-04-13T22:12:20.344Z",
+    "created": "2025-04-13T22:12:20.344Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 470,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.76",
+    "timestamp": "2025-04-13T22:12:20.980Z",
+    "created": "2025-04-13T22:12:20.980Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 471,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.34 mS/cm",
+    "timestamp": "2025-04-13T22:12:20.984Z",
+    "created": "2025-04-13T22:12:20.984Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 472,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.85",
+    "timestamp": "2025-04-13T22:12:22.007Z",
+    "created": "2025-04-13T22:12:22.007Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 473,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.43 mS/cm",
+    "timestamp": "2025-04-13T22:12:22.015Z",
+    "created": "2025-04-13T22:12:22.015Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 474,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.87",
+    "timestamp": "2025-04-13T22:12:23.025Z",
+    "created": "2025-04-13T22:12:23.025Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 475,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.49 mS/cm",
+    "timestamp": "2025-04-13T22:12:23.030Z",
+    "created": "2025-04-13T22:12:23.030Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 476,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.91",
+    "timestamp": "2025-04-13T22:12:24.066Z",
+    "created": "2025-04-13T22:12:24.066Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 477,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.50 mS/cm",
+    "timestamp": "2025-04-13T22:12:24.072Z",
+    "created": "2025-04-13T22:12:24.072Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 478,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 7.00",
+    "timestamp": "2025-04-13T22:12:25.079Z",
+    "created": "2025-04-13T22:12:25.079Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 479,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.45 mS/cm",
+    "timestamp": "2025-04-13T22:12:25.082Z",
+    "created": "2025-04-13T22:12:25.082Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 480,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 7.00",
+    "timestamp": "2025-04-13T22:12:26.104Z",
+    "created": "2025-04-13T22:12:26.104Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 481,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.50 mS/cm",
+    "timestamp": "2025-04-13T22:12:26.108Z",
+    "created": "2025-04-13T22:12:26.108Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 482,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 7.00",
+    "timestamp": "2025-04-13T22:12:27.118Z",
+    "created": "2025-04-13T22:12:27.118Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 483,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.43 mS/cm",
+    "timestamp": "2025-04-13T22:12:27.121Z",
+    "created": "2025-04-13T22:12:27.121Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 484,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.80",
+    "timestamp": "2025-04-13T22:12:28.131Z",
+    "created": "2025-04-13T22:12:28.131Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 485,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.50 mS/cm",
+    "timestamp": "2025-04-13T22:12:28.135Z",
+    "created": "2025-04-13T22:12:28.135Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 486,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.99",
+    "timestamp": "2025-04-13T22:12:29.141Z",
+    "created": "2025-04-13T22:12:29.141Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 487,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.50 mS/cm",
+    "timestamp": "2025-04-13T22:12:29.145Z",
+    "created": "2025-04-13T22:12:29.145Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 488,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.85",
+    "timestamp": "2025-04-13T22:12:30.167Z",
+    "created": "2025-04-13T22:12:30.167Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 489,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.50 mS/cm",
+    "timestamp": "2025-04-13T22:12:30.170Z",
+    "created": "2025-04-13T22:12:30.170Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 490,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.82",
+    "timestamp": "2025-04-13T22:12:31.196Z",
+    "created": "2025-04-13T22:12:31.196Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 491,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.37 mS/cm",
+    "timestamp": "2025-04-13T22:12:31.199Z",
+    "created": "2025-04-13T22:12:31.199Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 492,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.94",
+    "timestamp": "2025-04-13T22:12:31.404Z",
+    "created": "2025-04-13T22:12:31.404Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 493,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.36 mS/cm",
+    "timestamp": "2025-04-13T22:12:31.409Z",
+    "created": "2025-04-13T22:12:31.409Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 494,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.85",
+    "timestamp": "2025-04-13T22:12:32.208Z",
+    "created": "2025-04-13T22:12:32.208Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 495,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.43 mS/cm",
+    "timestamp": "2025-04-13T22:12:32.212Z",
+    "created": "2025-04-13T22:12:32.212Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 496,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.79",
+    "timestamp": "2025-04-13T22:12:33.222Z",
+    "created": "2025-04-13T22:12:33.222Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 497,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.50 mS/cm",
+    "timestamp": "2025-04-13T22:12:33.227Z",
+    "created": "2025-04-13T22:12:33.227Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 498,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.86",
+    "timestamp": "2025-04-13T22:12:34.235Z",
+    "created": "2025-04-13T22:12:34.235Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 499,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.38 mS/cm",
+    "timestamp": "2025-04-13T22:12:34.240Z",
+    "created": "2025-04-13T22:12:34.240Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 500,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 7.00",
+    "timestamp": "2025-04-13T22:12:35.252Z",
+    "created": "2025-04-13T22:12:35.252Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 501,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.31 mS/cm",
+    "timestamp": "2025-04-13T22:12:35.255Z",
+    "created": "2025-04-13T22:12:35.255Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 502,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 7.00",
+    "timestamp": "2025-04-13T22:12:36.264Z",
+    "created": "2025-04-13T22:12:36.264Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 503,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.42 mS/cm",
+    "timestamp": "2025-04-13T22:12:36.267Z",
+    "created": "2025-04-13T22:12:36.267Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 504,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 7.00",
+    "timestamp": "2025-04-13T22:12:37.289Z",
+    "created": "2025-04-13T22:12:37.289Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 505,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.43 mS/cm",
+    "timestamp": "2025-04-13T22:12:37.292Z",
+    "created": "2025-04-13T22:12:37.292Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 506,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 7.00",
+    "timestamp": "2025-04-13T22:12:38.300Z",
+    "created": "2025-04-13T22:12:38.300Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 507,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.38 mS/cm",
+    "timestamp": "2025-04-13T22:12:38.304Z",
+    "created": "2025-04-13T22:12:38.304Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 508,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.97",
+    "timestamp": "2025-04-13T22:12:39.313Z",
+    "created": "2025-04-13T22:12:39.313Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 509,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.50 mS/cm",
+    "timestamp": "2025-04-13T22:12:39.318Z",
+    "created": "2025-04-13T22:12:39.318Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 510,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 7.00",
+    "timestamp": "2025-04-13T22:12:40.347Z",
+    "created": "2025-04-13T22:12:40.347Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 511,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.50 mS/cm",
+    "timestamp": "2025-04-13T22:12:40.350Z",
+    "created": "2025-04-13T22:12:40.350Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 512,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 7.00",
+    "timestamp": "2025-04-13T22:12:41.362Z",
+    "created": "2025-04-13T22:12:41.362Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 513,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.50 mS/cm",
+    "timestamp": "2025-04-13T22:12:41.366Z",
+    "created": "2025-04-13T22:12:41.366Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 514,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.80",
+    "timestamp": "2025-04-13T22:12:42.340Z",
+    "created": "2025-04-13T22:12:42.340Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 515,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.44 mS/cm",
+    "timestamp": "2025-04-13T22:12:42.343Z",
+    "created": "2025-04-13T22:12:42.343Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 516,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.86",
+    "timestamp": "2025-04-13T22:12:42.503Z",
+    "created": "2025-04-13T22:12:42.503Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 517,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.50 mS/cm",
+    "timestamp": "2025-04-13T22:12:42.555Z",
+    "created": "2025-04-13T22:12:42.555Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 518,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.97",
+    "timestamp": "2025-04-13T22:12:43.516Z",
+    "created": "2025-04-13T22:12:43.516Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 519,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.33 mS/cm",
+    "timestamp": "2025-04-13T22:12:43.519Z",
+    "created": "2025-04-13T22:12:43.519Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 520,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 7.00",
+    "timestamp": "2025-04-13T22:12:44.527Z",
+    "created": "2025-04-13T22:12:44.527Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 521,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.19 mS/cm",
+    "timestamp": "2025-04-13T22:12:44.530Z",
+    "created": "2025-04-13T22:12:44.530Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 522,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.95",
+    "timestamp": "2025-04-13T22:12:45.539Z",
+    "created": "2025-04-13T22:12:45.539Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 523,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.36 mS/cm",
+    "timestamp": "2025-04-13T22:12:45.543Z",
+    "created": "2025-04-13T22:12:45.543Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 524,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.79",
+    "timestamp": "2025-04-13T22:12:46.551Z",
+    "created": "2025-04-13T22:12:46.551Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 525,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.18 mS/cm",
+    "timestamp": "2025-04-13T22:12:46.555Z",
+    "created": "2025-04-13T22:12:46.555Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 526,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.76",
+    "timestamp": "2025-04-13T22:12:47.564Z",
+    "created": "2025-04-13T22:12:47.564Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 527,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.12 mS/cm",
+    "timestamp": "2025-04-13T22:12:47.569Z",
+    "created": "2025-04-13T22:12:47.569Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 528,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.93",
+    "timestamp": "2025-04-13T22:12:48.577Z",
+    "created": "2025-04-13T22:12:48.577Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 529,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.05 mS/cm",
+    "timestamp": "2025-04-13T22:12:48.581Z",
+    "created": "2025-04-13T22:12:48.581Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 530,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.73",
+    "timestamp": "2025-04-13T22:12:49.589Z",
+    "created": "2025-04-13T22:12:49.589Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 531,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.14 mS/cm",
+    "timestamp": "2025-04-13T22:12:49.593Z",
+    "created": "2025-04-13T22:12:49.593Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 532,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.80",
+    "timestamp": "2025-04-13T22:12:50.612Z",
+    "created": "2025-04-13T22:12:50.612Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 533,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.29 mS/cm",
+    "timestamp": "2025-04-13T22:12:50.616Z",
+    "created": "2025-04-13T22:12:50.616Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 534,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.70",
+    "timestamp": "2025-04-13T22:12:51.654Z",
+    "created": "2025-04-13T22:12:51.654Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 535,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.34 mS/cm",
+    "timestamp": "2025-04-13T22:12:51.658Z",
+    "created": "2025-04-13T22:12:51.658Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 536,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.85",
+    "timestamp": "2025-04-13T22:12:52.690Z",
+    "created": "2025-04-13T22:12:52.690Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 537,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.34 mS/cm",
+    "timestamp": "2025-04-13T22:12:52.693Z",
+    "created": "2025-04-13T22:12:52.693Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 538,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature below target range: 17.4°C",
+    "timestamp": "2025-04-13T22:12:52.696Z",
+    "created": "2025-04-13T22:12:52.696Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 539,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.93",
+    "timestamp": "2025-04-13T22:12:53.334Z",
+    "created": "2025-04-13T22:12:53.334Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 540,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.19 mS/cm",
+    "timestamp": "2025-04-13T22:12:53.337Z",
+    "created": "2025-04-13T22:12:53.337Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 541,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature below target range: 16.5°C",
+    "timestamp": "2025-04-13T22:12:53.340Z",
+    "created": "2025-04-13T22:12:53.340Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 542,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.94",
+    "timestamp": "2025-04-13T22:12:53.726Z",
+    "created": "2025-04-13T22:12:53.726Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 543,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.15 mS/cm",
+    "timestamp": "2025-04-13T22:12:53.730Z",
+    "created": "2025-04-13T22:12:53.730Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 544,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature below target range: 17.0°C",
+    "timestamp": "2025-04-13T22:12:53.734Z",
+    "created": "2025-04-13T22:12:53.734Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 545,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 7.00",
+    "timestamp": "2025-04-13T22:12:54.740Z",
+    "created": "2025-04-13T22:12:54.740Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 546,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.29 mS/cm",
+    "timestamp": "2025-04-13T22:12:54.744Z",
+    "created": "2025-04-13T22:12:54.744Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 547,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature below target range: 16.4°C",
+    "timestamp": "2025-04-13T22:12:54.747Z",
+    "created": "2025-04-13T22:12:54.747Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 548,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 7.00",
+    "timestamp": "2025-04-13T22:12:55.756Z",
+    "created": "2025-04-13T22:12:55.756Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 549,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.20 mS/cm",
+    "timestamp": "2025-04-13T22:12:55.759Z",
+    "created": "2025-04-13T22:12:55.759Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 550,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature below target range: 16.6°C",
+    "timestamp": "2025-04-13T22:12:55.762Z",
+    "created": "2025-04-13T22:12:55.762Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 551,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.83",
+    "timestamp": "2025-04-13T22:12:56.766Z",
+    "created": "2025-04-13T22:12:56.766Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 552,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.18 mS/cm",
+    "timestamp": "2025-04-13T22:12:56.770Z",
+    "created": "2025-04-13T22:12:56.770Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 553,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature below target range: 17.2°C",
+    "timestamp": "2025-04-13T22:12:56.774Z",
+    "created": "2025-04-13T22:12:56.774Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 554,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.65",
+    "timestamp": "2025-04-13T22:12:57.805Z",
+    "created": "2025-04-13T22:12:57.805Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 555,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.99 mS/cm",
+    "timestamp": "2025-04-13T22:12:57.809Z",
+    "created": "2025-04-13T22:12:57.809Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 556,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.41",
+    "timestamp": "2025-04-13T22:13:17.174Z",
+    "created": "2025-04-13T22:13:17.174Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 557,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.88 mS/cm",
+    "timestamp": "2025-04-13T22:13:17.177Z",
+    "created": "2025-04-13T22:13:17.177Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 558,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.44",
+    "timestamp": "2025-04-13T22:13:18.194Z",
+    "created": "2025-04-13T22:13:18.194Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 559,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.33",
+    "timestamp": "2025-04-13T22:13:19.212Z",
+    "created": "2025-04-13T22:13:19.212Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 560,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.37",
+    "timestamp": "2025-04-13T22:13:20.222Z",
+    "created": "2025-04-13T22:13:20.222Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 561,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.36",
+    "timestamp": "2025-04-13T22:13:21.242Z",
+    "created": "2025-04-13T22:13:21.242Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 562,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.26",
+    "timestamp": "2025-04-13T22:13:22.253Z",
+    "created": "2025-04-13T22:13:22.253Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 563,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.18",
+    "timestamp": "2025-04-13T22:13:23.272Z",
+    "created": "2025-04-13T22:13:23.272Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 564,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.84 mS/cm",
+    "timestamp": "2025-04-13T22:13:23.276Z",
+    "created": "2025-04-13T22:13:23.276Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 565,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.22",
+    "timestamp": "2025-04-13T22:13:24.284Z",
+    "created": "2025-04-13T22:13:24.284Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 566,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.91 mS/cm",
+    "timestamp": "2025-04-13T22:13:24.288Z",
+    "created": "2025-04-13T22:13:24.288Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 567,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.22",
+    "timestamp": "2025-04-13T22:13:25.304Z",
+    "created": "2025-04-13T22:13:25.304Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 568,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.05",
+    "timestamp": "2025-04-13T22:13:26.323Z",
+    "created": "2025-04-13T22:13:26.323Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 569,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.01",
+    "timestamp": "2025-04-13T22:13:26.468Z",
+    "created": "2025-04-13T22:13:26.468Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 570,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.18",
+    "timestamp": "2025-04-13T22:13:27.339Z",
+    "created": "2025-04-13T22:13:27.339Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 571,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.37",
+    "timestamp": "2025-04-13T22:13:28.366Z",
+    "created": "2025-04-13T22:13:28.366Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 572,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.25",
+    "timestamp": "2025-04-13T22:13:29.388Z",
+    "created": "2025-04-13T22:13:29.388Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 573,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.43",
+    "timestamp": "2025-04-13T22:13:30.407Z",
+    "created": "2025-04-13T22:13:30.407Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 574,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.46",
+    "timestamp": "2025-04-13T22:13:31.436Z",
+    "created": "2025-04-13T22:13:31.436Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 575,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.39",
+    "timestamp": "2025-04-13T22:13:32.476Z",
+    "created": "2025-04-13T22:13:32.476Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 576,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.41",
+    "timestamp": "2025-04-13T22:13:34.508Z",
+    "created": "2025-04-13T22:13:34.508Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 577,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.40",
+    "timestamp": "2025-04-13T22:13:35.521Z",
+    "created": "2025-04-13T22:13:35.521Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 578,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.34",
+    "timestamp": "2025-04-13T22:13:37.338Z",
+    "created": "2025-04-13T22:13:37.338Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 579,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.82 mS/cm",
+    "timestamp": "2025-04-13T22:13:37.550Z",
+    "created": "2025-04-13T22:13:37.550Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 580,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.37",
+    "timestamp": "2025-04-13T22:13:38.608Z",
+    "created": "2025-04-13T22:13:38.608Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 581,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.24",
+    "timestamp": "2025-04-13T22:13:39.629Z",
+    "created": "2025-04-13T22:13:39.629Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 582,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.16",
+    "timestamp": "2025-04-13T22:13:40.650Z",
+    "created": "2025-04-13T22:13:40.650Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 583,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.24",
+    "timestamp": "2025-04-13T22:13:41.678Z",
+    "created": "2025-04-13T22:13:41.678Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 584,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.87 mS/cm",
+    "timestamp": "2025-04-13T22:13:41.682Z",
+    "created": "2025-04-13T22:13:41.682Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 585,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.39",
+    "timestamp": "2025-04-13T22:13:42.694Z",
+    "created": "2025-04-13T22:13:42.694Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 586,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.94 mS/cm",
+    "timestamp": "2025-04-13T22:13:42.698Z",
+    "created": "2025-04-13T22:13:42.698Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 587,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.19",
+    "timestamp": "2025-04-13T22:13:43.734Z",
+    "created": "2025-04-13T22:13:43.734Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 588,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.11 mS/cm",
+    "timestamp": "2025-04-13T22:13:43.738Z",
+    "created": "2025-04-13T22:13:43.738Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 589,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.07",
+    "timestamp": "2025-04-13T22:13:44.757Z",
+    "created": "2025-04-13T22:13:44.757Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 590,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.03 mS/cm",
+    "timestamp": "2025-04-13T22:13:44.760Z",
+    "created": "2025-04-13T22:13:44.760Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 591,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.06",
+    "timestamp": "2025-04-13T22:13:45.783Z",
+    "created": "2025-04-13T22:13:45.783Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 592,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.13 mS/cm",
+    "timestamp": "2025-04-13T22:13:45.786Z",
+    "created": "2025-04-13T22:13:45.786Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 593,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.08",
+    "timestamp": "2025-04-13T22:13:46.815Z",
+    "created": "2025-04-13T22:13:46.815Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 594,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.15 mS/cm",
+    "timestamp": "2025-04-13T22:13:46.819Z",
+    "created": "2025-04-13T22:13:46.819Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 595,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:13:47.832Z",
+    "created": "2025-04-13T22:13:47.832Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 596,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.21 mS/cm",
+    "timestamp": "2025-04-13T22:13:47.835Z",
+    "created": "2025-04-13T22:13:47.835Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 597,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:13:48.326Z",
+    "created": "2025-04-13T22:13:48.326Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 598,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.05 mS/cm",
+    "timestamp": "2025-04-13T22:13:48.330Z",
+    "created": "2025-04-13T22:13:48.330Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 599,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:13:48.861Z",
+    "created": "2025-04-13T22:13:48.861Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 600,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.92 mS/cm",
+    "timestamp": "2025-04-13T22:13:48.865Z",
+    "created": "2025-04-13T22:13:48.865Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 601,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:13:49.888Z",
+    "created": "2025-04-13T22:13:49.888Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 602,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.14",
+    "timestamp": "2025-04-13T22:13:50.919Z",
+    "created": "2025-04-13T22:13:50.919Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 603,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.81 mS/cm",
+    "timestamp": "2025-04-13T22:13:50.922Z",
+    "created": "2025-04-13T22:13:50.922Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 604,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.28",
+    "timestamp": "2025-04-13T22:13:51.933Z",
+    "created": "2025-04-13T22:13:51.933Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 605,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.29",
+    "timestamp": "2025-04-13T22:13:52.943Z",
+    "created": "2025-04-13T22:13:52.943Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 606,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.13",
+    "timestamp": "2025-04-13T22:13:53.961Z",
+    "created": "2025-04-13T22:13:53.961Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 607,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.32",
+    "timestamp": "2025-04-13T22:13:54.974Z",
+    "created": "2025-04-13T22:13:54.974Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 608,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.24",
+    "timestamp": "2025-04-13T22:13:55.995Z",
+    "created": "2025-04-13T22:13:55.995Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 609,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.22",
+    "timestamp": "2025-04-13T22:13:57.005Z",
+    "created": "2025-04-13T22:13:57.005Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 610,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.20",
+    "timestamp": "2025-04-13T22:13:58.019Z",
+    "created": "2025-04-13T22:13:58.019Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 611,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.17",
+    "timestamp": "2025-04-13T22:13:59.036Z",
+    "created": "2025-04-13T22:13:59.036Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 612,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.21",
+    "timestamp": "2025-04-13T22:13:59.333Z",
+    "created": "2025-04-13T22:13:59.333Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 613,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.02",
+    "timestamp": "2025-04-13T22:14:00.068Z",
+    "created": "2025-04-13T22:14:00.068Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 614,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.01",
+    "timestamp": "2025-04-13T22:14:01.095Z",
+    "created": "2025-04-13T22:14:01.095Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 615,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:14:02.105Z",
+    "created": "2025-04-13T22:14:02.105Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 616,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.20",
+    "timestamp": "2025-04-13T22:14:03.115Z",
+    "created": "2025-04-13T22:14:03.115Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 617,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.04",
+    "timestamp": "2025-04-13T22:14:04.137Z",
+    "created": "2025-04-13T22:14:04.137Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 618,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature above target range: 26.7°C",
+    "timestamp": "2025-04-13T22:14:04.140Z",
+    "created": "2025-04-13T22:14:04.140Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 619,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.18",
+    "timestamp": "2025-04-13T22:14:05.148Z",
+    "created": "2025-04-13T22:14:05.148Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 620,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature above target range: 26.8°C",
+    "timestamp": "2025-04-13T22:14:05.161Z",
+    "created": "2025-04-13T22:14:05.161Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 621,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.23",
+    "timestamp": "2025-04-13T22:14:06.175Z",
+    "created": "2025-04-13T22:14:06.175Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 622,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature above target range: 27.6°C",
+    "timestamp": "2025-04-13T22:14:06.187Z",
+    "created": "2025-04-13T22:14:06.187Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 623,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.42",
+    "timestamp": "2025-04-13T22:14:07.189Z",
+    "created": "2025-04-13T22:14:07.189Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 624,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature above target range: 26.8°C",
+    "timestamp": "2025-04-13T22:14:07.194Z",
+    "created": "2025-04-13T22:14:07.194Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 625,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature above target range: 26.3°C",
+    "timestamp": "2025-04-13T22:14:08.201Z",
+    "created": "2025-04-13T22:14:08.201Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 626,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature above target range: 26.7°C",
+    "timestamp": "2025-04-13T22:14:09.212Z",
+    "created": "2025-04-13T22:14:09.212Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 627,
+    "type": "Temperature",
+    "level": "Warning",
+    "message": "Water temperature above target range: 26.4°C",
+    "timestamp": "2025-04-13T22:14:10.226Z",
+    "created": "2025-04-13T22:14:10.226Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 628,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.85 mS/cm",
+    "timestamp": "2025-04-13T22:14:25.060Z",
+    "created": "2025-04-13T22:14:25.060Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 629,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.40",
+    "timestamp": "2025-04-13T22:14:50.413Z",
+    "created": "2025-04-13T22:14:50.413Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 630,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.32",
+    "timestamp": "2025-04-13T22:14:51.426Z",
+    "created": "2025-04-13T22:14:51.426Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 631,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.30",
+    "timestamp": "2025-04-13T22:14:52.437Z",
+    "created": "2025-04-13T22:14:52.437Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 632,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.20",
+    "timestamp": "2025-04-13T22:14:53.462Z",
+    "created": "2025-04-13T22:14:53.462Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 633,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.12",
+    "timestamp": "2025-04-13T22:14:54.348Z",
+    "created": "2025-04-13T22:14:54.348Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 634,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.19",
+    "timestamp": "2025-04-13T22:14:54.499Z",
+    "created": "2025-04-13T22:14:54.499Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 635,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.23",
+    "timestamp": "2025-04-13T22:14:55.510Z",
+    "created": "2025-04-13T22:14:55.510Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 636,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.13",
+    "timestamp": "2025-04-13T22:14:56.522Z",
+    "created": "2025-04-13T22:14:56.522Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 637,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.02",
+    "timestamp": "2025-04-13T22:14:57.547Z",
+    "created": "2025-04-13T22:14:57.547Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 638,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.22",
+    "timestamp": "2025-04-13T22:14:58.563Z",
+    "created": "2025-04-13T22:14:58.563Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 639,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.08",
+    "timestamp": "2025-04-13T22:14:59.591Z",
+    "created": "2025-04-13T22:14:59.591Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 640,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.10",
+    "timestamp": "2025-04-13T22:15:00.624Z",
+    "created": "2025-04-13T22:15:00.624Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 641,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:01.659Z",
+    "created": "2025-04-13T22:15:01.659Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 642,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:02.676Z",
+    "created": "2025-04-13T22:15:02.676Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 643,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:03.701Z",
+    "created": "2025-04-13T22:15:03.701Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 644,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.05",
+    "timestamp": "2025-04-13T22:15:04.714Z",
+    "created": "2025-04-13T22:15:04.714Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 645,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.21",
+    "timestamp": "2025-04-13T22:15:05.338Z",
+    "created": "2025-04-13T22:15:05.338Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 646,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.01",
+    "timestamp": "2025-04-13T22:15:05.749Z",
+    "created": "2025-04-13T22:15:05.749Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 647,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.06",
+    "timestamp": "2025-04-13T22:15:06.776Z",
+    "created": "2025-04-13T22:15:06.776Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 648,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:07.791Z",
+    "created": "2025-04-13T22:15:07.791Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 649,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:08.816Z",
+    "created": "2025-04-13T22:15:08.816Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 650,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:09.829Z",
+    "created": "2025-04-13T22:15:09.829Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 651,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:10.841Z",
+    "created": "2025-04-13T22:15:10.841Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 652,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:11.876Z",
+    "created": "2025-04-13T22:15:11.876Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 653,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:12.895Z",
+    "created": "2025-04-13T22:15:12.895Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 654,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:13.913Z",
+    "created": "2025-04-13T22:15:13.913Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 655,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.13",
+    "timestamp": "2025-04-13T22:15:14.926Z",
+    "created": "2025-04-13T22:15:14.926Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 656,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.12",
+    "timestamp": "2025-04-13T22:15:15.937Z",
+    "created": "2025-04-13T22:15:15.937Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 657,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.07",
+    "timestamp": "2025-04-13T22:15:16.340Z",
+    "created": "2025-04-13T22:15:16.340Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 658,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.17",
+    "timestamp": "2025-04-13T22:15:16.960Z",
+    "created": "2025-04-13T22:15:16.960Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 659,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.13",
+    "timestamp": "2025-04-13T22:15:17.983Z",
+    "created": "2025-04-13T22:15:17.983Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 660,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:18.993Z",
+    "created": "2025-04-13T22:15:18.993Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 661,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.20",
+    "timestamp": "2025-04-13T22:15:20.007Z",
+    "created": "2025-04-13T22:15:20.007Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 662,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.06",
+    "timestamp": "2025-04-13T22:15:21.016Z",
+    "created": "2025-04-13T22:15:21.016Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 663,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:22.035Z",
+    "created": "2025-04-13T22:15:22.035Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 664,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.19",
+    "timestamp": "2025-04-13T22:15:23.055Z",
+    "created": "2025-04-13T22:15:23.055Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 665,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.01",
+    "timestamp": "2025-04-13T22:15:24.069Z",
+    "created": "2025-04-13T22:15:24.069Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 666,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.02",
+    "timestamp": "2025-04-13T22:15:25.077Z",
+    "created": "2025-04-13T22:15:25.077Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 667,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.15",
+    "timestamp": "2025-04-13T22:15:26.088Z",
+    "created": "2025-04-13T22:15:26.088Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 668,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:27.099Z",
+    "created": "2025-04-13T22:15:27.099Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 669,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.09",
+    "timestamp": "2025-04-13T22:15:27.326Z",
+    "created": "2025-04-13T22:15:27.326Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 670,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.11",
+    "timestamp": "2025-04-13T22:15:28.109Z",
+    "created": "2025-04-13T22:15:28.109Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 671,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.05",
+    "timestamp": "2025-04-13T22:15:29.123Z",
+    "created": "2025-04-13T22:15:29.123Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 672,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:30.139Z",
+    "created": "2025-04-13T22:15:30.139Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 673,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:31.167Z",
+    "created": "2025-04-13T22:15:31.167Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 674,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.08",
+    "timestamp": "2025-04-13T22:15:32.191Z",
+    "created": "2025-04-13T22:15:32.191Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 675,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.01",
+    "timestamp": "2025-04-13T22:15:33.211Z",
+    "created": "2025-04-13T22:15:33.211Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 676,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.11",
+    "timestamp": "2025-04-13T22:15:34.222Z",
+    "created": "2025-04-13T22:15:34.222Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 677,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.02",
+    "timestamp": "2025-04-13T22:15:35.234Z",
+    "created": "2025-04-13T22:15:35.234Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 678,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:36.258Z",
+    "created": "2025-04-13T22:15:36.258Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 679,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.11",
+    "timestamp": "2025-04-13T22:15:37.271Z",
+    "created": "2025-04-13T22:15:37.271Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 680,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:38.285Z",
+    "created": "2025-04-13T22:15:38.285Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 681,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.81 mS/cm",
+    "timestamp": "2025-04-13T22:15:38.289Z",
+    "created": "2025-04-13T22:15:38.289Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 682,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:38.432Z",
+    "created": "2025-04-13T22:15:38.432Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 683,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.96 mS/cm",
+    "timestamp": "2025-04-13T22:15:38.482Z",
+    "created": "2025-04-13T22:15:38.482Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 684,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.08",
+    "timestamp": "2025-04-13T22:15:39.300Z",
+    "created": "2025-04-13T22:15:39.300Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 685,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.02 mS/cm",
+    "timestamp": "2025-04-13T22:15:39.305Z",
+    "created": "2025-04-13T22:15:39.305Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 686,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:40.327Z",
+    "created": "2025-04-13T22:15:40.327Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 687,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.11 mS/cm",
+    "timestamp": "2025-04-13T22:15:40.330Z",
+    "created": "2025-04-13T22:15:40.330Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 688,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.06",
+    "timestamp": "2025-04-13T22:15:41.340Z",
+    "created": "2025-04-13T22:15:41.340Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 689,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.28 mS/cm",
+    "timestamp": "2025-04-13T22:15:41.344Z",
+    "created": "2025-04-13T22:15:41.344Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 690,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.10",
+    "timestamp": "2025-04-13T22:15:42.378Z",
+    "created": "2025-04-13T22:15:42.378Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 691,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.24 mS/cm",
+    "timestamp": "2025-04-13T22:15:42.383Z",
+    "created": "2025-04-13T22:15:42.383Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 692,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:43.390Z",
+    "created": "2025-04-13T22:15:43.390Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 693,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.13 mS/cm",
+    "timestamp": "2025-04-13T22:15:43.393Z",
+    "created": "2025-04-13T22:15:43.393Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 694,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.06",
+    "timestamp": "2025-04-13T22:15:44.412Z",
+    "created": "2025-04-13T22:15:44.412Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 695,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.15 mS/cm",
+    "timestamp": "2025-04-13T22:15:44.417Z",
+    "created": "2025-04-13T22:15:44.417Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 696,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:45.426Z",
+    "created": "2025-04-13T22:15:45.426Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 697,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.23 mS/cm",
+    "timestamp": "2025-04-13T22:15:45.430Z",
+    "created": "2025-04-13T22:15:45.430Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 698,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:46.436Z",
+    "created": "2025-04-13T22:15:46.436Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 699,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.35 mS/cm",
+    "timestamp": "2025-04-13T22:15:46.440Z",
+    "created": "2025-04-13T22:15:46.440Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 700,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:47.451Z",
+    "created": "2025-04-13T22:15:47.451Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 701,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.15 mS/cm",
+    "timestamp": "2025-04-13T22:15:47.455Z",
+    "created": "2025-04-13T22:15:47.455Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 702,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.00",
+    "timestamp": "2025-04-13T22:15:48.462Z",
+    "created": "2025-04-13T22:15:48.462Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 703,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.18 mS/cm",
+    "timestamp": "2025-04-13T22:15:48.466Z",
+    "created": "2025-04-13T22:15:48.466Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 704,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.13",
+    "timestamp": "2025-04-13T22:15:49.336Z",
+    "created": "2025-04-13T22:15:49.336Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 705,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.18 mS/cm",
+    "timestamp": "2025-04-13T22:15:49.340Z",
+    "created": "2025-04-13T22:15:49.340Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 706,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.26",
+    "timestamp": "2025-04-13T22:15:49.569Z",
+    "created": "2025-04-13T22:15:49.569Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 707,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.11 mS/cm",
+    "timestamp": "2025-04-13T22:15:49.580Z",
+    "created": "2025-04-13T22:15:49.580Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 708,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level below target range: 5.45",
+    "timestamp": "2025-04-13T22:15:50.568Z",
+    "created": "2025-04-13T22:15:50.568Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 709,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.96 mS/cm",
+    "timestamp": "2025-04-13T22:15:50.573Z",
+    "created": "2025-04-13T22:15:50.573Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 710,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.03 mS/cm",
+    "timestamp": "2025-04-13T22:15:51.592Z",
+    "created": "2025-04-13T22:15:51.592Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 711,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.17 mS/cm",
+    "timestamp": "2025-04-13T22:15:52.641Z",
+    "created": "2025-04-13T22:15:52.641Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 712,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.14 mS/cm",
+    "timestamp": "2025-04-13T22:15:53.665Z",
+    "created": "2025-04-13T22:15:53.665Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 713,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.03 mS/cm",
+    "timestamp": "2025-04-13T22:15:54.691Z",
+    "created": "2025-04-13T22:15:54.691Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 714,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.97 mS/cm",
+    "timestamp": "2025-04-13T22:15:55.717Z",
+    "created": "2025-04-13T22:15:55.717Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 715,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.86 mS/cm",
+    "timestamp": "2025-04-13T22:15:56.742Z",
+    "created": "2025-04-13T22:15:56.742Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 716,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.88 mS/cm",
+    "timestamp": "2025-04-13T22:15:58.779Z",
+    "created": "2025-04-13T22:15:58.779Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 717,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.81 mS/cm",
+    "timestamp": "2025-04-13T22:15:59.801Z",
+    "created": "2025-04-13T22:15:59.801Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 718,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.96 mS/cm",
+    "timestamp": "2025-04-13T22:16:00.336Z",
+    "created": "2025-04-13T22:16:00.336Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 719,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.90 mS/cm",
+    "timestamp": "2025-04-13T22:16:00.824Z",
+    "created": "2025-04-13T22:16:00.824Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 720,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.84 mS/cm",
+    "timestamp": "2025-04-13T22:16:01.849Z",
+    "created": "2025-04-13T22:16:01.849Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 721,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.83 mS/cm",
+    "timestamp": "2025-04-13T22:16:04.898Z",
+    "created": "2025-04-13T22:16:04.898Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 722,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.83 mS/cm",
+    "timestamp": "2025-04-13T22:16:05.914Z",
+    "created": "2025-04-13T22:16:05.914Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 723,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.82 mS/cm",
+    "timestamp": "2025-04-13T22:16:06.930Z",
+    "created": "2025-04-13T22:16:06.930Z",
+    "acknowledged": false,
+    "resolved": false
   }
 ]
