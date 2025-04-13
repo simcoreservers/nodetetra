@@ -24,11 +24,18 @@ export function useSensorData(refreshInterval = 1000) {
       try {
         setIsLoading(true);
         const response = await fetch('/api/sensors');
+        
+        // Check if the response is ok before trying to parse it
+        if (!response.ok) {
+          throw new Error(`Sensor API HTTP error: ${response.status}`);
+        }
+        
+        // Parse the JSON response
         const responseData = await response.json();
         
-        if (!response.ok || responseData.status === 'error') {
-          // Handle API-returned errors
-          throw new Error(responseData.error || `Sensor API error: ${response.status}`);
+        // Check if the API returned an error status
+        if (responseData.status === 'error') {
+          throw new Error(responseData.error || `Sensor API returned error status`);
         }
         
         if (isMounted) {
@@ -80,11 +87,15 @@ export function useSensorData(refreshInterval = 1000) {
     setIsLoading(true);
     try {
       const response = await fetch('/api/sensors');
+      
+      if (!response.ok) {
+        throw new Error(`Sensor API HTTP error: ${response.status}`);
+      }
+      
       const responseData = await response.json();
       
-      if (!response.ok || responseData.status === 'error') {
-        // Handle API-returned errors
-        throw new Error(responseData.error || `Sensor API error: ${response.status}`);
+      if (responseData.status === 'error') {
+        throw new Error(responseData.error || `Sensor API returned error status`);
       }
       
       setData(responseData);

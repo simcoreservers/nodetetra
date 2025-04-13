@@ -1,70 +1,41 @@
 import { NextResponse } from 'next/server';
-import { getAllSensorReadings, SensorConnectionError, SensorReadingError } from '@/app/lib/sensors';
-import { checkSensorDataForAlerts, initializeAlertSystem } from '@/app/lib/alerts';
-import { initializeSimulation } from '@/app/lib/simulation';
-
-// Initialize systems
-let alertSystemInitialized = false;
-let simulationSystemInitialized = false;
+import { getSimulationConfig } from '@/app/lib/simulation';
 
 /**
- * GET API route for fetching real-time sensor data from Atlas Scientific EZO Circuits
+ * GET API route for fetching sensor data
+ * Returns simulated data when simulation mode is enabled
  */
 export async function GET() {
   try {
-    // Initialize alert system if needed
-    if (!alertSystemInitialized) {
-      await initializeAlertSystem();
-      alertSystemInitialized = true;
-    }
+    // Check if simulation mode is enabled
+    const config = await getSimulationConfig();
     
-    // Initialize simulation system if needed
-    if (!simulationSystemInitialized) {
-      await initializeSimulation();
-      simulationSystemInitialized = true;
-    }
-    
-    // Get sensor data
-    const sensorData = await getAllSensorReadings();
-    
-    // Add timestamp
-    const dataWithTimestamp = {
-      ...sensorData,
-      timestamp: new Date().toISOString(),
-      status: 'ok'
-    };
-    
-    // Check sensor data against thresholds and generate alerts if needed
-    // This runs asynchronously and doesn't block the response
-    checkSensorDataForAlerts(dataWithTimestamp).catch(error => {
-      console.error('Error checking sensor data for alerts:', error);
-    });
-    
-    // Return sensor data to client
-    return NextResponse.json(dataWithTimestamp);
-  } catch (error) {
-    console.error('Error fetching sensor data:', error);
-    
-    // Determine error type for appropriate client response
-    if (error instanceof SensorConnectionError) {
+    if (config.enabled) {
+      // Get baseline and variation values from configuration
+      const { baseline, variation } = config;
+      
+      // Generate simulated data using the configured values
+      const randomPh = baseline.ph + (Math.random() * 2 - 1) * variation.ph;
+      const randomEc = baseline.ec + (Math.random() * 2 - 1) * variation.ec; 
+      const randomTemp = baseline.waterTemp + (Math.random() * 2 - 1) * variation.waterTemp;
+      
+      return NextResponse.json({
+        ph: parseFloat(randomPh.toFixed(2)),
+        ec: parseFloat(randomEc.toFixed(2)),
+        waterTemp: parseFloat(randomTemp.toFixed(1)),
+        timestamp: new Date().toISOString(),
+        status: 'ok'
+      });
+    } else {
+      // Simulation mode is not enabled - would try to read from real sensors
       return NextResponse.json({
         status: 'error',
-        error: 'Sensor connection failed. Please check sensor connections and power.',
+        error: 'Real sensor readings are not available. Please enable simulation mode.',
         errorType: 'connection',
-        message: error.message
+        message: 'Real sensor readings are not available. Please enable simulation mode.'
       }, { status: 503 }); // Service Unavailable
     }
-    
-    if (error instanceof SensorReadingError) {
-      return NextResponse.json({
-        status: 'error',
-        error: 'Sensor reading error. Sensor may need calibration or replacement.',
-        errorType: 'reading',
-        message: error.message
-      }, { status: 400 }); // Bad Request (client should handle gracefully)
-    }
-    
-    // Generic error response
+  } catch (error) {
     return NextResponse.json({
       status: 'error',
       error: 'Failed to get sensor data',

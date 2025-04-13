@@ -2,6 +2,7 @@
 
 import React, { memo } from 'react';
 import Link from "next/link";
+import { useSimulationContext } from "./SimulationContext";
 
 interface SensorCardProps {
   title: string;
@@ -22,6 +23,12 @@ const SensorCard = memo(function SensorCard({
   hasError,
   calibrationPath
 }: SensorCardProps) {
+  // Get simulation context to check if simulation is enabled
+  const { isEnabled: simulationEnabled } = useSimulationContext();
+  
+  // Hide error in simulation mode
+  const showError = hasError && !simulationEnabled;
+  
   return (
     <div className="card">
       <div className="card-header">
@@ -34,7 +41,7 @@ const SensorCard = memo(function SensorCard({
       <div className="data-value">
         {isLoading ? (
           <span className="animate-pulse">Loading...</span>
-        ) : hasError ? (
+        ) : showError ? (
           <span className="text-red-500">Sensor Error</span>
         ) : (
           value || 'N/A'

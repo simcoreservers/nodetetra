@@ -13,12 +13,16 @@ interface ActiveProfile {
   cropType: string;
   growthPhase?: string;
   targetPh: {
-    min: number;
-    max: number;
+    target: number;
+    buffer: number;
+    min?: number;
+    max?: number;
   };
   targetEc: {
-    min: number;
-    max: number;
+    target: number;
+    buffer: number;
+    min?: number;
+    max?: number;
   };
   notes?: string;
   growthSchedule?: GrowthScheduleWeek[];
@@ -88,11 +92,21 @@ const ActiveProfileCard = memo(function ActiveProfileCard({
                 </div>
                 <div className="bg-[#1e1e1e] p-3 rounded-md">
                   <p className="text-gray-400 text-xs uppercase mb-1">Target pH Range</p>
-                  <p className="font-medium">{activeProfile.targetPh.min} - {activeProfile.targetPh.max}</p>
+                  <p className="font-medium">
+                    {activeProfile.targetPh.min !== undefined && activeProfile.targetPh.max !== undefined
+                      ? `${activeProfile.targetPh.min} - ${activeProfile.targetPh.max}`
+                      : `${(activeProfile.targetPh.target - activeProfile.targetPh.buffer).toFixed(1)} - ${(activeProfile.targetPh.target + activeProfile.targetPh.buffer).toFixed(1)}`
+                    }
+                  </p>
                 </div>
                 <div className="bg-[#1e1e1e] p-3 rounded-md">
                   <p className="text-gray-400 text-xs uppercase mb-1">Target EC Range</p>
-                  <p className="font-medium">{activeProfile.targetEc.min} - {activeProfile.targetEc.max} mS/cm</p>
+                  <p className="font-medium">
+                    {activeProfile.targetEc.min !== undefined && activeProfile.targetEc.max !== undefined
+                      ? `${activeProfile.targetEc.min} - ${activeProfile.targetEc.max}`
+                      : `${(activeProfile.targetEc.target - activeProfile.targetEc.buffer).toFixed(1)} - ${(activeProfile.targetEc.target + activeProfile.targetEc.buffer).toFixed(1)}`
+                    } mS/cm
+                  </p>
                 </div>
               </div>
               {activeProfile.notes && (

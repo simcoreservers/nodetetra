@@ -7,6 +7,7 @@ import { useSidebar } from "./components/SidebarContext";
 import { useSensorData } from "./hooks/useSensorData";
 import { usePumpData } from "./hooks/usePumpData";
 import { useProfileData } from "./hooks/useProfileData";
+import { useSimulationContext } from "./components/SimulationContext";
 import { SensorData } from "./lib/sensors";
 import SensorCard from "./components/SensorCard";
 import PumpStatusCard from "./components/PumpStatusCard";
@@ -19,6 +20,9 @@ export default function Home() {
   
   // Track initial loading state separately from refresh loading
   const [initialLoaded, setInitialLoaded] = useState(false);
+  
+  // Use the simulation context to check if simulation mode is enabled
+  const { isEnabled: simulationEnabled } = useSimulationContext();
   
   // Use the custom hooks to fetch real-time data
   const { data: sensorData, isLoading: sensorsLoading, error: sensorError, refresh: refreshSensors } = useSensorData(1000); // Refresh every 1 second
@@ -76,6 +80,9 @@ export default function Home() {
         ? "status-warning" 
         : "status-good";
 
+  // Only show error if not in simulation mode
+  const shouldShowSensorError = sensorError && !simulationEnabled;
+
   // Calculate current week for growth schedule if available
   // If we have a growthPhase, try to find that phase in the schedule
   let currentWeek = 1;
@@ -96,7 +103,7 @@ export default function Home() {
   const totalWeeks = activeProfile?.growthSchedule?.length || 0;
 
   // Only show loading animation on initial load, not during refreshes
-  const showLoadingState = !initialLoaded && sensorsLoading;
+  const showLoadingState = sensorsLoading && !initialLoaded;
 
   // Format sensor values for display
   const phValue = sensorData ? sensorData.ph.toFixed(2) : null;
@@ -126,7 +133,7 @@ export default function Home() {
         </div>
 
         {/* Display simplified sensor error message */}
-        {sensorError && (
+        {shouldShowSensorError && (
           <div className="bg-red-900/30 border border-red-700 rounded-md p-4 mb-8 text-red-200">
             <div className="flex items-start">
               <svg className="w-6 h-6 mr-2 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -187,7 +194,7 @@ export default function Home() {
             target="5.8 - 6.2"
             status={phStatus}
             isLoading={showLoadingState}
-            hasError={!!sensorError}
+            hasError={!!sensorError && !simulationEnabled}
             calibrationPath="/calibration/ph"
           />
 
@@ -197,7 +204,7 @@ export default function Home() {
             target="1.2 - 1.5 mS/cm"
             status={ecStatus}
             isLoading={showLoadingState}
-            hasError={!!sensorError}
+            hasError={!!sensorError && !simulationEnabled}
             calibrationPath="/calibration/ec"
           />
 
@@ -207,7 +214,7 @@ export default function Home() {
             target="20 - 24°C"
             status={tempStatus}
             isLoading={showLoadingState}
-            hasError={!!sensorError}
+            hasError={!!sensorError && !simulationEnabled}
             calibrationPath="/calibration/temp"
           />
         </div>
@@ -225,7 +232,7 @@ export default function Home() {
             events={pumpData?.recentEvents || null}
             isLoading={!initialLoaded && pumpsLoading}
             hasError={!!pumpError}
-            hasSensorError={!!sensorError}
+            hasSensorError={!!sensorError && !simulationEnabled}
             errorMessage={pumpError?.message}
           />
         </div>

@@ -5,7 +5,7 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { isSimulationEnabled, getSimulatedSensorReadings } from './simulation';
+import { getSimulatedSensorReadings, getSimulationConfig } from './simulation';
 
 const execAsync = promisify(exec);
 
@@ -208,37 +208,25 @@ export async function getAllSensorReadings(): Promise<{
   ec: number;
   waterTemp: number;
 }> {
-  // Check if simulation mode is enabled
-  if (await isSimulationEnabled()) {
-    // Return simulated data
-    const simulatedData = await getSimulatedSensorReadings();
-    return {
-      ph: simulatedData.ph,
-      ec: simulatedData.ec,
-      waterTemp: simulatedData.waterTemp
-    };
-  }
+  try {
+    // Get temperature first
+    let waterTemp: number;
+    try {
+      waterTemp = await getTemperatureReading();
+    } catch (error) {
+      console.error('Failed to get temperature reading:', error);
+      throw error;
+    }
 
-  // Continue with real sensor readings if not in simulation mode
-  // Get temperature first
-  let waterTemp: number;
-  try {
-    waterTemp = await getTemperatureReading();
-  } catch (error) {
-    console.error('Failed to get temperature reading:', error);
-    throw error;
-  }
-
-  try {
-    // Set temperature compensation for both pH and EC sensors
-    await setTemperatureCompensation(waterTemp);
-  } catch (error) {
-    console.error('Failed to set temperature compensation:', error);
-    // Continue with readings even if compensation fails
-  }
-  
-  // Get pH and EC readings in parallel for efficiency
-  try {
+    try {
+      // Set temperature compensation for both pH and EC sensors
+      await setTemperatureCompensation(waterTemp);
+    } catch (error) {
+      console.error('Failed to set temperature compensation:', error);
+      // Continue with readings even if compensation fails
+    }
+    
+    // Get pH and EC readings in parallel for efficiency
     const [ph, ec] = await Promise.all([
       getPHReading(),
       getECReading()
@@ -280,4 +268,16 @@ export interface SensorData {
   ec: number;
   waterTemp: number;
   timestamp: string;
+}
+
+/**
+ * Check if simulation mode is enabled
+ */
+export async function isSimulationEnabled(): Promise<boolean> {
+  try {
+    const config = await getSimulationConfig();
+    return config.enabled;
+  } catch (error) {
+    return false;
+  }
 } 
