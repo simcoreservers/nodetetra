@@ -17,10 +17,10 @@ export async function POST(request: NextRequest) {
     const { schedule } = await request.json();
     
     // Validate the input
-    const validSchedules = ['Continuous', 'Timed', 'Scheduled'];
+    const validSchedules = ['Auto', 'Timed', 'Scheduled'];
     if (!validSchedules.includes(schedule)) {
       return NextResponse.json(
-        { error: 'Invalid schedule type. Must be one of: Continuous, Timed, Scheduled' },
+        { error: 'Invalid schedule type. Must be one of: Auto, Timed, Scheduled' },
         { status: 400 }
       );
     }

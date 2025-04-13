@@ -13,6 +13,7 @@ import SensorCard from "./components/SensorCard";
 import PumpStatusCard from "./components/PumpStatusCard";
 import RecentActivityCard from "./components/RecentActivityCard";
 import ActiveProfileCard from "./components/ActiveProfileCard";
+import AutoDosingCard from './components/AutoDosingCard';
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -219,14 +220,16 @@ export default function Home() {
           />
         </div>
 
-        {/* Pump Status and Recent Activity */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {/* Pump Status, Auto-Dosing and Recent Activity */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <PumpStatusCard
             pumpStatus={pumpData?.pumpStatus || null}
             isLoading={!initialLoaded && pumpsLoading}
             hasError={!!pumpError}
             errorMessage={pumpError?.message}
           />
+          
+          <AutoDosingCard />
 
           <RecentActivityCard
             events={pumpData?.recentEvents || null}
