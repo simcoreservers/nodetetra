@@ -240,13 +240,6 @@ export async function activatePump(pumpName: PumpName): Promise<void> {
       throw new Error(`Cannot activate pump with error: ${pumpStatus[pumpName].error}`);
     }
     
-    // Check if any other pump is currently active
-    const activePumps = Object.values(pumpStatus).filter(pump => pump.active && pump.name !== pumpName);
-    if (activePumps.length > 0) {
-      const activePumpName = activePumps[0].name;
-      throw new Error(`Cannot activate pump ${pumpName} while pump ${activePumpName} is active. Only one pump can run at a time.`);
-    }
-    
     const pin = PUMP_GPIO[pumpName];
     if (!pin) {
       throw new Error(`Unknown pump: ${pumpName}`);
