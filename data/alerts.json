@@ -4558,5 +4558,95 @@
     "created": "2025-04-13T22:12:10.806Z",
     "acknowledged": false,
     "resolved": false
+  },
+  {
+    "id": 457,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.94 mS/cm",
+    "timestamp": "2025-04-13T22:12:11.830Z",
+    "created": "2025-04-13T22:12:11.830Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 458,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.61",
+    "timestamp": "2025-04-13T22:12:12.843Z",
+    "created": "2025-04-13T22:12:12.843Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 459,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.08 mS/cm",
+    "timestamp": "2025-04-13T22:12:12.846Z",
+    "created": "2025-04-13T22:12:12.846Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 460,
+    "type": "EC",
+    "level": "Warning",
+    "message": "EC level above target range: 1.98 mS/cm",
+    "timestamp": "2025-04-13T22:12:13.854Z",
+    "created": "2025-04-13T22:12:13.854Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 461,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.08 mS/cm",
+    "timestamp": "2025-04-13T22:12:14.865Z",
+    "created": "2025-04-13T22:12:14.865Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 462,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.13 mS/cm",
+    "timestamp": "2025-04-13T22:12:15.889Z",
+    "created": "2025-04-13T22:12:15.889Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 463,
+    "type": "pH",
+    "level": "Warning",
+    "message": "pH level above target range: 6.54",
+    "timestamp": "2025-04-13T22:12:16.904Z",
+    "created": "2025-04-13T22:12:16.904Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 464,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.26 mS/cm",
+    "timestamp": "2025-04-13T22:12:16.909Z",
+    "created": "2025-04-13T22:12:16.909Z",
+    "acknowledged": false,
+    "resolved": false
+  },
+  {
+    "id": 465,
+    "type": "EC",
+    "level": "Critical",
+    "message": "EC level critically high: 2.40 mS/cm",
+    "timestamp": "2025-04-13T22:12:17.918Z",
+    "created": "2025-04-13T22:12:17.918Z",
+    "acknowledged": false,
+    "resolved": false
   }
 ]
