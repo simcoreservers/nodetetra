@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../components/SidebarContext";
+import { useSimulationContext } from "../components/SimulationContext";
 
 // Mock data for UI demonstration
 const mockData = {
@@ -65,6 +66,12 @@ export default function SettingsPage() {
               onClick={() => setActiveTab('network')}
             >
               Network Settings
+            </button>
+            <button 
+              className={`px-4 py-2 font-medium ${activeTab === 'simulation' ? 'text-[#00a3e0] border-b-2 border-[#00a3e0]' : 'text-gray-400'}`}
+              onClick={() => setActiveTab('simulation')}
+            >
+              Simulation
             </button>
             <button 
               className={`px-4 py-2 font-medium ${activeTab === 'backup' ? 'text-[#00a3e0] border-b-2 border-[#00a3e0]' : 'text-gray-400'}`}
@@ -240,6 +247,9 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {/* Simulation Settings */}
+        {activeTab === 'simulation' && <SimulationSettings />}
+
         {/* Backup & Restore */}
         {activeTab === 'backup' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -361,6 +371,242 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Simulation Settings Tab Component
+function SimulationSettings() {
+  const { 
+    config, 
+    isLoading, 
+    updateSimulationConfig, 
+    resetSimulation 
+  } = useSimulationContext();
+  
+  const [formState, setFormState] = useState({
+    ph: 6.0,
+    ec: 1.4,
+    waterTemp: 22.0,
+    phVariation: 0.05,
+    ecVariation: 0.03,
+    waterTempVariation: 0.2
+  });
+  
+  // Update form state when config changes
+  useEffect(() => {
+    if (config) {
+      setFormState({
+        ph: config.baseline.ph,
+        ec: config.baseline.ec,
+        waterTemp: config.baseline.waterTemp,
+        phVariation: config.variation.ph,
+        ecVariation: config.variation.ec,
+        waterTempVariation: config.variation.waterTemp
+      });
+    }
+  }, [config]);
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormState(prev => ({
+      ...prev,
+      [name]: parseFloat(value)
+    }));
+  };
+  
+  const handleApplyChanges = async () => {
+    await updateSimulationConfig({
+      baseline: {
+        ph: formState.ph,
+        ec: formState.ec,
+        waterTemp: formState.waterTemp
+      },
+      variation: {
+        ph: formState.phVariation,
+        ec: formState.ecVariation,
+        waterTemp: formState.waterTempVariation
+      }
+    });
+  };
+  
+  const handleReset = async () => {
+    await resetSimulation();
+  };
+  
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="card">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="card-title">Simulation Control</h2>
+          <SimulationToggle />
+        </div>
+        <p className="text-sm text-gray-400 mb-4">
+          Enable simulation mode to override hardware sensors with simulated data. 
+          This is useful for testing and development without physical sensors.
+        </p>
+        <div className="space-y-4 mt-6">
+          <div className="border-t border-[#333333] pt-4">
+            <h3 className="text-md font-medium mb-3">Simulation Tools</h3>
+            <button 
+              className="btn btn-secondary w-full mb-2"
+              onClick={handleReset}
+              disabled={isLoading}
+            >
+              Reset to Baseline Values
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div className="card">
+        <h2 className="card-title mb-4">Simulation Parameters</h2>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-md font-medium mb-3">Baseline Values</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm mb-2">pH Baseline</label>
+                <input 
+                  type="number" 
+                  name="ph"
+                  className="w-full bg-[#1e1e1e] border border-[#333333] rounded p-2"
+                  value={formState.ph}
+                  onChange={handleInputChange}
+                  min="0"
+                  max="14"
+                  step="0.1"
+                  disabled={isLoading}
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">EC Baseline (mS/cm)</label>
+                <input 
+                  type="number" 
+                  name="ec"
+                  className="w-full bg-[#1e1e1e] border border-[#333333] rounded p-2"
+                  value={formState.ec}
+                  onChange={handleInputChange}
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm mb-2">Temperature Baseline (°C)</label>
+              <input 
+                type="number" 
+                name="waterTemp"
+                className="w-full bg-[#1e1e1e] border border-[#333333] rounded p-2"
+                value={formState.waterTemp}
+                onChange={handleInputChange}
+                min="10"
+                max="40"
+                step="0.5"
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+          
+          <div className="border-t border-[#333333] pt-4">
+            <h3 className="text-md font-medium mb-3">Variation Settings</h3>
+            <p className="text-sm text-gray-400 mb-4">
+              Control how much the simulated values can vary from baseline.
+              Lower values create more stable readings.
+            </p>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span>pH Variation</span>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-400 mr-2">±{formState.phVariation}</span>
+                  <input 
+                    type="range" 
+                    name="phVariation"
+                    min="0.01" 
+                    max="0.2" 
+                    step="0.01" 
+                    value={formState.phVariation}
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-between">
+                <span>EC Variation</span>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-400 mr-2">±{formState.ecVariation}</span>
+                  <input 
+                    type="range" 
+                    name="ecVariation"
+                    min="0.01" 
+                    max="0.2" 
+                    step="0.01"
+                    value={formState.ecVariation}
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-between">
+                <span>Temperature Variation</span>
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-400 mr-2">±{formState.waterTempVariation}°C</span>
+                  <input 
+                    type="range" 
+                    name="waterTempVariation"
+                    min="0.1" 
+                    max="1" 
+                    step="0.1"
+                    value={formState.waterTempVariation}
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="pt-4 border-t border-[#333333]">
+            <button 
+              className="btn w-full"
+              onClick={handleApplyChanges}
+              disabled={isLoading}
+            >
+              Apply Changes
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Simulation toggle switch component
+function SimulationToggle() {
+  const { isEnabled, isLoading, toggleSimulation } = useSimulationContext();
+  
+  const handleToggle = async () => {
+    await toggleSimulation();
+  };
+  
+  return (
+    <div className="flex items-center">
+      <span className="mr-2 text-sm">{isEnabled ? 'Enabled' : 'Disabled'}</span>
+      <button
+        onClick={handleToggle}
+        disabled={isLoading}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${
+          isEnabled ? 'bg-green-500' : 'bg-gray-700'
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${
+            isEnabled ? 'translate-x-6' : 'translate-x-1'
+          }`}
+        />
+      </button>
     </div>
   );
 } 

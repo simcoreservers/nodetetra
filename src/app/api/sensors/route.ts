@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getAllSensorReadings, SensorConnectionError, SensorReadingError } from '@/app/lib/sensors';
 import { checkSensorDataForAlerts, initializeAlertSystem } from '@/app/lib/alerts';
+import { initializeSimulation } from '@/app/lib/simulation';
 
-// Initialize alert system
+// Initialize systems
 let alertSystemInitialized = false;
+let simulationSystemInitialized = false;
 
 /**
  * GET API route for fetching real-time sensor data from Atlas Scientific EZO Circuits
@@ -14,6 +16,12 @@ export async function GET() {
     if (!alertSystemInitialized) {
       await initializeAlertSystem();
       alertSystemInitialized = true;
+    }
+    
+    // Initialize simulation system if needed
+    if (!simulationSystemInitialized) {
+      await initializeSimulation();
+      simulationSystemInitialized = true;
     }
     
     // Get sensor data
@@ -37,31 +45,31 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching sensor data:', error);
     
-    // Provide specific error information based on the error type
+    // Determine error type for appropriate client response
     if (error instanceof SensorConnectionError) {
       return NextResponse.json({
-        error: error.message,
-        errorType: 'connection',
         status: 'error',
-        timestamp: new Date().toISOString()
+        error: 'Sensor connection failed. Please check sensor connections and power.',
+        errorType: 'connection',
+        message: error.message
       }, { status: 503 }); // Service Unavailable
     }
     
     if (error instanceof SensorReadingError) {
       return NextResponse.json({
-        error: error.message,
-        errorType: 'reading',
         status: 'error',
-        timestamp: new Date().toISOString()
-      }, { status: 400 }); // Bad Request
+        error: 'Sensor reading error. Sensor may need calibration or replacement.',
+        errorType: 'reading',
+        message: error.message
+      }, { status: 400 }); // Bad Request (client should handle gracefully)
     }
     
-    // Generic error fallback
+    // Generic error response
     return NextResponse.json({
-      error: `Sensor communication error: ${error instanceof Error ? error.message : String(error)}`,
-      errorType: 'unknown',
       status: 'error',
-      timestamp: new Date().toISOString()
-    }, { status: 500 });
+      error: 'Failed to get sensor data',
+      errorType: 'unknown',
+      message: error instanceof Error ? error.message : String(error)
+    }, { status: 500 }); // Internal Server Error
   }
 } 

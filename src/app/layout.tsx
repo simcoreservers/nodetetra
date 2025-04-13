@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { SidebarProvider } from "./components/SidebarContext";
+import { SimulationProvider } from "./components/SimulationContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,7 +24,9 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <SidebarProvider>
-          {children}
+          <SimulationProvider>
+            {children}
+          </SimulationProvider>
         </SidebarProvider>
       </body>
     </html>

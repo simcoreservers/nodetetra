@@ -5,6 +5,7 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { isSimulationEnabled, getSimulatedSensorReadings } from './simulation';
 
 const execAsync = promisify(exec);
 
@@ -207,6 +208,18 @@ export async function getAllSensorReadings(): Promise<{
   ec: number;
   waterTemp: number;
 }> {
+  // Check if simulation mode is enabled
+  if (await isSimulationEnabled()) {
+    // Return simulated data
+    const simulatedData = await getSimulatedSensorReadings();
+    return {
+      ph: simulatedData.ph,
+      ec: simulatedData.ec,
+      waterTemp: simulatedData.waterTemp
+    };
+  }
+
+  // Continue with real sensor readings if not in simulation mode
   // Get temperature first
   let waterTemp: number;
   try {
