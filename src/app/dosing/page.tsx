@@ -52,10 +52,10 @@ export default function DosingPage() {
   // Update local state when API data is loaded
   useEffect(() => {
     if (data) {
-      setPhUpLimit(data.settings.dosingLimits.phUp);
-      setPhDownLimit(data.settings.dosingLimits.phDown);
-      setNutrientALimit(data.settings.dosingLimits.nutrientA);
-      setNutrientBLimit(data.settings.dosingLimits.nutrientB);
+      setPhUpLimit(data.settings.dosingLimits["pH Up"] || 50);
+      setPhDownLimit(data.settings.dosingLimits["pH Down"] || 50);
+      setNutrientALimit(data.settings.dosingLimits["Nutrient A"] || 100);
+      setNutrientBLimit(data.settings.dosingLimits["Nutrient B"] || 100);
     }
   }, [data]);
 
@@ -187,28 +187,36 @@ export default function DosingPage() {
 
   const handleUpdatePhUpLimit = async () => {
     if (phUpLimit !== "") {
-      await updateDosingLimits({ phUp: Number(phUpLimit) });
+      const limits: Record<string, number> = {};
+      limits["pH Up"] = Number(phUpLimit);
+      await updateDosingLimits(limits);
       refresh();
     }
   };
 
   const handleUpdatePhDownLimit = async () => {
     if (phDownLimit !== "") {
-      await updateDosingLimits({ phDown: Number(phDownLimit) });
+      const limits: Record<string, number> = {};
+      limits["pH Down"] = Number(phDownLimit);
+      await updateDosingLimits(limits);
       refresh();
     }
   };
 
   const handleUpdateNutrientALimit = async () => {
     if (nutrientALimit !== "") {
-      await updateDosingLimits({ nutrientA: Number(nutrientALimit) });
+      const limits: Record<string, number> = {};
+      limits["Nutrient A"] = Number(nutrientALimit);
+      await updateDosingLimits(limits);
       refresh();
     }
   };
 
   const handleUpdateNutrientBLimit = async () => {
     if (nutrientBLimit !== "") {
-      await updateDosingLimits({ nutrientB: Number(nutrientBLimit) });
+      const limits: Record<string, number> = {};
+      limits["Nutrient B"] = Number(nutrientBLimit);
+      await updateDosingLimits(limits);
       refresh();
     }
   };

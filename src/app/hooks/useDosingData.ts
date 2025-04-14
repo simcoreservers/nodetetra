@@ -135,6 +135,7 @@ export function useDosingData({ refreshInterval = 30000 }: UseDosingDataProps = 
         
         setData(responseData);
         setError(null);
+        setIsLoading(false); // Ensure loading is set to false on success
         return; // Success, exit the retry loop
       } catch (err) {
         retryCount++;
@@ -173,18 +174,16 @@ export function useDosingData({ refreshInterval = 30000 }: UseDosingDataProps = 
           
           setData(mockData);
           setError(err instanceof Error ? err : new Error(String(err)));
+          setIsLoading(false); // Always ensure loading is set to false, even on error
           break;
         }
         
         // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-      } finally {
-        if (retryCount >= maxRetries) {
-          setIsLoading(false);
-        }
       }
     }
     
+    // This should only be reached if all retries fail AND the fallback data setting fails
     setIsLoading(false);
   };
 
