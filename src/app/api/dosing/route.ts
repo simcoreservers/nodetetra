@@ -25,8 +25,9 @@ async function getDosingData(): Promise<DosingData> {
       return JSON.parse(fileData);
     } catch (error) {
       console.log(`Error reading dosing file: ${error instanceof Error ? error.message : String(error)}`);
-      // If file doesn't exist or has invalid JSON, return default data
-      return {
+      
+      // Create default data
+      const defaultData: DosingData = {
         settings: {
           targetPh: {
             min: 5.8,
@@ -38,17 +39,27 @@ async function getDosingData(): Promise<DosingData> {
             max: 1.5,
             current: 1.35
           },
-          dosingSchedule: "Continuous",
           dosingLimits: {
-            phUp: 50,
-            phDown: 50,
-            nutrientA: 100,
-            nutrientB: 100
+            "pH Up": 50,
+            "pH Down": 50,
+            "Nutrient A": 100,
+            "Nutrient B": 100
+            // Additional pumps can be added dynamically as needed
           },
           timestamp: new Date().toISOString()
         },
         history: []
       };
+      
+      // Save the default data to file
+      try {
+        await saveDosingData(defaultData);
+        console.log('Created default dosing.json file');
+      } catch (saveError) {
+        console.error('Error creating default dosing file:', saveError);
+      }
+      
+      return defaultData;
     }
   } catch (error) {
     console.error(`Error accessing data directory: ${error instanceof Error ? error.message : String(error)}`);
@@ -65,12 +76,12 @@ async function getDosingData(): Promise<DosingData> {
           max: 1.5,
           current: 1.35
         },
-        dosingSchedule: "Continuous",
         dosingLimits: {
-          phUp: 50,
-          phDown: 50,
-          nutrientA: 100,
-          nutrientB: 100
+          "pH Up": 50,
+          "pH Down": 50,
+          "Nutrient A": 100,
+          "Nutrient B": 100
+          // Additional pumps can be added dynamically as needed
         },
         timestamp: new Date().toISOString()
       },
@@ -105,12 +116,12 @@ export async function GET(request: NextRequest) {
           max: 1.5,
           current: 1.35
         },
-        dosingSchedule: "Continuous",
         dosingLimits: {
-          phUp: 50,
-          phDown: 50,
-          nutrientA: 100,
-          nutrientB: 100
+          "pH Up": 50,
+          "pH Down": 50,
+          "Nutrient A": 100,
+          "Nutrient B": 100
+          // Additional pumps can be added dynamically as needed
         },
         timestamp: new Date().toISOString()
       },

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path';
 import { ProfileSettings } from '@/app/hooks/useProfileData';
 
@@ -39,7 +40,28 @@ async function saveProfiles(profiles: ProfileSettings[]): Promise<void> {
 async function getActiveProfile(): Promise<ProfileSettings | null> {
   try {
     await ensureDataDir();
+    
     try {
+      // Check if file exists
+      if (!existsSync(ACTIVE_PROFILE_FILE)) {
+        console.log("Active profile file doesn't exist, creating it with default values");
+        
+        // Get profiles
+        const profiles = await getProfiles();
+        const defaultProfileName = profiles.length > 0 ? profiles[0].name : "Default";
+        
+        // Create default active profile file
+        await fs.writeFile(
+          ACTIVE_PROFILE_FILE, 
+          JSON.stringify({ activeName: defaultProfileName }, null, 2),
+          'utf8'
+        );
+        
+        // Return the active profile
+        return profiles.length > 0 ? profiles[0] : null;
+      }
+      
+      // Read the existing file
       const fileData = await fs.readFile(ACTIVE_PROFILE_FILE, 'utf8');
       const activeProfileName = JSON.parse(fileData).activeName;
       

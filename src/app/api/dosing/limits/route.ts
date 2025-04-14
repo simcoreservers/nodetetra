@@ -17,18 +17,11 @@ export async function POST(request: NextRequest) {
     const limits = await request.json();
     
     // Validate the input - ensure values are numbers and greater than 0
-    const validFields = ['phUp', 'phDown', 'nutrientA', 'nutrientB'];
     const errors = [];
     
-    for (const field of Object.keys(limits)) {
-      if (!validFields.includes(field)) {
-        errors.push(`Invalid field: ${field}`);
-        continue;
-      }
-      
-      const value = limits[field];
+    for (const [pumpName, value] of Object.entries(limits)) {
       if (typeof value !== 'number' || value < 0) {
-        errors.push(`Invalid value for ${field}: must be a number >= 0`);
+        errors.push(`Invalid value for ${pumpName}: must be a number >= 0`);
       }
     }
     
@@ -42,7 +35,6 @@ export async function POST(request: NextRequest) {
       ...limits
     };
     dosingData.settings.timestamp = new Date().toISOString();
-    dosingData.timestamp = new Date().toISOString();
     
     // Save the updated data
     await fs.writeFile(DOSING_FILE, JSON.stringify(dosingData, null, 2), 'utf8');

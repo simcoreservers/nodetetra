@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path';
 import { ProfileSettings } from '@/app/hooks/useProfileData';
 
@@ -20,9 +21,38 @@ async function ensureDataDir() {
 async function getProfiles(): Promise<ProfileSettings[]> {
   try {
     await ensureDataDir();
-    const fileData = await fs.readFile(PROFILES_FILE, 'utf8');
-    return JSON.parse(fileData);
+    
+    // Check if profiles file exists
+    if (!existsSync(PROFILES_FILE)) {
+      console.log("Profiles file doesn't exist, creating it with default profile");
+      
+      // Create a default profile
+      const defaultProfile: ProfileSettings = {
+        name: "Default",
+        cropType: "General Hydroponic",
+        targetPh: { min: 5.8, max: 6.2 },
+        targetEc: { min: 1.2, max: 1.6 },
+        notes: "Default profile with general settings for most plants",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Save the default profile
+      await saveProfiles([defaultProfile]);
+      console.log("Created default profile");
+      
+      return [defaultProfile];
+    }
+    
+    try {
+      const fileData = await fs.readFile(PROFILES_FILE, 'utf8');
+      return JSON.parse(fileData);
+    } catch (parseError) {
+      console.error("Error parsing profiles file:", parseError);
+      return [];
+    }
   } catch (error) {
+    console.error(`Error in getProfiles: ${error instanceof Error ? error.message : String(error)}`);
     // If file doesn't exist or has invalid JSON, return empty array
     return [];
   }

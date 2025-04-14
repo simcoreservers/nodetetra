@@ -17,12 +17,9 @@ export interface DosingHistoryEntry {
 export interface DosingSettings {
   targetPh: PhEcRange;
   targetEc: PhEcRange;
-  dosingSchedule: 'Continuous' | 'Timed' | 'Scheduled';
+  dosingSchedule?: 'Continuous' | 'Timed' | 'Scheduled';
   dosingLimits: {
-    phUp: number;
-    phDown: number;
-    nutrientA: number;
-    nutrientB: number;
+    [pumpName: string]: number; // Daily dosage limit in ml for each pump
   };
   timestamp: string;
 }
@@ -141,12 +138,12 @@ export function useDosingData({ refreshInterval = 30000 }: UseDosingDataProps = 
             max: profile ? profile.targetEc.max : 1.5,
             current: 1.35
           },
-          dosingSchedule: "Continuous",
           dosingLimits: {
-            phUp: 50,
-            phDown: 50,
-            nutrientA: 100,
-            nutrientB: 100
+            "pH Up": 50,
+            "pH Down": 50,
+            "Nutrient A": 100,
+            "Nutrient B": 100
+            // Additional pumps can be added dynamically as needed
           },
           timestamp: new Date().toISOString()
         },
