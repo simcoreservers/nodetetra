@@ -126,14 +126,36 @@ export async function initializeAlertSystem(): Promise<void> {
     if (!fs.existsSync(ALERTS_FILE)) {
       await writeFileAsync(ALERTS_FILE, JSON.stringify([], null, 2));
     } else {
-      // Load existing alerts into memory
-      const alertsData = await readFileAsync(ALERTS_FILE, 'utf8');
-      alerts = JSON.parse(alertsData);
-      
-      // Find the highest ID to set nextAlertId
-      if (alerts.length > 0) {
-        const maxId = Math.max(...alerts.map(alert => alert.id));
-        nextAlertId = maxId + 1;
+      try {
+        // Load existing alerts into memory
+        const alertsData = await readFileAsync(ALERTS_FILE, 'utf8');
+        if (!alertsData || alertsData.trim() === '') {
+          // File exists but is empty
+          console.log('Alerts file exists but is empty, initializing with empty array');
+          alerts = [];
+          await writeFileAsync(ALERTS_FILE, JSON.stringify([], null, 2));
+        } else {
+          // Try to parse the JSON
+          alerts = JSON.parse(alertsData);
+          
+          // Validate that alerts is an array
+          if (!Array.isArray(alerts)) {
+            console.log('Alerts data is not an array, resetting to empty array');
+            alerts = [];
+            await writeFileAsync(ALERTS_FILE, JSON.stringify([], null, 2));
+          } else {
+            // Find the highest ID to set nextAlertId
+            if (alerts.length > 0) {
+              const maxId = Math.max(...alerts.map(alert => alert.id));
+              nextAlertId = maxId + 1;
+            }
+          }
+        }
+      } catch (error) {
+        // Handle JSON parse error
+        console.error('Error parsing alerts file, resetting to empty array:', error);
+        alerts = [];
+        await writeFileAsync(ALERTS_FILE, JSON.stringify([], null, 2));
       }
     }
 
