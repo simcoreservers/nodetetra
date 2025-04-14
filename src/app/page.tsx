@@ -13,7 +13,6 @@ import SensorCard from "./components/SensorCard";
 import PumpStatusCard from "./components/PumpStatusCard";
 import RecentActivityCard from "./components/RecentActivityCard";
 import ActiveProfileCard from "./components/ActiveProfileCard";
-import AutoDosingCard from './components/AutoDosingCard';
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -228,8 +227,6 @@ export default function Home() {
             hasError={!!pumpError}
             errorMessage={pumpError?.message}
           />
-          
-          <AutoDosingCard />
 
           <RecentActivityCard
             events={pumpData?.recentEvents || null}
@@ -248,7 +245,7 @@ export default function Home() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Link href="/profiles" className="btn">Plant Profiles</Link>
             <Link href="/dosing" className="btn">Adjust pH</Link>
-            <Link href="/dosing" className="btn">Dose Nutrients</Link>
+            <Link href="/dosing?tab=autodosing" className="btn">Auto-Dosing</Link>
             <Link href="/pumps" className="btn">Calibrate Sensors</Link>
           </div>
         </div>

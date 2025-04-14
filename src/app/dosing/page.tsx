@@ -1,14 +1,19 @@
 "use client";
 
 import { useState, ChangeEvent, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../components/SidebarContext";
 import { useDosingData } from "../hooks/useDosingData";
+import { useAutoDosing } from "../hooks/useAutoDosing";
 
 export default function DosingPage() {
-  const [activeTab, setActiveTab] = useState<string>('settings');
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  
+  const [activeTab, setActiveTab] = useState<string>(tabParam || 'settings');
   const [activeSection, setActiveSection] = useState<string>('dosing');
   const { collapsed } = useSidebar();
   
@@ -28,6 +33,17 @@ export default function DosingPage() {
     updateDosingLimits
   } = useDosingData();
 
+  // Add auto-dosing hook
+  const {
+    config: autoDoseConfig,
+    isLoading: autoDoseLoading,
+    error: autoDoseError,
+    toggleEnabled: toggleAutoDosing,
+    updateConfig: updateAutoDoseConfig,
+    resetConfig: resetAutoDoseConfig,
+    triggerDosing: triggerAutoDosing
+  } = useAutoDosing();
+
   // Update local state when API data is loaded
   useEffect(() => {
     if (data) {
@@ -37,6 +53,36 @@ export default function DosingPage() {
       setNutrientBLimit(data.settings.dosingLimits.nutrientB);
     }
   }, [data]);
+
+  // Auto-sync the auto-dosing config with active profile when data changes
+  useEffect(() => {
+    if (data?.settings.targetPh && data?.settings.targetEc && autoDoseConfig && !autoDoseLoading) {
+      const phTarget = (data.settings.targetPh.min + data.settings.targetPh.max) / 2;
+      const phTolerance = (data.settings.targetPh.max - data.settings.targetPh.min) / 2;
+      const ecTarget = (data.settings.targetEc.min + data.settings.targetEc.max) / 2;
+      const ecTolerance = (data.settings.targetEc.max - data.settings.targetEc.min) / 2;
+      
+      // Only update if values are different to avoid unnecessary API calls
+      if (phTarget !== autoDoseConfig.targets.ph.target ||
+          phTolerance !== autoDoseConfig.targets.ph.tolerance ||
+          ecTarget !== autoDoseConfig.targets.ec.target ||
+          ecTolerance !== autoDoseConfig.targets.ec.tolerance) {
+        
+        updateAutoDoseConfig({
+          targets: {
+            ph: {
+              target: phTarget,
+              tolerance: phTolerance
+            },
+            ec: {
+              target: ecTarget,
+              tolerance: ecTolerance
+            }
+          }
+        });
+      }
+    }
+  }, [data, autoDoseConfig, autoDoseLoading, updateAutoDoseConfig]);
 
   // Remove handlers for pH and EC inputs since they're not editable
   
@@ -130,6 +176,7 @@ export default function DosingPage() {
   const tabs = [
     { id: 'settings', label: 'Settings' },
     { id: 'schedule', label: 'Schedule' },
+    { id: 'autodosing', label: 'Auto-Dosing' },
     { id: 'history', label: 'History' }
   ];
 
@@ -329,6 +376,185 @@ export default function DosingPage() {
           </div>
         )}
 
+        {activeTab === 'autodosing' && (
+          <div className="space-y-6">
+            <div className="card">
+              <div className="card-header flex justify-between items-center">
+                <h2 className="card-title">Auto-Dosing System</h2>
+                <div className="flex items-center">
+                  <span className="mr-3 text-sm text-gray-400">
+                    {autoDoseConfig?.enabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                  <button
+                    onClick={toggleAutoDosing}
+                    disabled={autoDoseLoading}
+                    className={`relative inline-flex h-6 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#00a3e0] focus:ring-offset-2 ${
+                      autoDoseConfig?.enabled ? 'bg-[#00a3e0]' : 'bg-gray-700'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        autoDoseConfig?.enabled ? 'translate-x-7' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+              <div className="mt-4">
+                <p className="text-sm text-gray-400 mb-4">
+                  Auto-dosing automatically monitors your pH and EC levels and dispenses nutrients or pH adjusters as needed to maintain optimal conditions.
+                </p>
+                {autoDoseLoading ? (
+                  <div className="flex justify-center p-4">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-[#00a3e0]"></div>
+                  </div>
+                ) : autoDoseError ? (
+                  <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg">
+                    <p className="text-red-400 text-sm">Error: {autoDoseError.message}</p>
+                  </div>
+                ) : !autoDoseConfig ? (
+                  <div className="p-3 bg-[#1e1e1e] rounded-lg">
+                    <p className="text-gray-400 text-sm">Loading auto-dosing configuration...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Status Card */}
+                    <div className="bg-[#1e1e1e] rounded-lg p-4">
+                      <h3 className="text-md font-medium mb-3">System Status</h3>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-400">Status:</p>
+                          <p className={`font-medium ${autoDoseConfig.enabled ? 'text-green-500' : 'text-yellow-500'}`}>
+                            {autoDoseConfig.enabled ? 'Active' : 'Inactive'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400">pH Target:</p>
+                          <p className="font-medium">{autoDoseConfig.targets.ph.target} ± {autoDoseConfig.targets.ph.tolerance}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400">EC Target:</p>
+                          <p className="font-medium">{autoDoseConfig.targets.ec.target} ± {autoDoseConfig.targets.ec.tolerance} mS/cm</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400">Last pH Up Dose:</p>
+                          <p className="font-medium">
+                            {autoDoseConfig.lastDose.phUp 
+                              ? new Date(autoDoseConfig.lastDose.phUp).toLocaleTimeString() 
+                              : 'Never'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400">Last pH Down Dose:</p>
+                          <p className="font-medium">
+                            {autoDoseConfig.lastDose.phDown 
+                              ? new Date(autoDoseConfig.lastDose.phDown).toLocaleTimeString() 
+                              : 'Never'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400">Last Nutrient Dose:</p>
+                          <p className="font-medium">
+                            {autoDoseConfig.lastDose.nutrient 
+                              ? new Date(autoDoseConfig.lastDose.nutrient).toLocaleTimeString() 
+                              : 'Never'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Settings Form */}
+                    <div>
+                      <h3 className="text-md font-medium mb-3">Target Settings</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* pH Target - Changed to read-only */}
+                        <div className="space-y-4">
+                          <div className="bg-[#1e1e1e] rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-gray-400">pH Target:</span>
+                              <span className="text-xl font-medium">
+                                {data?.settings.targetPh ? 
+                                  ((data.settings.targetPh.min + data.settings.targetPh.max) / 2).toFixed(2) : 
+                                  autoDoseConfig.targets.ph.target.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-gray-400">pH Tolerance (±):</span>
+                              <span className="text-xl font-medium">
+                                {data?.settings.targetPh ? 
+                                  ((data.settings.targetPh.max - data.settings.targetPh.min) / 2).toFixed(2) : 
+                                  autoDoseConfig.targets.ph.tolerance.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="mt-3 text-sm text-gray-400">
+                              <span className="text-[#00a3e0]">Note:</span> pH target is derived from your active plant profile.
+                              {activeProfile && (
+                                <span> Currently using profile "{activeProfile.name}".</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* EC Target - Changed to read-only */}
+                        <div className="space-y-4">
+                          <div className="bg-[#1e1e1e] rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-gray-400">EC Target:</span>
+                              <span className="text-xl font-medium">
+                                {data?.settings.targetEc ? 
+                                  ((data.settings.targetEc.min + data.settings.targetEc.max) / 2).toFixed(2) : 
+                                  autoDoseConfig.targets.ec.target.toFixed(2)} mS/cm
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-gray-400">EC Tolerance (±):</span>
+                              <span className="text-xl font-medium">
+                                {data?.settings.targetEc ? 
+                                  ((data.settings.targetEc.max - data.settings.targetEc.min) / 2).toFixed(2) : 
+                                  autoDoseConfig.targets.ec.tolerance.toFixed(2)} mS/cm
+                              </span>
+                            </div>
+                            <div className="mt-3 text-sm text-gray-400">
+                              <span className="text-[#00a3e0]">Note:</span> EC target is derived from your active plant profile.
+                              To change these settings, update your active profile.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Dosing Controls */}
+                    <div>
+                      <h3 className="text-md font-medium mb-3">Dosing Controls</h3>
+                      <div className="flex space-x-4">
+                        <button 
+                          className="btn"
+                          onClick={triggerAutoDosing}
+                          disabled={autoDoseLoading || !autoDoseConfig.enabled}
+                        >
+                          Run Dosing Cycle Now
+                        </button>
+                        <button 
+                          className="btn btn-secondary"
+                          onClick={resetAutoDoseConfig}
+                          disabled={autoDoseLoading}
+                        >
+                          Reset Settings
+                        </button>
+                      </div>
+                      <div className="mt-3 p-3 bg-[#1e1e1e] rounded-lg">
+                        <p className="text-sm text-gray-400">
+                          <span className="text-[#00a3e0]">Note:</span> Auto-dosing targets are automatically synchronized with your active plant profile.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'history' && (
           <div className="card mb-8">
             <div className="flex justify-between items-center mb-6">
@@ -350,9 +576,9 @@ export default function DosingPage() {
                 <tbody>
                   {data.history.map((event, index) => (
                     <tr key={index} className="border-b border-[#333333]">
-                      <td className="py-3 text-sm text-gray-400">{event.time}</td>
-                      <td className="py-3">{event.pump}</td>
-                      <td className="py-3">{event.action}</td>
+                      <td className="py-3 text-sm text-gray-400">{event.timestamp || event.time}</td>
+                      <td className="py-3">{event.pumpName || event.pump}</td>
+                      <td className="py-3">{event.action || event.event}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -95,7 +95,7 @@ const ActiveProfileCard = memo(function ActiveProfileCard({
                   <p className="font-medium">
                     {activeProfile.targetPh.min !== undefined && activeProfile.targetPh.max !== undefined
                       ? `${activeProfile.targetPh.min} - ${activeProfile.targetPh.max}`
-                      : `${(activeProfile.targetPh.target - activeProfile.targetPh.buffer).toFixed(1)} - ${(activeProfile.targetPh.target + activeProfile.targetPh.buffer).toFixed(1)}`
+                      : `${(activeProfile.targetPh.target - activeProfile.targetPh.buffer).toFixed(2)} - ${(activeProfile.targetPh.target + activeProfile.targetPh.buffer).toFixed(2)}`
                     }
                   </p>
                 </div>
@@ -104,7 +104,7 @@ const ActiveProfileCard = memo(function ActiveProfileCard({
                   <p className="font-medium">
                     {activeProfile.targetEc.min !== undefined && activeProfile.targetEc.max !== undefined
                       ? `${activeProfile.targetEc.min} - ${activeProfile.targetEc.max}`
-                      : `${(activeProfile.targetEc.target - activeProfile.targetEc.buffer).toFixed(1)} - ${(activeProfile.targetEc.target + activeProfile.targetEc.buffer).toFixed(1)}`
+                      : `${(activeProfile.targetEc.target - activeProfile.targetEc.buffer).toFixed(2)} - ${(activeProfile.targetEc.target + activeProfile.targetEc.buffer).toFixed(2)}`
                     } mS/cm
                   </p>
                 </div>

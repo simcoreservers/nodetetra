@@ -211,14 +211,14 @@ const generateGrowthSchedule = (cropType: string, duration = 8) => {
         ph: {
           target: phase.ph.target,
           buffer: phase.ph.buffer,
-          min: Math.round((phase.ph.target - phase.ph.buffer) * 10) / 10,
-          max: Math.round((phase.ph.target + phase.ph.buffer) * 10) / 10,
+          min: Math.round((phase.ph.target - phase.ph.buffer) * 100) / 100,
+          max: Math.round((phase.ph.target + phase.ph.buffer) * 100) / 100,
         },
         ec: {
           target: phase.ec.target,
           buffer: phase.ec.buffer,
-          min: Math.round((phase.ec.target - phase.ec.buffer) * 10) / 10,
-          max: Math.round((phase.ec.target + phase.ec.buffer) * 10) / 10,
+          min: Math.round((phase.ec.target - phase.ec.buffer) * 100) / 100,
+          max: Math.round((phase.ec.target + phase.ec.buffer) * 100) / 100,
         },
         pumpSettings: [],
         pumpDosages: []
@@ -238,14 +238,14 @@ const generateGrowthSchedule = (cropType: string, duration = 8) => {
         ph: {
           target: lastPhase.ph.target,
           buffer: lastPhase.ph.buffer,
-          min: Math.round((lastPhase.ph.target - lastPhase.ph.buffer) * 10) / 10,
-          max: Math.round((lastPhase.ph.target + lastPhase.ph.buffer) * 10) / 10,
+          min: Math.round((lastPhase.ph.target - lastPhase.ph.buffer) * 100) / 100,
+          max: Math.round((lastPhase.ph.target + lastPhase.ph.buffer) * 100) / 100,
         },
         ec: {
           target: lastPhase.ec.target,
           buffer: lastPhase.ec.buffer,
-          min: Math.round((lastPhase.ec.target - lastPhase.ec.buffer) * 10) / 10,
-          max: Math.round((lastPhase.ec.target + lastPhase.ec.buffer) * 10) / 10,
+          min: Math.round((lastPhase.ec.target - lastPhase.ec.buffer) * 100) / 100,
+          max: Math.round((lastPhase.ec.target + lastPhase.ec.buffer) * 100) / 100,
         },
         pumpSettings: [],
         pumpDosages: []
@@ -305,8 +305,8 @@ export default function ProfilesPage() {
         
         profile.targetPh = {
           ...profile.targetPh,
-          target: Math.round(phTarget * 10) / 10,
-          buffer: Math.round(phBuffer * 10) / 10,
+          target: Math.round(phTarget * 100) / 100,
+          buffer: Math.round(phBuffer * 100) / 100,
         };
       }
 
@@ -318,8 +318,8 @@ export default function ProfilesPage() {
         
         profile.targetEc = {
           ...profile.targetEc,
-          target: Math.round(ecTarget * 10) / 10,
-          buffer: Math.round(ecBuffer * 10) / 10,
+          target: Math.round(ecTarget * 100) / 100,
+          buffer: Math.round(ecBuffer * 100) / 100,
         };
       }
       
@@ -668,14 +668,14 @@ export default function ProfilesPage() {
       ph: { 
         target: phTarget, 
         buffer: phBuffer,
-        min: Math.round((phTarget - phBuffer) * 10) / 10,
-        max: Math.round((phTarget + phBuffer) * 10) / 10
+        min: Math.round((phTarget - phBuffer) * 100) / 100,
+        max: Math.round((phTarget + phBuffer) * 100) / 100
       },
       ec: { 
         target: ecTarget, 
         buffer: ecBuffer,
-        min: Math.round((ecTarget - ecBuffer) * 10) / 10,
-        max: Math.round((ecTarget + ecBuffer) * 10) / 10
+        min: Math.round((ecTarget - ecBuffer) * 100) / 100,
+        max: Math.round((ecTarget + ecBuffer) * 100) / 100
       },
       pumpSettings: [],
       pumpDosages: weekPumpDosages,
@@ -889,18 +889,18 @@ export default function ProfilesPage() {
                               <div>
                                 <span className="text-sm block text-gray-400">pH Setting</span>
                                 <div className="flex items-center">
-                                  <span>{profile.ph.target.toFixed(1)}</span>
-                                  <span className="text-xs text-gray-400 ml-1">±{profile.ph.buffer.toFixed(1)}</span>
+                                  <span>{profile.ph.target.toFixed(2)}</span>
+                                  <span className="text-xs text-gray-400 ml-1">±{profile.ph.buffer.toFixed(2)}</span>
                                 </div>
-                                <span className="text-xs text-gray-400">Range: {profile.ph.min?.toFixed(1)} - {profile.ph.max?.toFixed(1)}</span>
+                                <span className="text-xs text-gray-400">Range: {profile.ph.min?.toFixed(2)} - {profile.ph.max?.toFixed(2)}</span>
                               </div>
                               <div>
                                 <span className="text-sm block text-gray-400">EC Setting</span>
                                 <div className="flex items-center">
-                                  <span>{profile.ec.target.toFixed(1)}</span>
-                                  <span className="text-xs text-gray-400 ml-1">±{profile.ec.buffer.toFixed(1)} mS/cm</span>
+                                  <span>{profile.ec.target.toFixed(2)}</span>
+                                  <span className="text-xs text-gray-400 ml-1">±{profile.ec.buffer.toFixed(2)} mS/cm</span>
                                 </div>
-                                <span className="text-xs text-gray-400">Range: {profile.ec.min?.toFixed(1)} - {profile.ec.max?.toFixed(1)} mS/cm</span>
+                                <span className="text-xs text-gray-400">Range: {profile.ec.min?.toFixed(2)} - {profile.ec.max?.toFixed(2)} mS/cm</span>
                               </div>
                               <div>
                                 <span className="text-sm block text-gray-400">Growth Schedule</span>
@@ -975,7 +975,7 @@ export default function ProfilesPage() {
                                 type="range" 
                                 min="5.0" 
                                 max="7.0" 
-                                step="0.1" 
+                                step="0.01" 
                                 className="w-full mr-3"
                                 value={currentProfile.ph.target}
                                 onChange={(e) => {
@@ -986,14 +986,104 @@ export default function ProfilesPage() {
                                     ph: {
                                       ...currentProfile.ph, 
                                       target: targetValue,
-                                      min: Math.round((targetValue - buffer) * 10) / 10,
-                                      max: Math.round((targetValue + buffer) * 10) / 10
+                                      min: Math.round((targetValue - buffer) * 100) / 100,
+                                      max: Math.round((targetValue + buffer) * 100) / 100
                                     }
                                   });
                                 }}
                               />
-                              <div className="w-16 text-center px-2 py-1 bg-[#252525] rounded">
-                                {currentProfile.ph.target.toFixed(1)}
+                              <div className="flex items-center">
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center rounded-l"
+                                  title="Decrease by 0.1"
+                                  onClick={() => {
+                                    const newValue = Math.max(5.0, parseFloat((currentProfile.ph.target - 0.1).toFixed(2)));
+                                    const buffer = currentProfile.ph.buffer;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ph: {
+                                        ...currentProfile.ph, 
+                                        target: newValue,
+                                        min: Math.round((newValue - buffer) * 100) / 100,
+                                        max: Math.round((newValue + buffer) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <line x1="5" y1="8" x2="19" y2="8"></line>
+                                  </svg>
+                                </button>
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center"
+                                  title="Decrease by 0.01"
+                                  onClick={() => {
+                                    const newValue = Math.max(5.0, parseFloat((currentProfile.ph.target - 0.01).toFixed(2)));
+                                    const buffer = currentProfile.ph.buffer;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ph: {
+                                        ...currentProfile.ph, 
+                                        target: newValue,
+                                        min: Math.round((newValue - buffer) * 100) / 100,
+                                        max: Math.round((newValue + buffer) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                  </svg>
+                                </button>
+                                <div className="w-16 text-center px-2 py-1 bg-[#252525]">
+                                  {currentProfile.ph.target.toFixed(2)}
+                                </div>
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center"
+                                  title="Increase by 0.01"
+                                  onClick={() => {
+                                    const newValue = Math.min(7.0, parseFloat((currentProfile.ph.target + 0.01).toFixed(2)));
+                                    const buffer = currentProfile.ph.buffer;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ph: {
+                                        ...currentProfile.ph, 
+                                        target: newValue,
+                                        min: Math.round((newValue - buffer) * 100) / 100,
+                                        max: Math.round((newValue + buffer) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                  </svg>
+                                </button>
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center rounded-r"
+                                  title="Increase by 0.1"
+                                  onClick={() => {
+                                    const newValue = Math.min(7.0, parseFloat((currentProfile.ph.target + 0.1).toFixed(2)));
+                                    const buffer = currentProfile.ph.buffer;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ph: {
+                                        ...currentProfile.ph, 
+                                        target: newValue,
+                                        min: Math.round((newValue - buffer) * 100) / 100,
+                                        max: Math.round((newValue + buffer) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <line x1="5" y1="16" x2="19" y2="16"></line>
+                                  </svg>
+                                </button>
                               </div>
                             </div>
                             <div className="relative h-6 w-full bg-[#1e1e1e] rounded mt-2 overflow-hidden">
@@ -1031,9 +1121,9 @@ export default function ProfilesPage() {
                             <div className="flex items-center">
                               <input 
                                 type="range" 
-                                min="0.1" 
+                                min="0.01" 
                                 max="1.0" 
-                                step="0.1" 
+                                step="0.01" 
                                 className="w-full mr-3"
                                 value={currentProfile.ph.buffer}
                                 onChange={(e) => {
@@ -1043,15 +1133,105 @@ export default function ProfilesPage() {
                                     ...currentProfile,
                                     ph: {
                                       ...currentProfile.ph, 
-                                      buffer: Math.round(bufferValue * 10) / 10,
-                                      min: Math.round((target - bufferValue) * 10) / 10,
-                                      max: Math.round((target + bufferValue) * 10) / 10
+                                      buffer: Math.round(bufferValue * 100) / 100,
+                                      min: Math.round((target - bufferValue) * 100) / 100,
+                                      max: Math.round((target + bufferValue) * 100) / 100
                                     }
                                   });
                                 }}
                               />
-                              <div className="w-16 text-center px-2 py-1 bg-[#252525] rounded">
-                                {currentProfile.ph.buffer.toFixed(1)}
+                              <div className="flex items-center">
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center rounded-l"
+                                  title="Decrease by 0.1"
+                                  onClick={() => {
+                                    const newValue = Math.max(0.01, parseFloat((currentProfile.ph.buffer - 0.1).toFixed(2)));
+                                    const target = currentProfile.ph.target;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ph: {
+                                        ...currentProfile.ph, 
+                                        buffer: newValue,
+                                        min: Math.round((target - newValue) * 100) / 100,
+                                        max: Math.round((target + newValue) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <line x1="5" y1="8" x2="19" y2="8"></line>
+                                  </svg>
+                                </button>
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center"
+                                  title="Decrease by 0.01"
+                                  onClick={() => {
+                                    const newValue = Math.max(0.01, parseFloat((currentProfile.ph.buffer - 0.01).toFixed(2)));
+                                    const target = currentProfile.ph.target;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ph: {
+                                        ...currentProfile.ph, 
+                                        buffer: newValue,
+                                        min: Math.round((target - newValue) * 100) / 100,
+                                        max: Math.round((target + newValue) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                  </svg>
+                                </button>
+                                <div className="w-16 text-center px-2 py-1 bg-[#252525]">
+                                  {currentProfile.ph.buffer.toFixed(2)}
+                                </div>
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center"
+                                  title="Increase by 0.01"
+                                  onClick={() => {
+                                    const newValue = Math.min(1.0, parseFloat((currentProfile.ph.buffer + 0.01).toFixed(2)));
+                                    const target = currentProfile.ph.target;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ph: {
+                                        ...currentProfile.ph, 
+                                        buffer: newValue,
+                                        min: Math.round((target - newValue) * 100) / 100,
+                                        max: Math.round((target + newValue) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                  </svg>
+                                </button>
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center rounded-r"
+                                  title="Increase by 0.1"
+                                  onClick={() => {
+                                    const newValue = Math.min(1.0, parseFloat((currentProfile.ph.buffer + 0.1).toFixed(2)));
+                                    const target = currentProfile.ph.target;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ph: {
+                                        ...currentProfile.ph, 
+                                        buffer: newValue,
+                                        min: Math.round((target - newValue) * 100) / 100,
+                                        max: Math.round((target + newValue) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <line x1="5" y1="16" x2="19" y2="16"></line>
+                                  </svg>
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -1059,7 +1239,7 @@ export default function ProfilesPage() {
                             <div className="flex justify-between">
                               <span className="text-xs text-gray-400">Resulting Range:</span>
                               <span className="text-xs font-medium">
-                                {(currentProfile.ph.target - currentProfile.ph.buffer).toFixed(1)} - {(currentProfile.ph.target + currentProfile.ph.buffer).toFixed(1)}
+                                {(currentProfile.ph.target - currentProfile.ph.buffer).toFixed(2)} - {(currentProfile.ph.target + currentProfile.ph.buffer).toFixed(2)}
                               </span>
                             </div>
                           </div>
@@ -1075,7 +1255,7 @@ export default function ProfilesPage() {
                                 type="range" 
                                 min="0.5" 
                                 max="3.5" 
-                                step="0.1" 
+                                step="0.01" 
                                 className="w-full mr-3"
                                 value={currentProfile.ec.target}
                                 onChange={(e) => {
@@ -1086,14 +1266,104 @@ export default function ProfilesPage() {
                                     ec: {
                                       ...currentProfile.ec, 
                                       target: targetValue,
-                                      min: Math.round((targetValue - buffer) * 10) / 10,
-                                      max: Math.round((targetValue + buffer) * 10) / 10
+                                      min: Math.round((targetValue - buffer) * 100) / 100,
+                                      max: Math.round((targetValue + buffer) * 100) / 100
                                     }
                                   });
                                 }}
                               />
-                              <div className="w-16 text-center px-2 py-1 bg-[#252525] rounded">
-                                {currentProfile.ec.target.toFixed(1)}
+                              <div className="flex items-center">
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center rounded-l"
+                                  title="Decrease by 0.1"
+                                  onClick={() => {
+                                    const newValue = Math.max(0.5, parseFloat((currentProfile.ec.target - 0.1).toFixed(2)));
+                                    const buffer = currentProfile.ec.buffer;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ec: {
+                                        ...currentProfile.ec, 
+                                        target: newValue,
+                                        min: Math.round((newValue - buffer) * 100) / 100,
+                                        max: Math.round((newValue + buffer) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <line x1="5" y1="8" x2="19" y2="8"></line>
+                                  </svg>
+                                </button>
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center"
+                                  title="Decrease by 0.01"
+                                  onClick={() => {
+                                    const newValue = Math.max(0.5, parseFloat((currentProfile.ec.target - 0.01).toFixed(2)));
+                                    const buffer = currentProfile.ec.buffer;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ec: {
+                                        ...currentProfile.ec, 
+                                        target: newValue,
+                                        min: Math.round((newValue - buffer) * 100) / 100,
+                                        max: Math.round((newValue + buffer) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                  </svg>
+                                </button>
+                                <div className="w-16 text-center px-2 py-1 bg-[#252525]">
+                                  {currentProfile.ec.target.toFixed(2)}
+                                </div>
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center"
+                                  title="Increase by 0.01"
+                                  onClick={() => {
+                                    const newValue = Math.min(3.5, parseFloat((currentProfile.ec.target + 0.01).toFixed(2)));
+                                    const buffer = currentProfile.ec.buffer;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ec: {
+                                        ...currentProfile.ec, 
+                                        target: newValue,
+                                        min: Math.round((newValue - buffer) * 100) / 100,
+                                        max: Math.round((newValue + buffer) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                  </svg>
+                                </button>
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center rounded-r"
+                                  title="Increase by 0.1"
+                                  onClick={() => {
+                                    const newValue = Math.min(3.5, parseFloat((currentProfile.ec.target + 0.1).toFixed(2)));
+                                    const buffer = currentProfile.ec.buffer;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ec: {
+                                        ...currentProfile.ec, 
+                                        target: newValue,
+                                        min: Math.round((newValue - buffer) * 100) / 100,
+                                        max: Math.round((newValue + buffer) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <line x1="5" y1="16" x2="19" y2="16"></line>
+                                  </svg>
+                                </button>
                               </div>
                             </div>
                             <div className="relative h-6 w-full bg-[#1e1e1e] rounded mt-2 overflow-hidden">
@@ -1129,9 +1399,9 @@ export default function ProfilesPage() {
                             <div className="flex items-center">
                               <input 
                                 type="range" 
-                                min="0.1" 
+                                min="0.01" 
                                 max="1.0" 
-                                step="0.1" 
+                                step="0.01" 
                                 className="w-full mr-3"
                                 value={currentProfile.ec.buffer}
                                 onChange={(e) => {
@@ -1141,15 +1411,105 @@ export default function ProfilesPage() {
                                     ...currentProfile,
                                     ec: {
                                       ...currentProfile.ec, 
-                                      buffer: Math.round(bufferValue * 10) / 10,
-                                      min: Math.round((target - bufferValue) * 10) / 10,
-                                      max: Math.round((target + bufferValue) * 10) / 10
+                                      buffer: Math.round(bufferValue * 100) / 100,
+                                      min: Math.round((target - bufferValue) * 100) / 100,
+                                      max: Math.round((target + bufferValue) * 100) / 100
                                     }
                                   });
                                 }}
                               />
-                              <div className="w-16 text-center px-2 py-1 bg-[#252525] rounded">
-                                {currentProfile.ec.buffer.toFixed(1)}
+                              <div className="flex items-center">
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center rounded-l"
+                                  title="Decrease by 0.1"
+                                  onClick={() => {
+                                    const newValue = Math.max(0.01, parseFloat((currentProfile.ec.buffer - 0.1).toFixed(2)));
+                                    const target = currentProfile.ec.target;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ec: {
+                                        ...currentProfile.ec, 
+                                        buffer: newValue,
+                                        min: Math.round((target - newValue) * 100) / 100,
+                                        max: Math.round((target + newValue) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <line x1="5" y1="8" x2="19" y2="8"></line>
+                                  </svg>
+                                </button>
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center"
+                                  title="Decrease by 0.01"
+                                  onClick={() => {
+                                    const newValue = Math.max(0.01, parseFloat((currentProfile.ec.buffer - 0.01).toFixed(2)));
+                                    const target = currentProfile.ec.target;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ec: {
+                                        ...currentProfile.ec, 
+                                        buffer: newValue,
+                                        min: Math.round((target - newValue) * 100) / 100,
+                                        max: Math.round((target + newValue) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                  </svg>
+                                </button>
+                                <div className="w-16 text-center px-2 py-1 bg-[#252525]">
+                                  {currentProfile.ec.buffer.toFixed(2)}
+                                </div>
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center"
+                                  title="Increase by 0.01"
+                                  onClick={() => {
+                                    const newValue = Math.min(1.0, parseFloat((currentProfile.ec.buffer + 0.01).toFixed(2)));
+                                    const target = currentProfile.ec.target;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ec: {
+                                        ...currentProfile.ec, 
+                                        buffer: newValue,
+                                        min: Math.round((target - newValue) * 100) / 100,
+                                        max: Math.round((target + newValue) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                  </svg>
+                                </button>
+                                <button 
+                                  className="bg-[#1e1e1e] hover:bg-[#333] text-gray-300 w-8 h-8 flex items-center justify-center rounded-r"
+                                  title="Increase by 0.1"
+                                  onClick={() => {
+                                    const newValue = Math.min(1.0, parseFloat((currentProfile.ec.buffer + 0.1).toFixed(2)));
+                                    const target = currentProfile.ec.target;
+                                    setCurrentProfile({
+                                      ...currentProfile,
+                                      ec: {
+                                        ...currentProfile.ec, 
+                                        buffer: newValue,
+                                        min: Math.round((target - newValue) * 100) / 100,
+                                        max: Math.round((target + newValue) * 100) / 100
+                                      }
+                                    });
+                                  }}
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <line x1="5" y1="16" x2="19" y2="16"></line>
+                                  </svg>
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -1157,7 +1517,7 @@ export default function ProfilesPage() {
                             <div className="flex justify-between">
                               <span className="text-xs text-gray-400">Resulting Range:</span>
                               <span className="text-xs font-medium">
-                                {(currentProfile.ec.target - currentProfile.ec.buffer).toFixed(1)} - {(currentProfile.ec.target + currentProfile.ec.buffer).toFixed(1)} mS/cm
+                                {(currentProfile.ec.target - currentProfile.ec.buffer).toFixed(2)} - {(currentProfile.ec.target + currentProfile.ec.buffer).toFixed(2)} mS/cm
                               </span>
                             </div>
                           </div>
@@ -1221,8 +1581,8 @@ export default function ProfilesPage() {
                               <div className="w-1/6 px-2 font-medium">Week {week.week}</div>
                               <div className="w-1/4 px-2">{week.growthPhase}</div>
                               <div className="w-1/4 px-2">
-                                <div className="text-xs">pH: {week.ph.target.toFixed(1)} ±{week.ph.buffer.toFixed(1)}</div>
-                                <div className="text-xs">EC: {week.ec.target.toFixed(1)} ±{week.ec.buffer.toFixed(1)}</div>
+                                <div className="text-xs">pH: {week.ph.target.toFixed(2)} ±{week.ph.buffer.toFixed(2)}</div>
+                                <div className="text-xs">EC: {week.ec.target.toFixed(2)} ±{week.ec.buffer.toFixed(2)}</div>
                               </div>
                               <div className="w-1/3 px-2 flex justify-end">
                                 <button 
@@ -1397,7 +1757,7 @@ export default function ProfilesPage() {
                               }`}
                               placeholder="0"
                               min="0"
-                              step="0.1"
+                              step="0.01"
                               value={currentProfile?.pumpAssignments?.find(p => p.pumpName === pump.name)?.dosage || ""}
                               onChange={(e) => {
                                 if (!currentProfile) return;
@@ -1627,7 +1987,7 @@ export default function ProfilesPage() {
                           type="number" 
                           className="w-full bg-[#121212] border border-[#333333] rounded p-2"
                           defaultValue={currentProfile?.ph?.target || 6.0}
-                          step="0.1"
+                          step="0.01"
                           id="new-week-ph-target"
                         />
                       </div>
@@ -1637,8 +1997,8 @@ export default function ProfilesPage() {
                           type="number" 
                           className="w-full bg-[#121212] border border-[#333333] rounded p-2"
                           defaultValue={currentProfile?.ph?.buffer || 0.2}
-                          step="0.1"
-                          min="0.1"
+                          step="0.01"
+                          min="0.01"
                           id="new-week-ph-buffer"
                         />
                       </div>
@@ -1653,7 +2013,7 @@ export default function ProfilesPage() {
                           type="number" 
                           className="w-full bg-[#121212] border border-[#333333] rounded p-2"
                           defaultValue={currentProfile?.ec?.target || 1.2}
-                          step="0.1"
+                          step="0.01"
                           id="new-week-ec-target"
                         />
                       </div>
@@ -1663,8 +2023,8 @@ export default function ProfilesPage() {
                           type="number" 
                           className="w-full bg-[#121212] border border-[#333333] rounded p-2"
                           defaultValue={currentProfile?.ec?.buffer || 0.2}
-                          step="0.1"
-                          min="0.1"
+                          step="0.01"
+                          min="0.01"
                           id="new-week-ec-buffer"
                         />
                       </div>
@@ -1707,7 +2067,7 @@ export default function ProfilesPage() {
                             className="w-20 bg-[#1e1e1e] border border-[#333333] rounded p-2 text-center mr-2"
                             placeholder="0"
                             min="0"
-                            step="0.1"
+                            step="0.01"
                             defaultValue={0}
                             id={`new-week-pump-${pump.name}`}
                           />
@@ -1757,14 +2117,14 @@ export default function ProfilesPage() {
                         ph: { 
                           target: phTarget, 
                           buffer: phBuffer,
-                          min: Math.round((phTarget - phBuffer) * 10) / 10,
-                          max: Math.round((phTarget + phBuffer) * 10) / 10
+                          min: Math.round((phTarget - phBuffer) * 100) / 100,
+                          max: Math.round((phTarget + phBuffer) * 100) / 100
                         },
                         ec: { 
                           target: ecTarget, 
                           buffer: ecBuffer,
-                          min: Math.round((ecTarget - ecBuffer) * 10) / 10,
-                          max: Math.round((ecTarget + ecBuffer) * 10) / 10
+                          min: Math.round((ecTarget - ecBuffer) * 100) / 100,
+                          max: Math.round((ecTarget + ecBuffer) * 100) / 100
                         },
                         pumpSettings: [],
                         pumpDosages: weekPumpDosages,
@@ -1812,7 +2172,7 @@ export default function ProfilesPage() {
                           type="number" 
                           className="w-full bg-[#121212] border border-[#333333] rounded p-2"
                           defaultValue={currentProfile.schedule[editingWeekIndex].ph.target}
-                          step="0.1"
+                          step="0.01"
                           id="edit-week-ph-target"
                         />
                       </div>
@@ -1822,8 +2182,8 @@ export default function ProfilesPage() {
                           type="number" 
                           className="w-full bg-[#121212] border border-[#333333] rounded p-2"
                           defaultValue={currentProfile.schedule[editingWeekIndex].ph.buffer}
-                          step="0.1"
-                          min="0.1"
+                          step="0.01"
+                          min="0.01"
                           id="edit-week-ph-buffer"
                         />
                       </div>
@@ -1838,7 +2198,7 @@ export default function ProfilesPage() {
                           type="number" 
                           className="w-full bg-[#121212] border border-[#333333] rounded p-2"
                           defaultValue={currentProfile.schedule[editingWeekIndex].ec.target}
-                          step="0.1"
+                          step="0.01"
                           id="edit-week-ec-target"
                         />
                       </div>
@@ -1848,8 +2208,8 @@ export default function ProfilesPage() {
                           type="number" 
                           className="w-full bg-[#121212] border border-[#333333] rounded p-2"
                           defaultValue={currentProfile.schedule[editingWeekIndex].ec.buffer}
-                          step="0.1"
-                          min="0.1"
+                          step="0.01"
+                          min="0.01"
                           id="edit-week-ec-buffer"
                         />
                       </div>
@@ -1897,7 +2257,7 @@ export default function ProfilesPage() {
                               className="w-20 bg-[#1e1e1e] border border-[#333333] rounded p-2 text-center mr-2"
                               placeholder="0"
                               min="0"
-                              step="0.1"
+                              step="0.01"
                               defaultValue={weekDosage}
                               id={`edit-week-pump-${pump.name}`}
                             />
@@ -1948,14 +2308,14 @@ export default function ProfilesPage() {
                         ph: { 
                           target: phTarget, 
                           buffer: phBuffer,
-                          min: Math.round((phTarget - phBuffer) * 10) / 10,
-                          max: Math.round((phTarget + phBuffer) * 10) / 10
+                          min: Math.round((phTarget - phBuffer) * 100) / 100,
+                          max: Math.round((phTarget + phBuffer) * 100) / 100
                         },
                         ec: { 
                           target: ecTarget, 
                           buffer: ecBuffer,
-                          min: Math.round((ecTarget - ecBuffer) * 10) / 10,
-                          max: Math.round((ecTarget + ecBuffer) * 10) / 10
+                          min: Math.round((ecTarget - ecBuffer) * 100) / 100,
+                          max: Math.round((ecTarget + ecBuffer) * 100) / 100
                         },
                         pumpDosages: weekPumpDosages,
                         growthPhase: weekGrowthPhase
