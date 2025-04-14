@@ -774,12 +774,13 @@ export async function performAutoDosing(): Promise<{
   
   // Get the latest sensor readings
   let sensorData: SensorData;
+  let isSimulation = false;
   
   try {
     // Check if we should use simulated readings
-    let isSimulation: boolean;
     try {
       isSimulation = await isSimulationEnabled();
+      console.log(`[performAutoDosing] Simulation mode is ${isSimulation ? 'ENABLED' : 'DISABLED'}`);
     } catch (error) {
       console.error('Error checking simulation status, assuming not enabled:', error);
       isSimulation = false;
@@ -788,6 +789,7 @@ export async function performAutoDosing(): Promise<{
     if (isSimulation) {
       try {
         sensorData = await getSimulatedSensorReadings();
+        console.log(`[performAutoDosing] Using SIMULATED readings: pH=${sensorData.ph}, EC=${sensorData.ec}`);
       } catch (error) {
         console.error('Error getting simulated readings:', error);
         return { 
@@ -802,6 +804,7 @@ export async function performAutoDosing(): Promise<{
           ...readings,
           timestamp: new Date().toISOString()
         };
+        console.log(`[performAutoDosing] Using REAL readings: pH=${sensorData.ph}, EC=${sensorData.ec}`);
       } catch (error) {
         console.error('Error getting sensor readings:', error);
         return { 
@@ -835,29 +838,37 @@ export async function performAutoDosing(): Promise<{
     return false;
   };
   
-  // Get pump status to make sure we don't interfere with active pumps
-  let pumpStatus;
-  try {
-    pumpStatus = getAllPumpStatus();
-  } catch (error) {
-    console.error('Error getting pump status:', error);
-    return { 
-      action: 'error', 
-      details: { error: `Failed to get pump status: ${error}` } 
-    };
-  }
+  // Skip pump status check in simulation mode
+  let pumpStatus: any[] = [];
+  let activePumps: string[] = [];
   
-  const activePumps = pumpStatus.filter(pump => pump.active).map(pump => pump.name);
-  
-  if (activePumps.length > 0) {
-    return { 
-      action: 'waiting', 
-      details: { reason: `Active pumps detected: ${activePumps.join(', ')}` } 
-    };
+  if (!isSimulation) {
+    // Only check real pump status in non-simulation mode
+    try {
+      pumpStatus = getAllPumpStatus();
+      activePumps = pumpStatus.filter(pump => pump.active).map(pump => pump.name);
+      
+      if (activePumps.length > 0) {
+        console.log(`[performAutoDosing] Active pumps detected: ${activePumps.join(', ')}`);
+        return { 
+          action: 'waiting', 
+          details: { reason: `Active pumps detected: ${activePumps.join(', ')}` } 
+        };
+      }
+    } catch (error) {
+      console.error('Error getting pump status:', error);
+      return { 
+        action: 'error', 
+        details: { error: `Failed to get pump status: ${error}` } 
+      };
+    }
+  } else {
+    console.log('[performAutoDosing] Skipping active pump check in simulation mode');
   }
   
   // Check if pH is too low (need to add pH Up)
   if (sensorData.ph < (dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance)) {
+    console.log(`[performAutoDosing] pH too low: ${sensorData.ph}, target: ${dosingConfig.targets.ph.target}`);
     // pH is too low, need to add pH Up solution
     if (canDose('phUp')) {
       try {
@@ -874,9 +885,14 @@ export async function performAutoDosing(): Promise<{
         const amount = dosingConfig.dosing.phUp.doseAmount;
         const flowRate = dosingConfig.dosing.phUp.flowRate;
         
-        await dispensePump(pumpName, amount, flowRate);
+        if (!isSimulation) {
+          // Only dispense in non-simulation mode
+          await dispensePump(pumpName, amount, flowRate);
+        } else {
+          console.log(`[performAutoDosing] SIMULATION: Would dispense ${amount}ml from ${pumpName} at ${flowRate}ml/s`);
+        }
         
-        // Record the dose
+        // Record the dose in both real and simulation modes
         recordDose('phUp');
         
         return {
@@ -885,6 +901,7 @@ export async function performAutoDosing(): Promise<{
             type: 'pH Up',
             amount,
             pumpName,
+            simulated: isSimulation,
             reason: `pH ${sensorData.ph} below target range (${dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance})`
           }
         };
@@ -911,6 +928,7 @@ export async function performAutoDosing(): Promise<{
   
   // Check if pH is too high (need to add pH Down)
   if (sensorData.ph > (dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance)) {
+    console.log(`[performAutoDosing] pH too high: ${sensorData.ph}, target: ${dosingConfig.targets.ph.target}`);
     // pH is too high, need to add pH Down solution
     if (canDose('phDown')) {
       try {
@@ -927,9 +945,14 @@ export async function performAutoDosing(): Promise<{
         const amount = dosingConfig.dosing.phDown.doseAmount;
         const flowRate = dosingConfig.dosing.phDown.flowRate;
         
-        await dispensePump(pumpName, amount, flowRate);
+        if (!isSimulation) {
+          // Only dispense in non-simulation mode
+          await dispensePump(pumpName, amount, flowRate);
+        } else {
+          console.log(`[performAutoDosing] SIMULATION: Would dispense ${amount}ml from ${pumpName} at ${flowRate}ml/s`);
+        }
         
-        // Record the dose
+        // Record the dose in both real and simulation modes
         recordDose('phDown');
         
         return {
@@ -938,6 +961,7 @@ export async function performAutoDosing(): Promise<{
             type: 'pH Down',
             amount,
             pumpName,
+            simulated: isSimulation,
             reason: `pH ${sensorData.ph} above target range (${dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance})`
           }
         };
@@ -964,6 +988,7 @@ export async function performAutoDosing(): Promise<{
   
   // Check if EC is too low (need to add nutrients)
   if (sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
+    console.log(`[performAutoDosing] EC too low: ${sensorData.ec}, target: ${dosingConfig.targets.ec.target}`);
     // EC is too low, need to add nutrient solutions
     
     try {
@@ -988,13 +1013,21 @@ export async function performAutoDosing(): Promise<{
           const pump = dosingConfig.dosing.nutrientPumps[pumpName];
           const { doseAmount, flowRate } = pump;
           
-          await dispensePump(pumpName as PumpName, doseAmount, flowRate);
+          if (!isSimulation) {
+            // Only dispense in non-simulation mode
+            await dispensePump(pumpName as PumpName, doseAmount, flowRate);
+          } else {
+            console.log(`[performAutoDosing] SIMULATION: Would dispense ${doseAmount}ml from ${pumpName} at ${flowRate}ml/s`);
+          }
+          
+          // Record the dose in both real and simulation modes
           recordNutrientDose(pumpName);
           
           dispensed.push({
             type: 'Nutrient',
             amount: doseAmount,
-            pumpName: pumpName
+            pumpName: pumpName,
+            simulated: isSimulation
           });
           
           anyNutrientDosed = true;
@@ -1007,6 +1040,7 @@ export async function performAutoDosing(): Promise<{
           details: {
             type: 'Nutrients',
             dispensed,
+            simulated: isSimulation,
             reason: `EC ${sensorData.ec} below target range (${dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance})`
           }
         };
