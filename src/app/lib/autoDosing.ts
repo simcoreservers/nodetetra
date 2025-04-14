@@ -320,7 +320,7 @@ export async function syncProfilePumps(): Promise<boolean> {
     );
     
     // Calculate total dosage for nutrient ratio calculations
-    const totalDosage = nutrientPumps.reduce((sum, pump) => sum + (pump.dosage || 0), 0);
+    const totalDosage = nutrientPumps.reduce((sum: number, pump: PumpAssignment) => sum + (Number(pump.dosage) || 0), 0);
     let hasNutrientDosages = totalDosage > 0;
     
     console.log(`Found ${nutrientPumps.length} nutrient pumps with total dosage ${totalDosage}`);
@@ -344,7 +344,7 @@ export async function syncProfilePumps(): Promise<boolean> {
         if (hasNutrientDosages && pump.dosage) {
           // Set relative dosing based on the profile's dosage ratios
           // Store the nutrient proportion for balanced dosing
-          const proportion = totalDosage > 0 ? pump.dosage / totalDosage : 0;
+          const proportion = totalDosage > 0 ? Number(pump.dosage) / totalDosage : 0;
           // Scale the base dose amount based on relative proportion
           baseDoseAmount = Math.max(0.1, proportion * 2.5); // Minimum dose of 0.1mL, scaled by proportion
           baseDoseAmount = Math.round(baseDoseAmount * 10) / 10; // Round to 1 decimal place
@@ -358,7 +358,7 @@ export async function syncProfilePumps(): Promise<boolean> {
           flowRate: dosingConfig.dosing.nutrientPumps[pump.pumpName]?.flowRate || 1.0,
           minInterval: currentSettings.nutrientPumps[pump.pumpName] || 120, // Preserve interval if it existed
           nutrientType: nutrientInfo,
-          proportion: hasNutrientDosages && pump.dosage && totalDosage > 0 ? pump.dosage / totalDosage : null
+          proportion: hasNutrientDosages && pump.dosage && totalDosage > 0 ? Number(pump.dosage) / totalDosage : undefined
         };
         
         console.log(`Configured nutrient pump "${pump.pumpName}" with doseAmount=${baseDoseAmount}mL`);
@@ -679,6 +679,12 @@ function canDose(pumpType: 'phUp' | 'phDown'): boolean {
  * @returns Boolean indicating if dosing is allowed
  */
 function canDoseNutrient(pumpName: string): boolean {
+  // If pump doesn't exist in config, return false
+  if (!dosingConfig.dosing.nutrientPumps[pumpName]) {
+    console.log(`[canDoseNutrient] ${pumpName} - Pump not found in configuration`);
+    return false;
+  }
+
   const lastDoseTime = dosingConfig.lastDose.nutrientPumps[pumpName];
   
   // If never dosed before, allow dosing
@@ -1044,9 +1050,32 @@ export async function performAutoDosing(): Promise<{
       const nutrientPumpNames = Object.keys(dosingConfig.dosing.nutrientPumps);
       console.log(`[performAutoDosing] Found ${nutrientPumpNames.length} nutrient pumps configured`);
       
+      if (nutrientPumpNames.length === 0) {
+        console.log('[performAutoDosing] No nutrient pumps configured, skipping EC dosing');
+        return {
+          action: 'warning',
+          details: {
+            type: 'No Nutrient Pumps',
+            reason: 'EC is low but no nutrient pumps are configured'
+          }
+        };
+      }
+      
       // Get pumps that can be dosed now (passed their minimum interval)
-      const dosablePumps = nutrientPumpNames.filter(pumpName => canDoseNutrient(pumpName));
+      const dosablePumps = nutrientPumpNames.filter(pumpName => {
+        const canDose = canDoseNutrient(pumpName);
+        console.log(`[performAutoDosing] Checking if ${pumpName} can be dosed: ${canDose}`);
+        return canDose;
+      });
       console.log(`[performAutoDosing] ${dosablePumps.length} of ${nutrientPumpNames.length} pumps are available for dosing`);
+      
+      // Force debug output of all pumps' dosing status
+      console.log(`[performAutoDosing] FORCE DEBUG - ALL PUMPS STATUS:`);
+      nutrientPumpNames.forEach(pumpName => {
+        const pump = dosingConfig.dosing.nutrientPumps[pumpName];
+        const lastDose = dosingConfig.lastDose.nutrientPumps[pumpName];
+        console.log(`- ${pumpName}: minInterval=${pump.minInterval}s, lastDose=${lastDose}`);
+      });
       
       // No pumps available to dose
       if (dosablePumps.length === 0) {
@@ -1059,32 +1088,45 @@ export async function performAutoDosing(): Promise<{
         };
       }
       
-      // Growee-style balanced dosing - get nutrient ratios from profile
-      const allPumpsAvailable = nutrientPumpNames.length === dosablePumps.length;
+      // Reset the nutrient proportions object to avoid linter error
+      const nutrientProportions: Record<string, number> = {};
       let useBalancedDosing = false;
-      let nutrientProportions: Record<string, number> = {};
       
-      if (profile && profile.pumpDosages && allPumpsAvailable) {
+      // Get profile nutrient dosage information if available
+      if (profile && profile.pumpDosages) {
         // Get nutrient pumps from profile (not pH or water pumps)
-        const profileNutrientPumps = profile.pumpDosages.filter((p: any) => 
+        const profileNutrientPumps = profile.pumpDosages.filter((p: {pumpName: string, dosage: number}) => 
           p.pumpName && 
           !(p.pumpName.toLowerCase().includes('ph') || p.pumpName.toLowerCase() === 'water')
         );
         
         // Calculate total dosage to determine proportions
-        const totalDosage = profileNutrientPumps.reduce((sum: number, pump: {pumpName: string, dosage: number}) => 
-          sum + (pump.dosage || 0), 0);
+        const totalProfileDosage = profileNutrientPumps.reduce((sum: number, pump: {pumpName: string, dosage: number}) => 
+          sum + (Number(pump.dosage) || 0), 0);
         
-        if (totalDosage > 0) {
+        console.log(`[performAutoDosing] Total profile dosage: ${totalProfileDosage}`);
+        
+        if (totalProfileDosage > 0) {
           // Calculate proportions for each pump
-          profileNutrientPumps.forEach((pump: any) => {
+          profileNutrientPumps.forEach((pump: {pumpName: string, dosage: number}) => {
             if (pump.pumpName && pump.dosage) {
-              nutrientProportions[pump.pumpName] = pump.dosage / totalDosage;
+              nutrientProportions[pump.pumpName] = Number(pump.dosage) / totalProfileDosage;
+              console.log(`[performAutoDosing] Set proportion for ${pump.pumpName}: ${nutrientProportions[pump.pumpName]}`);
             }
           });
           
-          useBalancedDosing = true;
-          console.log(`[performAutoDosing] Using Growee-style balanced dosing with proportions: ${JSON.stringify(nutrientProportions)}`);
+          // Only use balanced dosing if all pumps have ratios defined
+          const allPumpsHaveRatios = dosablePumps.every(pumpName => 
+            nutrientProportions[pumpName] !== undefined && nutrientProportions[pumpName] > 0
+          );
+          
+          useBalancedDosing = allPumpsHaveRatios;
+          
+          if (useBalancedDosing) {
+            console.log(`[performAutoDosing] Using Growee-style balanced dosing with proportions: ${JSON.stringify(nutrientProportions)}`);
+          } else {
+            console.log('[performAutoDosing] Not all pumps have defined ratios, using individual dosing');
+          }
         }
       }
       
@@ -1108,22 +1150,30 @@ export async function performAutoDosing(): Promise<{
           
           const flowRate = pump.flowRate;
           
-          if (!isSimulation) {
-            await dispensePump(pumpName as PumpName, doseAmount, flowRate);
-          } else {
-            console.log(`[performAutoDosing] SIMULATION: Would dispense ${doseAmount}ml from ${pumpName} at ${flowRate}ml/s`);
+          console.log(`[performAutoDosing] ATTEMPT DOSING: ${pumpName} with ${doseAmount}ml at ${flowRate}ml/s`);
+          
+          try {
+            if (!isSimulation) {
+              await dispensePump(pumpName as PumpName, doseAmount, flowRate);
+              console.log(`[performAutoDosing] Successfully dispensed from ${pumpName}`);
+            } else {
+              console.log(`[performAutoDosing] SIMULATION: Would dispense ${doseAmount}ml from ${pumpName} at ${flowRate}ml/s`);
+            }
+            
+            // Record the dose in both real and simulation modes
+            recordNutrientDose(pumpName);
+            
+            dispensed.push({
+              type: 'Nutrient',
+              amount: doseAmount,
+              pumpName,
+              simulated: isSimulation
+            });
+            
+            anyNutrientDosed = true;
+          } catch (error) {
+            console.error(`[performAutoDosing] Error dispensing from ${pumpName}:`, error);
           }
-          
-          recordNutrientDose(pumpName);
-          
-          dispensed.push({
-            type: 'Nutrient',
-            amount: doseAmount,
-            pumpName,
-            simulated: isSimulation
-          });
-          
-          anyNutrientDosed = true;
         }
       } else {
         // Individual dosing mode - just dose each available pump independently
@@ -1134,22 +1184,30 @@ export async function performAutoDosing(): Promise<{
           const doseAmount = Math.round((pump.doseAmount * scaleFactor) * 10) / 10;
           const flowRate = pump.flowRate;
           
-          if (!isSimulation) {
-            await dispensePump(pumpName as PumpName, doseAmount, flowRate);
-          } else {
-            console.log(`[performAutoDosing] SIMULATION: Would dispense ${doseAmount}ml from ${pumpName} at ${flowRate}ml/s`);
+          console.log(`[performAutoDosing] ATTEMPT DOSING: ${pumpName} with ${doseAmount}ml at ${flowRate}ml/s`);
+          
+          try {
+            if (!isSimulation) {
+              await dispensePump(pumpName as PumpName, doseAmount, flowRate);
+              console.log(`[performAutoDosing] Successfully dispensed from ${pumpName}`);
+            } else {
+              console.log(`[performAutoDosing] SIMULATION: Would dispense ${doseAmount}ml from ${pumpName} at ${flowRate}ml/s`);
+            }
+            
+            // Record the dose in both real and simulation modes
+            recordNutrientDose(pumpName);
+            
+            dispensed.push({
+              type: 'Nutrient',
+              amount: doseAmount,
+              pumpName,
+              simulated: isSimulation
+            });
+            
+            anyNutrientDosed = true;
+          } catch (error) {
+            console.error(`[performAutoDosing] Error dispensing from ${pumpName}:`, error);
           }
-          
-          recordNutrientDose(pumpName);
-          
-          dispensed.push({
-            type: 'Nutrient',
-            amount: doseAmount,
-            pumpName,
-            simulated: isSimulation
-          });
-          
-          anyNutrientDosed = true;
         }
       }
       
@@ -1165,10 +1223,10 @@ export async function performAutoDosing(): Promise<{
         };
       } else {
         return {
-          action: 'waiting',
+          action: 'error',
           details: {
             type: 'Nutrients',
-            reason: 'No eligible nutrient pumps available for dosing'
+            reason: 'Failed to dose any nutrient pumps despite some being eligible'
           }
         };
       }
