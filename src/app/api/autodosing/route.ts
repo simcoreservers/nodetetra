@@ -43,6 +43,10 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST endpoint for updating auto-dosing configuration or triggering a dosing cycle
+ * 
+ * Note: This system only performs auto-dosing when explicitly called via this API.
+ * There are no scheduled checks - dosing only happens when triggered by the UI
+ * or directly via API calls, ensuring it only uses live sensor readings.
  */
 export async function POST(request: NextRequest) {
   try {

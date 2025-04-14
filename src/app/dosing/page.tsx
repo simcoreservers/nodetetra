@@ -256,7 +256,6 @@ export default function DosingPage() {
   // Define tabs for the Dosing section
   const tabs = [
     { id: 'settings', label: 'Settings' },
-    { id: 'schedule', label: 'Schedule' },
     { id: 'autodosing', label: 'Auto-Dosing' },
     { id: 'history', label: 'History' }
   ];
@@ -347,41 +346,13 @@ export default function DosingPage() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {activeTab === 'schedule' && (
-          <div className="card mb-8">
-            <div className="card-header">
-              <h2 className="card-title">Dosing Schedule</h2>
-            </div>
-            <div className="mt-4 space-y-6">
-              <div>
-                <label className="block text-sm mb-3">Schedule Type</label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <button 
-                    className={`btn ${data.settings.dosingSchedule === 'Continuous' ? '' : 'btn-secondary'}`}
-                    onClick={() => updateDosingSchedule('Continuous')}
-                  >
-                    Continuous
-                  </button>
-                  <button 
-                    className={`btn ${data.settings.dosingSchedule === 'Timed' ? '' : 'btn-secondary'}`}
-                    onClick={() => updateDosingSchedule('Timed')}
-                  >
-                    Timed (Every X Hours)
-                  </button>
-                  <button 
-                    className={`btn ${data.settings.dosingSchedule === 'Scheduled' ? '' : 'btn-secondary'}`}
-                    onClick={() => updateDosingSchedule('Scheduled')}
-                  >
-                    Scheduled (Specific Times)
-                  </button>
-                </div>
+            {/* Maximum Daily Dosage Limits */}
+            <div className="card md:col-span-2">
+              <div className="card-header">
+                <h2 className="card-title">Maximum Daily Dosage Limits</h2>
               </div>
-              
-              <div className="border-t border-[#333333] pt-4">
-                <label className="block text-sm mb-3">Maximum Daily Dosage Limits</label>
+              <div className="mt-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs mb-1">pH Up (ml per day)</label>
@@ -452,6 +423,9 @@ export default function DosingPage() {
                     </div>
                   </div>
                 </div>
+                <div className="mt-3 text-xs text-gray-400">
+                  <span className="text-[#00a3e0]">Note:</span> These limits prevent overdosing by capping the total amount dispensed in a 24-hour period.
+                </div>
               </div>
             </div>
           </div>
@@ -483,7 +457,7 @@ export default function DosingPage() {
               </div>
               <div className="mt-4">
                 <p className="text-sm text-gray-400 mb-4">
-                  Auto-dosing automatically monitors your pH and EC levels and dispenses nutrients or pH adjusters as needed to maintain optimal conditions.
+                  Auto-dosing continuously monitors your pH and EC levels using live sensor readings and dispenses nutrients or pH adjusters as needed to maintain optimal conditions. No scheduled checks are used - the system responds directly to current water conditions.
                 </p>
                 {autoDoseLoading ? (
                   <div className="flex justify-center p-4">

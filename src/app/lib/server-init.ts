@@ -107,22 +107,8 @@ export async function initializeServer(): Promise<void> {
  * Set up scheduled tasks that run at regular intervals
  */
 function setupScheduledTasks(): void {
-  // Schedule auto-dosing checks every 2 minutes for more responsive hydroponic system
-  const autoDoseInterval = setInterval(async () => {
-    // Create a task execution with timeout
-    try {
-      console.log('Running scheduled auto-dosing check...');
-      const result = await executeWithTimeout(
-        () => performAutoDosing(),
-        TASK_TIMEOUT,
-        'auto dosing'
-      );
-      console.log('Auto-dosing result:', result);
-    } catch (error) {
-      console.error('Error in scheduled auto-dosing:', error);
-      // Log error but continue execution, don't let the task crash the server
-    }
-  }, 2 * 60 * 1000); // 2 minutes
+  // We removed the scheduled auto-dosing check as per user requirement
+  // The system now relies only on live sensor readings triggered by user actions
   
   // Schedule profile pump sync every 15 minutes to keep auto-dosing using the correct pumps
   const profileSyncInterval = setInterval(async () => {
@@ -146,7 +132,6 @@ function setupScheduledTasks(): void {
   }, 15 * 60 * 1000); // 15 minutes
   
   // Add intervals to the tracking array
-  intervals.push(autoDoseInterval);
   intervals.push(profileSyncInterval);
   
   console.log('Scheduled tasks set up successfully');
