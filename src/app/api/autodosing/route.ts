@@ -232,8 +232,8 @@ export async function POST(request: NextRequest) {
         console.log('Manually triggering dosing cycle...');
         
         // Verify auto-dosing is enabled
-        const config = getDosingConfig();
-        if (!config.enabled) {
+        const dosingConfig = getDosingConfig();
+        if (!dosingConfig.enabled) {
           return NextResponse.json({
             error: 'Auto-dosing is disabled, enable it first',
             action: 'dose',
