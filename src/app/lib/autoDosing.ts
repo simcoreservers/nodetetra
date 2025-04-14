@@ -619,15 +619,24 @@ function canDose(pumpType: 'phUp' | 'phDown'): boolean {
   const lastDoseTime = dosingConfig.lastDose[pumpType];
   
   // If never dosed before, allow dosing
-  if (!lastDoseTime) return true;
+  if (!lastDoseTime) {
+    console.log(`[canDose] ${pumpType} - Never dosed before, allowing dose`);
+    return true;
+  }
   
   const now = new Date();
-  const timeSinceLastDose = (now.getTime() - lastDoseTime.getTime()) / 1000; // in seconds
-  const minInterval = dosingConfig.dosing[pumpType].minInterval;
+  // Ensure we're working with numbers by using Number() conversion
+  const timeSinceLastDose = Number(now.getTime() - lastDoseTime.getTime()) / 1000; // in seconds
+  const minInterval = Number(dosingConfig.dosing[pumpType].minInterval);
   
-  console.log(`[canDose] ${pumpType} - Last dose: ${lastDoseTime.toISOString()}, Time since: ${timeSinceLastDose}s, Min interval: ${minInterval}s`);
+  const canDoseNow = timeSinceLastDose >= minInterval;
+  console.log(`[canDose] ${pumpType} - Last dose: ${lastDoseTime.toISOString()}`);
+  console.log(`[canDose] ${pumpType} - Current time: ${now.toISOString()}`);
+  console.log(`[canDose] ${pumpType} - Time difference: ${timeSinceLastDose.toFixed(1)}s`);
+  console.log(`[canDose] ${pumpType} - Min interval: ${minInterval}s`);
+  console.log(`[canDose] ${pumpType} - Can dose: ${canDoseNow}`);
   
-  return timeSinceLastDose >= minInterval;
+  return canDoseNow;
 }
 
 /**
@@ -653,12 +662,18 @@ function canDoseNutrient(pumpName: string): boolean {
   }
   
   const now = new Date();
-  const timeSinceLastDose = (now.getTime() - lastDoseTime.getTime()) / 1000; // in seconds
-  const minInterval = dosingConfig.dosing.nutrientPumps[pumpName]?.minInterval || 180;
+  // Ensure we're working with numbers by using Number() conversion
+  const timeSinceLastDose = Number(now.getTime() - lastDoseTime.getTime()) / 1000; // in seconds
+  const minInterval = Number(dosingConfig.dosing.nutrientPumps[pumpName]?.minInterval || 180);
   
-  console.log(`[canDoseNutrient] ${pumpName} - Last dose: ${lastDoseTime.toISOString()}, Time since: ${timeSinceLastDose}s, Min interval: ${minInterval}s, Can dose: ${timeSinceLastDose >= minInterval}`);
+  const canDoseNow = timeSinceLastDose >= minInterval;
+  console.log(`[canDoseNutrient] ${pumpName} - Last dose: ${lastDoseTime.toISOString()}`);
+  console.log(`[canDoseNutrient] ${pumpName} - Current time: ${now.toISOString()}`);
+  console.log(`[canDoseNutrient] ${pumpName} - Time difference: ${timeSinceLastDose.toFixed(1)}s`);
+  console.log(`[canDoseNutrient] ${pumpName} - Min interval: ${minInterval}s`);
+  console.log(`[canDoseNutrient] ${pumpName} - Can dose: ${canDoseNow}`);
   
-  return timeSinceLastDose >= minInterval;
+  return canDoseNow;
 }
 
 /**
@@ -666,7 +681,12 @@ function canDoseNutrient(pumpName: string): boolean {
  * @param pumpType The type of pump dosed
  */
 function recordDose(pumpType: 'phUp' | 'phDown'): void {
-  dosingConfig.lastDose[pumpType] = new Date();
+  const now = new Date();
+  dosingConfig.lastDose[pumpType] = now;
+  console.log(`[recordDose] Recorded ${pumpType} dose at ${now.toISOString()}`);
+  
+  // Immediately save to disk to ensure timestamps are preserved across restarts
+  saveDosingConfig();
 }
 
 /**
@@ -677,7 +697,39 @@ function recordNutrientDose(pumpName: string): void {
   if (!dosingConfig.lastDose.nutrientPumps) {
     dosingConfig.lastDose.nutrientPumps = {};
   }
-  dosingConfig.lastDose.nutrientPumps[pumpName] = new Date();
+  const now = new Date();
+  dosingConfig.lastDose.nutrientPumps[pumpName] = now;
+  console.log(`[recordNutrientDose] Recorded ${pumpName} dose at ${now.toISOString()}`);
+  
+  // Immediately save to disk to ensure timestamps are preserved across restarts
+  saveDosingConfig();
+}
+
+/**
+ * Save the current dosing configuration to disk
+ * This is a utility function to ensure config is saved after recording doses
+ */
+function saveDosingConfig(): void {
+  try {
+    if (typeof window === 'undefined') {
+      // Only save on the server side
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Create data directory if it doesn't exist
+      const dataPath = path.join(process.cwd(), 'data');
+      if (!fs.existsSync(dataPath)) {
+        fs.mkdirSync(dataPath, { recursive: true });
+      }
+      
+      // Save dosing config
+      const configPath = path.join(dataPath, 'autodosing.json');
+      fs.writeFileSync(configPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
+      console.log('[saveDosingConfig] Auto-dosing config saved with updated dose timestamps');
+    }
+  } catch (error) {
+    console.error('[saveDosingConfig] Failed to save auto-dosing config:', error);
+  }
 }
 
 /**
