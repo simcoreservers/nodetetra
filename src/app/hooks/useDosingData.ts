@@ -47,114 +47,145 @@ export function useDosingData({ refreshInterval = 30000 }: UseDosingDataProps = 
 
   // Fetch active profile
   const fetchActiveProfile = async () => {
-    try {
-      console.log('Fetching active profile...');
-      const response = await fetch('/api/profiles/active', {
-        // Add cache control to avoid stale data issues
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache'
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        console.log(`Fetching active profile... (attempt ${retryCount + 1}/${maxRetries})`);
+        const response = await fetch('/api/profiles/active', {
+          // Add cache control to avoid stale data issues
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.warn('No active profile found, using default values');
+            return null;
+          }
+          console.error(`HTTP error fetching profile! status: ${response.status}`);
+          throw new Error(`HTTP error status: ${response.status}`);
         }
-      });
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.warn('No active profile found, using default values');
-          return null;
+        
+        const profileData = await response.json();
+        console.log('Successfully fetched active profile:', profileData.name);
+        return profileData;
+      } catch (err) {
+        retryCount++;
+        console.error(`Error fetching active profile (attempt ${retryCount}/${maxRetries}):`, err);
+        
+        if (retryCount >= maxRetries) {
+          console.log('Max retries reached, using default profile');
+          // Return a default profile instead of null
+          return {
+            name: "Default Profile",
+            plantType: "Generic",
+            targetPh: { min: 5.8, max: 6.2 },
+            targetEc: { min: 1.2, max: 1.6 },
+            notes: "Default profile used when error occurred",
+            createdAt: new Date().toISOString()
+          };
         }
-        console.error(`HTTP error fetching profile! status: ${response.status}`);
-        return null;
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
       }
-      
-      const profileData = await response.json();
-      console.log('Successfully fetched active profile:', profileData.name);
-      return profileData;
-    } catch (err) {
-      console.error('Error fetching active profile:', err);
-      // Return a default profile instead of null
-      return {
-        name: "Default Profile",
-        plantType: "Generic",
-        targetPh: { min: 5.8, max: 6.2 },
-        targetEc: { min: 1.2, max: 1.6 },
-        notes: "Default profile used when error occurred",
-        createdAt: new Date().toISOString()
-      };
     }
   };
 
   const fetchDosingData = async () => {
     setIsLoading(true);
-    try {
-      // First fetch the active profile to get pH and EC ranges
-      const profile = await fetchActiveProfile();
-      setActiveProfile(profile);
-      
-      console.log('Fetching dosing data...');
-      // In a real implementation, this would be a fetch to your API
-      const response = await fetch('/api/dosing', {
-        // Add cache control to avoid stale data issues
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache'
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        // First fetch the active profile to get pH and EC ranges
+        const profile = await fetchActiveProfile();
+        setActiveProfile(profile);
+        
+        console.log(`Fetching dosing data... (attempt ${retryCount + 1}/${maxRetries})`);
+        // In a real implementation, this would be a fetch to your API
+        const response = await fetch('/api/dosing', {
+          // Add cache control to avoid stale data issues
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        if (!response.ok) {
+          console.error(`HTTP error fetching dosing data! status: ${response.status}`);
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      });
-      
-      if (!response.ok) {
-        console.error(`HTTP error fetching dosing data! status: ${response.status}`);
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const responseData = await response.json();
-      console.log('Successfully fetched dosing data');
+        
+        const responseData = await response.json();
+        console.log('Successfully fetched dosing data');
 
-      // If we have an active profile, update the pH and EC target ranges from it
-      if (profile) {
-        responseData.settings.targetPh.min = profile.targetPh.min;
-        responseData.settings.targetPh.max = profile.targetPh.max;
-        responseData.settings.targetEc.min = profile.targetEc.min;
-        responseData.settings.targetEc.max = profile.targetEc.max;
+        // If we have an active profile, update the pH and EC target ranges from it
+        if (profile) {
+          responseData.settings.targetPh.min = profile.targetPh.min;
+          responseData.settings.targetPh.max = profile.targetPh.max;
+          responseData.settings.targetEc.min = profile.targetEc.min;
+          responseData.settings.targetEc.max = profile.targetEc.max;
+        }
+        
+        setData(responseData);
+        setError(null);
+        return; // Success, exit the retry loop
+      } catch (err) {
+        retryCount++;
+        console.error(`Error fetching dosing data (attempt ${retryCount}/${maxRetries}):`, err);
+        
+        if (retryCount >= maxRetries) {
+          console.log('Max retries reached, using fallback data');
+          // For development purposes, return mock data if the API isn't implemented yet
+          // REMOVE THIS IN PRODUCTION
+          const profile = await fetchActiveProfile();
+          setActiveProfile(profile);
+          
+          const mockData: DosingData = {
+            settings: {
+              targetPh: {
+                min: profile ? profile.targetPh.min : 5.8,
+                max: profile ? profile.targetPh.max : 6.2,
+                current: 6.0
+              },
+              targetEc: {
+                min: profile ? profile.targetEc.min : 1.2,
+                max: profile ? profile.targetEc.max : 1.5,
+                current: 1.35
+              },
+              dosingLimits: {
+                "pH Up": 50,
+                "pH Down": 50,
+                "Nutrient A": 100,
+                "Nutrient B": 100
+                // Additional pumps can be added dynamically as needed
+              },
+              timestamp: new Date().toISOString()
+            },
+            history: []
+          };
+          
+          setData(mockData);
+          setError(err instanceof Error ? err : new Error(String(err)));
+          break;
+        }
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      } finally {
+        if (retryCount >= maxRetries) {
+          setIsLoading(false);
+        }
       }
-      
-      setData(responseData);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching dosing data:', err);
-      
-      // For development purposes, return mock data if the API isn't implemented yet
-      // REMOVE THIS IN PRODUCTION
-      const profile = await fetchActiveProfile();
-      setActiveProfile(profile);
-      
-      const mockData: DosingData = {
-        settings: {
-          targetPh: {
-            min: profile ? profile.targetPh.min : 5.8,
-            max: profile ? profile.targetPh.max : 6.2,
-            current: 6.0
-          },
-          targetEc: {
-            min: profile ? profile.targetEc.min : 1.2,
-            max: profile ? profile.targetEc.max : 1.5,
-            current: 1.35
-          },
-          dosingLimits: {
-            "pH Up": 50,
-            "pH Down": 50,
-            "Nutrient A": 100,
-            "Nutrient B": 100
-            // Additional pumps can be added dynamically as needed
-          },
-          timestamp: new Date().toISOString()
-        },
-        history: []
-      };
-      
-      setData(mockData);
-      setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setIsLoading(false);
     }
+    
+    setIsLoading(false);
   };
 
   // Update dosing schedule
