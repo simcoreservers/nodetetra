@@ -34,6 +34,17 @@ if (typeof window === 'undefined') {
 }
 
 export function middleware(request: NextRequest) {
+  // Check if it's an auto-dosing API request that requires initialization
+  if (request.nextUrl.pathname === '/api/autodosing' && !serverInitialized) {
+    console.log('Auto-dosing API called before server initialization completed, initializing now...');
+    // Force initialization for auto-dosing API calls
+    if (!serverInitializing && !serverInitialized) {
+      initializeServerAsync().catch(err => {
+        console.error('Failed to initialize server in middleware:', err);
+      });
+    }
+  }
+  
   // Return next response without waiting for initialization
   return NextResponse.next();
 }

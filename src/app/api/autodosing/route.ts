@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
         
       case 'enable':
         // Enable auto-dosing
+        console.log('Enabling auto-dosing with configuration:', getDosingConfig());
         const enabledConfig = updateDosingConfig({ enabled: true });
         response = {
           action: 'enable',

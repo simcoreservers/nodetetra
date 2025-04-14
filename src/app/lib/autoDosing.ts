@@ -126,6 +126,10 @@ export function initializeAutoDosing(config?: Partial<DosingConfig>): DosingConf
  * Update the auto-dosing configuration
  */
 export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig {
+  const oldEnabled = dosingConfig.enabled;
+  const newEnabled = updates.enabled !== undefined ? updates.enabled : oldEnabled;
+  
+  // Update the configuration
   dosingConfig = {
     ...dosingConfig,
     ...updates,
@@ -138,6 +142,21 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
       ...(updates.dosing || {})
     }
   };
+  
+  // If auto-dosing was just enabled, log this important event
+  if (!oldEnabled && newEnabled) {
+    console.log('Auto-dosing has been enabled with configuration:', dosingConfig);
+    // Dynamically import server-init to avoid circular dependencies
+    if (typeof window === 'undefined') {
+      import('./server-init').then(({ initializeServer }) => {
+        initializeServer().catch(err => {
+          console.error('Failed to initialize server after enabling auto-dosing:', err);
+        });
+      }).catch(err => {
+        console.error('Failed to import server-init module:', err);
+      });
+    }
+  }
   
   return dosingConfig;
 }
