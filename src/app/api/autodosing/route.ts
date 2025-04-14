@@ -129,11 +129,62 @@ export async function POST(request: NextRequest) {
       case 'enable':
         // Enable auto-dosing
         console.log('Enabling auto-dosing with configuration:', getDosingConfig());
+        
+        // Store current interval settings before enabling
+        const preEnableConfig = getDosingConfig();
+        const savedEnableIntervals = {
+          phUp: preEnableConfig.dosing.phUp.minInterval,
+          phDown: preEnableConfig.dosing.phDown.minInterval,
+          nutrientPumps: {} as Record<string, number>
+        };
+        
+        // Save all nutrient pump intervals
+        Object.keys(preEnableConfig.dosing.nutrientPumps).forEach(pumpName => {
+          savedEnableIntervals.nutrientPumps[pumpName] = preEnableConfig.dosing.nutrientPumps[pumpName].minInterval;
+        });
+        
+        console.log('Saved intervals before enabling auto-dosing:', JSON.stringify(savedEnableIntervals, null, 2));
+        
+        // Enable auto-dosing
         const enabledConfig = updateDosingConfig({ enabled: true });
         
         // Check if system is operational immediately to provide feedback
-        const currentConfig = getDosingConfig();
-        if (currentConfig.enabled) {
+        const postEnableConfig = getDosingConfig();
+        
+        if (postEnableConfig.enabled) {
+          // Apply the saved interval settings
+          const restoreIntervals: Partial<DosingConfig> = {
+            dosing: {
+              phUp: {
+                ...postEnableConfig.dosing.phUp,
+                minInterval: savedEnableIntervals.phUp
+              },
+              phDown: {
+                ...postEnableConfig.dosing.phDown,
+                minInterval: savedEnableIntervals.phDown
+              },
+              nutrientPumps: {}
+            }
+          };
+          
+          // Restore all nutrient pump intervals that still exist
+          Object.keys(postEnableConfig.dosing.nutrientPumps).forEach(pumpName => {
+            if (pumpName in savedEnableIntervals.nutrientPumps) {
+              if (!restoreIntervals.dosing!.nutrientPumps) {
+                restoreIntervals.dosing!.nutrientPumps = {};
+              }
+              
+              restoreIntervals.dosing!.nutrientPumps[pumpName] = {
+                ...postEnableConfig.dosing.nutrientPumps[pumpName],
+                minInterval: savedEnableIntervals.nutrientPumps[pumpName]
+              };
+            }
+          });
+          
+          // Apply the restored interval settings
+          updateDosingConfig(restoreIntervals);
+          console.log('Restored custom interval settings after enabling auto-dosing');
+          
           // Try to get pump status for diagnostics
           let pumpInfo = "Unable to get pump status";
           try {
@@ -151,7 +202,7 @@ export async function POST(request: NextRequest) {
         
         response = {
           action: 'enable',
-          config: enabledConfig,
+          config: getDosingConfig(), // Get the fully updated config
           success: true
         };
         break;
@@ -180,9 +231,69 @@ export async function POST(request: NextRequest) {
         // Manually trigger a dosing cycle
         console.log('Manually triggering dosing cycle...');
         
+        // Store current interval settings before sync
+        const preDosingConfig = getDosingConfig();
+        const savedIntervals = {
+          phUp: preDosingConfig.dosing.phUp.minInterval,
+          phDown: preDosingConfig.dosing.phDown.minInterval,
+          nutrientPumps: {} as Record<string, number>
+        };
+        
+        // Save all nutrient pump intervals
+        Object.keys(preDosingConfig.dosing.nutrientPumps).forEach(pumpName => {
+          savedIntervals.nutrientPumps[pumpName] = preDosingConfig.dosing.nutrientPumps[pumpName].minInterval;
+        });
+        
+        console.log('Saved current intervals before sync:', JSON.stringify(savedIntervals, null, 2));
+        
         // First sync with profile pumps to ensure using the correct pumps
         try {
           await syncProfilePumps();
+          
+          // Restore the minInterval settings after sync
+          const postSyncConfig = getDosingConfig();
+          
+          // Create updates object to restore intervals
+          const intervalUpdates: Partial<DosingConfig> = {
+            dosing: {
+              phUp: {
+                ...postSyncConfig.dosing.phUp,
+                minInterval: savedIntervals.phUp
+              },
+              phDown: {
+                ...postSyncConfig.dosing.phDown,
+                minInterval: savedIntervals.phDown
+              },
+              nutrientPumps: {}
+            }
+          };
+          
+          // Restore all nutrient pump intervals that still exist
+          Object.keys(postSyncConfig.dosing.nutrientPumps).forEach(pumpName => {
+            if (pumpName in savedIntervals.nutrientPumps) {
+              if (!intervalUpdates.dosing) {
+                intervalUpdates.dosing = { 
+                  phUp: postSyncConfig.dosing.phUp,
+                  phDown: postSyncConfig.dosing.phDown,
+                  nutrientPumps: {}
+                };
+              }
+              
+              if (!intervalUpdates.dosing.nutrientPumps) {
+                intervalUpdates.dosing.nutrientPumps = {};
+              }
+              
+              intervalUpdates.dosing.nutrientPumps[pumpName] = {
+                ...postSyncConfig.dosing.nutrientPumps[pumpName],
+                minInterval: savedIntervals.nutrientPumps[pumpName]
+              };
+            }
+          });
+          
+          // Apply the interval updates
+          updateDosingConfig(intervalUpdates);
+          console.log('Restored user interval settings after sync');
+          
         } catch (err) {
           console.warn('Could not sync profile pumps before dosing:', err);
         }
