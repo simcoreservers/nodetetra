@@ -110,6 +110,55 @@ const DEFAULT_DOSING_CONFIG: DosingConfig = {
 // Current auto-dosing configuration
 let dosingConfig: DosingConfig = { ...DEFAULT_DOSING_CONFIG };
 
+// Try to load the saved configuration from disk
+try {
+  if (typeof window === 'undefined') {
+    const fs = require('fs');
+    const path = require('path');
+    
+    const dataPath = path.join(process.cwd(), 'data');
+    const configPath = path.join(dataPath, 'autodosing.json');
+    
+    if (fs.existsSync(configPath)) {
+      const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      console.log('Loading saved auto-dosing config from disk:', configPath);
+      
+      // Deep merge the saved config with defaults to ensure all properties exist
+      dosingConfig = deepMerge(DEFAULT_DOSING_CONFIG, savedConfig);
+      
+      // Convert date strings back to Date objects
+      if (dosingConfig.lastDose.phUp) {
+        dosingConfig.lastDose.phUp = new Date(dosingConfig.lastDose.phUp);
+      }
+      if (dosingConfig.lastDose.phDown) {
+        dosingConfig.lastDose.phDown = new Date(dosingConfig.lastDose.phDown);
+      }
+      
+      // Convert nutrient pump date strings back to Date objects
+      Object.keys(dosingConfig.lastDose.nutrientPumps).forEach(pumpName => {
+        const timestamp = dosingConfig.lastDose.nutrientPumps[pumpName];
+        if (timestamp) {
+          dosingConfig.lastDose.nutrientPumps[pumpName] = new Date(timestamp);
+        }
+      });
+      
+      console.log('Loaded auto-dosing configuration:', JSON.stringify({
+        'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
+        'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
+        'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
+          name,
+          minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval
+        }))
+      }, null, 2));
+    } else {
+      console.log('No existing auto-dosing config found, using defaults');
+    }
+  }
+} catch (error) {
+  console.error('Error loading auto-dosing config from disk:', error);
+  // Continue with defaults if loading fails
+}
+
 // Store the last reading to avoid duplicate dosing
 let lastReading: SensorData | null = null;
 
@@ -337,28 +386,66 @@ export async function syncProfilePumps(): Promise<boolean> {
  * Initialize the auto-dosing system with configuration
  */
 export function initializeAutoDosing(config?: Partial<DosingConfig>): DosingConfig {
-  // Merge any provided config with defaults
+  // Merge any provided config with the current config (which may have been loaded from disk)
   if (config) {
-    dosingConfig = {
-      ...dosingConfig,
-      ...config,
-      targets: {
-        ...dosingConfig.targets,
-        ...(config.targets || {})
-      },
-      dosing: {
-        ...dosingConfig.dosing,
-        ...(config.dosing || {})
-      },
-      lastDose: {
-        ...dosingConfig.lastDose,
-        ...(config.lastDose || {})
-      }
-    };
+    dosingConfig = deepMerge(dosingConfig, config);
+    console.log('Applied provided configuration during initialization');
   }
   
-  // Sync with profile pump assignments
-  syncProfilePumps().catch(err => {
+  // Store current intervals before sync
+  const currentIntervals = {
+    phUp: dosingConfig.dosing.phUp.minInterval,
+    phDown: dosingConfig.dosing.phDown.minInterval,
+    nutrientPumps: Object.fromEntries(
+      Object.keys(dosingConfig.dosing.nutrientPumps).map(name => [
+        name, 
+        dosingConfig.dosing.nutrientPumps[name].minInterval
+      ])
+    )
+  };
+  
+  // Sync with profile pump assignments, but preserve our intervals
+  syncProfilePumps().then(() => {
+    // Restore our intervals if they were overridden by the sync
+    const updates: Partial<DosingConfig> = {
+      dosing: {
+        phUp: {
+          ...dosingConfig.dosing.phUp,
+          minInterval: currentIntervals.phUp
+        },
+        phDown: {
+          ...dosingConfig.dosing.phDown,
+          minInterval: currentIntervals.phDown
+        },
+        nutrientPumps: {}
+      }
+    };
+    
+    // Update nutrient pump intervals for pumps that exist after the sync
+    Object.keys(dosingConfig.dosing.nutrientPumps).forEach(pumpName => {
+      if (pumpName in currentIntervals.nutrientPumps) {
+        if (!updates.dosing!.nutrientPumps) {
+          updates.dosing!.nutrientPumps = {};
+        }
+        updates.dosing!.nutrientPumps[pumpName] = {
+          ...dosingConfig.dosing.nutrientPumps[pumpName],
+          minInterval: currentIntervals.nutrientPumps[pumpName]
+        };
+      }
+    });
+    
+    // Apply the restored intervals
+    dosingConfig = deepMerge(dosingConfig, updates);
+    
+    console.log('Preserved minInterval settings after profile sync:', JSON.stringify({
+      phUp: dosingConfig.dosing.phUp.minInterval,
+      phDown: dosingConfig.dosing.phDown.minInterval,
+      nutrientPumps: Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
+        name,
+        minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval
+      }))
+    }, null, 2));
+  }).catch(err => {
     console.error("Failed to sync profile pumps during initialization:", err);
   });
   

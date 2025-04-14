@@ -12,7 +12,22 @@ import {
 // Initialize auto-dosing when server starts
 try {
   console.log('Initializing auto-dosing system');
+  
+  // Notice we don't pass any config parameters here to ensure we use the 
+  // configuration loaded from disk, preserving custom minInterval settings
   initializeAutoDosing();
+  
+  // Log the initialized config for verification
+  const config = getDosingConfig();
+  console.log('Auto-dosing initialized with intervals:', JSON.stringify({
+    phUp: config.dosing.phUp.minInterval,
+    phDown: config.dosing.phDown.minInterval,
+    nutrientPumps: Object.keys(config.dosing.nutrientPumps).map(name => ({
+      name,
+      minInterval: config.dosing.nutrientPumps[name].minInterval
+    }))
+  }, null, 2));
+  
 } catch (error) {
   console.error('Error initializing auto-dosing system:', error);
 }
