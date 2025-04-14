@@ -70,8 +70,36 @@ export async function POST(request: NextRequest) {
           );
         }
         
-        console.log('Updating auto-dosing configuration:', config);
+        console.log('Received update request with config:', JSON.stringify(config, null, 2));
+        
+        // Special handling for nutrient pump minInterval updates
+        if (config.dosing && config.dosing.nutrientPumps) {
+          console.log('Processing nutrient pump updates:');
+          const nutrientPumps = config.dosing.nutrientPumps;
+          
+          // Log each pump update
+          Object.keys(nutrientPumps).forEach(pumpName => {
+            const pumpConfig = nutrientPumps[pumpName];
+            console.log(`  - Pump ${pumpName}: minInterval = ${pumpConfig.minInterval}, doseAmount = ${pumpConfig.doseAmount}, flowRate = ${pumpConfig.flowRate}`);
+          });
+        }
+        
+        // Update the configuration
         const updatedConfig = updateDosingConfig(config as Partial<DosingConfig>);
+        
+        // Verify the updates were applied
+        console.log('Configuration after update:');
+        console.log(`  - pH Up minInterval: ${updatedConfig.dosing.phUp.minInterval}`);
+        console.log(`  - pH Down minInterval: ${updatedConfig.dosing.phDown.minInterval}`);
+        
+        // Verify nutrient pump updates
+        if (updatedConfig.dosing.nutrientPumps) {
+          console.log('  - Nutrient pump intervals:');
+          Object.keys(updatedConfig.dosing.nutrientPumps).forEach(pumpName => {
+            console.log(`    * ${pumpName}: ${updatedConfig.dosing.nutrientPumps[pumpName].minInterval}`);
+          });
+        }
+        
         response = {
           action: 'update',
           config: updatedConfig,

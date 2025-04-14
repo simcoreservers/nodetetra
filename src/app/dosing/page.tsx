@@ -140,29 +140,28 @@ export default function DosingPage() {
   // Handler to update minInterval settings
   const handleUpdateIntervals = async () => {
     if (autoDoseConfig) {
-      // Create properly structured update object
-      const updates: any = {};
+      // Create a complete dosing update object
+      const updates: any = {
+        dosing: {
+          phUp: { ...autoDoseConfig.dosing.phUp },
+          phDown: { ...autoDoseConfig.dosing.phDown },
+          nutrientPumps: {}
+        }
+      };
       
-      // Only include what needs to be updated
-      if (phUpInterval !== "" && phUpInterval !== autoDoseConfig.dosing.phUp.minInterval) {
-        if (!updates.dosing) updates.dosing = {};
-        if (!updates.dosing.phUp) updates.dosing.phUp = {};
+      // Update pH Up interval if provided
+      if (phUpInterval !== "") {
         updates.dosing.phUp.minInterval = Number(phUpInterval);
       }
       
-      // Update pH Down interval if changed
-      if (phDownInterval !== "" && phDownInterval !== autoDoseConfig.dosing.phDown.minInterval) {
-        if (!updates.dosing) updates.dosing = {};
-        if (!updates.dosing.phDown) updates.dosing.phDown = {};
+      // Update pH Down interval if provided
+      if (phDownInterval !== "") {
         updates.dosing.phDown.minInterval = Number(phDownInterval);
       }
       
-      // Update all nutrient pump intervals if changed
+      // Update all nutrient pump intervals if provided
       if (nutrientInterval !== "") {
-        if (!updates.dosing) updates.dosing = {};
-        if (!updates.dosing.nutrientPumps) updates.dosing.nutrientPumps = {};
-        
-        // Set the same interval for all nutrient pumps
+        // Copy all existing nutrient pumps and update their minInterval
         Object.keys(autoDoseConfig.dosing.nutrientPumps).forEach(pumpName => {
           updates.dosing.nutrientPumps[pumpName] = {
             ...autoDoseConfig.dosing.nutrientPumps[pumpName],
@@ -171,13 +170,16 @@ export default function DosingPage() {
         });
       }
       
-      console.log('Sending updates to server:', JSON.stringify(updates, null, 2));
+      console.log('Sending complete updates to server:', JSON.stringify(updates, null, 2));
       
-      // Only update if there are actual changes
-      if (Object.keys(updates).length > 0) {
-        const result = await updateAutoDoseConfig(updates);
-        console.log('Update result:', result);
-      }
+      // Always update if we have changes to make
+      const result = await updateAutoDoseConfig(updates);
+      console.log('Update result:', result);
+      
+      // Force a refresh of the config
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     }
   };
 

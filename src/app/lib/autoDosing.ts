@@ -178,11 +178,15 @@ async function getActiveProfile() {
  */
 export async function syncProfilePumps(): Promise<boolean> {
   try {
+    console.log("=== STARTING PUMP SYNC WITH PROFILE ===");
+    
     const profile = await getActiveProfile();
     if (!profile) {
       console.log("No active profile found for auto-dosing");
       return false;
     }
+
+    console.log(`Found active profile: "${profile.name}" for pump sync`);
 
     // Get all available pumps
     const pumps = getAllPumpStatus();
@@ -198,21 +202,21 @@ export async function syncProfilePumps(): Promise<boolean> {
     const phUpInterval = dosingConfig.dosing.phUp.minInterval;
     const phDownInterval = dosingConfig.dosing.phDown.minInterval;
     
+    // Log the current pump configuration
+    console.log("Current pump configuration before sync:");
+    console.log(`  pH Up pump: ${dosingConfig.dosing.phUp.pumpName}, interval: ${phUpInterval}`);
+    console.log(`  pH Down pump: ${dosingConfig.dosing.phDown.pumpName}, interval: ${phDownInterval}`);
+    console.log("  Nutrient pumps:");
+    
     // Preserve existing interval settings for nutrient pumps
     Object.keys(dosingConfig.dosing.nutrientPumps).forEach(pumpName => {
       const interval = dosingConfig.dosing.nutrientPumps[pumpName].minInterval;
       existingIntervals[pumpName] = interval;
+      console.log(`    ${pumpName}: interval=${interval}`);
     });
     
-    // Log existing intervals
-    console.log(`Existing intervals before sync:`, JSON.stringify({
-      phUp: phUpInterval,
-      phDown: phDownInterval,
-      nutrientPumps: existingIntervals
-    }, null, 2));
-    
-    // Default to current configuration first
-    let nutrientPumps = dosingConfig.dosing.nutrientPumps;
+    // Will hold final nutrient pump configuration
+    const finalNutrientPumps: Record<string, any> = {};
     
     // First try to get pump assignments from profile
     if (profile.pumpAssignments && profile.pumpAssignments.length > 0) {
@@ -225,49 +229,50 @@ export async function syncProfilePumps(): Promise<boolean> {
         p.nutrientId || p.productName || p.brandName
       ).map(p => p.pumpName as PumpName);
       
-      console.log(`Found ${nutrientPumpsFromProfile.length} nutrient pumps in profile`);
+      console.log(`Found ${nutrientPumpsFromProfile.length} nutrient pumps in profile: ${nutrientPumpsFromProfile.join(', ')}`);
       
       if (nutrientPumpsFromProfile.length > 0) {
-        // Assign nutrient pumps from profile, but preserve existing intervals where possible
-        nutrientPumps = nutrientPumpsFromProfile.reduce((acc, pumpName) => {
-          // Check if we have an existing interval for this pump
-          const existingInterval = existingIntervals[pumpName] || 180; // Default to 180 if no existing interval
+        // Assign nutrient pumps from profile, preserving existing intervals
+        nutrientPumpsFromProfile.forEach(pumpName => {
+          // If we have an existing interval for this pump, use it
+          const minInterval = existingIntervals[pumpName] || 180; // Default to 180 if no existing interval
+
+          console.log(`Assigning nutrient pump ${pumpName} with interval ${minInterval} (preserved: ${pumpName in existingIntervals})`);
           
-          acc[pumpName] = {
+          finalNutrientPumps[pumpName] = {
             doseAmount: 1.0,
             flowRate: 1.0,
-            minInterval: existingInterval
+            minInterval
           };
-          return acc;
-        }, {} as { [pumpName: string]: { doseAmount: number; flowRate: number; minInterval: number } });
+        });
       }
     } else {
       console.log("No pump assignments found in profile, checking for available pumps");
       
       // If no pump assignments in profile, look for pumps with nutrients as fallback
       const nutrientPumpsFromSystem = pumps.filter(p => p.nutrient !== null && p.nutrient !== undefined).map(p => p.name as PumpName);
-      console.log(`Found ${nutrientPumpsFromSystem.length} pumps with nutrients in system`);
+      console.log(`Found ${nutrientPumpsFromSystem.length} pumps with nutrients in system: ${nutrientPumpsFromSystem.join(', ')}`);
       
       if (nutrientPumpsFromSystem.length > 0) {
-        // Assign nutrient pumps from system, preserving existing intervals
-        nutrientPumps = nutrientPumpsFromSystem.reduce((acc, pumpName) => {
-          // Check if we have an existing interval for this pump
-          const existingInterval = existingIntervals[pumpName] || 180; // Default to 180 if no existing interval
+        // Assign nutrient pumps from system
+        nutrientPumpsFromSystem.forEach(pumpName => {
+          // If we have an existing interval for this pump, use it
+          const minInterval = existingIntervals[pumpName] || 180; // Default to 180 if no existing interval
           
-          acc[pumpName] = {
+          console.log(`Assigning system nutrient pump ${pumpName} with interval ${minInterval} (preserved: ${pumpName in existingIntervals})`);
+          
+          finalNutrientPumps[pumpName] = {
             doseAmount: 1.0,
             flowRate: 1.0,
-            minInterval: existingInterval
+            minInterval
           };
-          return acc;
-        }, {} as { [pumpName: string]: { doseAmount: number; flowRate: number; minInterval: number } });
+        });
       }
     }
 
     // Update dosingConfig with the assignments
     const updates: Partial<DosingConfig> = {
       dosing: {
-        ...dosingConfig.dosing,
         phUp: {
           ...dosingConfig.dosing.phUp,
           pumpName: phUpPump,
@@ -278,21 +283,48 @@ export async function syncProfilePumps(): Promise<boolean> {
           pumpName: phDownPump,
           minInterval: phDownInterval // Preserve existing interval
         },
-        nutrientPumps: nutrientPumps
+        nutrientPumps: finalNutrientPumps
       }
     };
 
-    // Update dosing config
-    updateDosingConfig(updates);
+    console.log("Final pump assignment update:");
+    console.log(JSON.stringify(updates, null, 2));
+
+    // Update dosing config directly without using updateDosingConfig to avoid circular calls
+    dosingConfig = deepMerge(dosingConfig, updates);
     
-    console.log("Auto-dosing pump assignments updated from active profile:", {
+    // Save the updated config
+    try {
+      if (typeof window === 'undefined') {
+        // Only save on the server side
+        const fs = require('fs');
+        const path = require('path');
+        
+        // Create data directory if it doesn't exist
+        const dataPath = path.join(process.cwd(), 'data');
+        if (!fs.existsSync(dataPath)) {
+          fs.mkdirSync(dataPath, { recursive: true });
+        }
+        
+        // Save dosing config
+        const configPath = path.join(dataPath, 'autodosing.json');
+        fs.writeFileSync(configPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
+        console.log('Pump sync: Auto-dosing config saved to:', configPath);
+      }
+    } catch (error) {
+      console.error('Failed to save auto-dosing config during pump sync:', error);
+    }
+    
+    console.log("Pump sync complete. Final configuration:", {
       phUp: { pump: phUpPump, minInterval: phUpInterval },
       phDown: { pump: phDownPump, minInterval: phDownInterval },
-      nutrientPumps: Object.keys(nutrientPumps).map(name => ({
+      nutrientPumps: Object.keys(finalNutrientPumps).map(name => ({
         name,
-        minInterval: nutrientPumps[name].minInterval
+        minInterval: finalNutrientPumps[name].minInterval
       }))
     });
+    
+    console.log("=== FINISHED PUMP SYNC WITH PROFILE ===");
     
     return true;
   } catch (error) {
