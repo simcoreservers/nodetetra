@@ -20,10 +20,39 @@ async function ensureDataDir() {
 async function getDosingData(): Promise<DosingData> {
   try {
     await ensureDataDir();
-    const fileData = await fs.readFile(DOSING_FILE, 'utf8');
-    return JSON.parse(fileData);
+    try {
+      const fileData = await fs.readFile(DOSING_FILE, 'utf8');
+      return JSON.parse(fileData);
+    } catch (error) {
+      console.log(`Error reading dosing file: ${error instanceof Error ? error.message : String(error)}`);
+      // If file doesn't exist or has invalid JSON, return default data
+      return {
+        settings: {
+          targetPh: {
+            min: 5.8,
+            max: 6.2,
+            current: 6.0
+          },
+          targetEc: {
+            min: 1.2,
+            max: 1.5,
+            current: 1.35
+          },
+          dosingSchedule: "Continuous",
+          dosingLimits: {
+            phUp: 50,
+            phDown: 50,
+            nutrientA: 100,
+            nutrientB: 100
+          },
+          timestamp: new Date().toISOString()
+        },
+        history: []
+      };
+    }
   } catch (error) {
-    // If file doesn't exist or has invalid JSON, return default data
+    console.error(`Error accessing data directory: ${error instanceof Error ? error.message : String(error)}`);
+    // Return default data on directory access error
     return {
       settings: {
         targetPh: {
@@ -63,10 +92,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(dosingData);
   } catch (error) {
     console.error('Error fetching dosing data:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch dosing data' },
-      { status: 500 }
-    );
+    // Return default data instead of an error
+    return NextResponse.json({
+      settings: {
+        targetPh: {
+          min: 5.8,
+          max: 6.2,
+          current: 6.0
+        },
+        targetEc: {
+          min: 1.2,
+          max: 1.5,
+          current: 1.35
+        },
+        dosingSchedule: "Continuous",
+        dosingLimits: {
+          phUp: 50,
+          phDown: 50,
+          nutrientA: 100,
+          nutrientB: 100
+        },
+        timestamp: new Date().toISOString()
+      },
+      history: []
+    });
   }
 }
 

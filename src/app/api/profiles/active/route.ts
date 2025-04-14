@@ -39,16 +39,23 @@ async function saveProfiles(profiles: ProfileSettings[]): Promise<void> {
 async function getActiveProfile(): Promise<ProfileSettings | null> {
   try {
     await ensureDataDir();
-    const fileData = await fs.readFile(ACTIVE_PROFILE_FILE, 'utf8');
-    const activeProfileName = JSON.parse(fileData).activeName;
-    
-    // Find the profile with this name
-    const profiles = await getProfiles();
-    return profiles.find(p => p.name === activeProfileName) || (profiles.length > 0 ? profiles[0] : null);
+    try {
+      const fileData = await fs.readFile(ACTIVE_PROFILE_FILE, 'utf8');
+      const activeProfileName = JSON.parse(fileData).activeName;
+      
+      // Find the profile with this name
+      const profiles = await getProfiles();
+      return profiles.find(p => p.name === activeProfileName) || (profiles.length > 0 ? profiles[0] : null);
+    } catch (error) {
+      console.log(`Error reading active profile file: ${error instanceof Error ? error.message : String(error)}`);
+      // If file doesn't exist or has invalid JSON, return the first profile
+      const profiles = await getProfiles();
+      return profiles.length > 0 ? profiles[0] : null;
+    }
   } catch (error) {
-    // If file doesn't exist or has invalid JSON, return the first profile
-    const profiles = await getProfiles();
-    return profiles.length > 0 ? profiles[0] : null;
+    console.error(`Error accessing data directory: ${error instanceof Error ? error.message : String(error)}`);
+    // Return null to indicate failure
+    return null;
   }
 }
 
@@ -75,19 +82,30 @@ export async function GET(request: NextRequest) {
     const activeProfile = await getActiveProfile();
     
     if (!activeProfile) {
-      return NextResponse.json(
-        { error: 'No active profile found' },
-        { status: 404 }
-      );
+      console.log('No active profile found or error accessing profile data');
+      // Return a default profile as fallback
+      return NextResponse.json({
+        name: "Default Profile",
+        plantType: "Generic",
+        targetPh: { min: 5.8, max: 6.2 },
+        targetEc: { min: 1.2, max: 1.6 },
+        notes: "Default profile used when no active profile is available",
+        createdAt: new Date().toISOString()
+      });
     }
     
     return NextResponse.json(activeProfile);
   } catch (error) {
     console.error('Error fetching active profile:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch active profile' },
-      { status: 500 }
-    );
+    // Return a generic default profile on error
+    return NextResponse.json({
+      name: "Default Profile",
+      plantType: "Generic",
+      targetPh: { min: 5.8, max: 6.2 },
+      targetEc: { min: 1.2, max: 1.6 },
+      notes: "Default profile used when error occurred",
+      createdAt: new Date().toISOString()
+    });
   }
 }
 

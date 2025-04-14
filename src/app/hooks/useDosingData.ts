@@ -51,21 +51,38 @@ export function useDosingData({ refreshInterval = 30000 }: UseDosingDataProps = 
   // Fetch active profile
   const fetchActiveProfile = async () => {
     try {
-      const response = await fetch('/api/profiles/active');
+      console.log('Fetching active profile...');
+      const response = await fetch('/api/profiles/active', {
+        // Add cache control to avoid stale data issues
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      });
       
       if (!response.ok) {
         if (response.status === 404) {
           console.warn('No active profile found, using default values');
           return null;
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        console.error(`HTTP error fetching profile! status: ${response.status}`);
+        return null;
       }
       
       const profileData = await response.json();
+      console.log('Successfully fetched active profile:', profileData.name);
       return profileData;
     } catch (err) {
       console.error('Error fetching active profile:', err);
-      return null;
+      // Return a default profile instead of null
+      return {
+        name: "Default Profile",
+        plantType: "Generic",
+        targetPh: { min: 5.8, max: 6.2 },
+        targetEc: { min: 1.2, max: 1.6 },
+        notes: "Default profile used when error occurred",
+        createdAt: new Date().toISOString()
+      };
     }
   };
 
@@ -76,14 +93,23 @@ export function useDosingData({ refreshInterval = 30000 }: UseDosingDataProps = 
       const profile = await fetchActiveProfile();
       setActiveProfile(profile);
       
+      console.log('Fetching dosing data...');
       // In a real implementation, this would be a fetch to your API
-      const response = await fetch('/api/dosing');
+      const response = await fetch('/api/dosing', {
+        // Add cache control to avoid stale data issues
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      });
       
       if (!response.ok) {
+        console.error(`HTTP error fetching dosing data! status: ${response.status}`);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const responseData = await response.json();
+      console.log('Successfully fetched dosing data');
 
       // If we have an active profile, update the pH and EC target ranges from it
       if (profile) {
