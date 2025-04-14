@@ -58,8 +58,13 @@ export class SensorCalibrationError extends Error {
  */
 async function sendCommand(address: number, command: string, sensorType: string): Promise<string> {
   try {
-    // Construct i2c-tools command (i2cset to write, i2cget to read)
-    const writeCmd = `i2cset -y 1 ${address} "${command}" i`;
+    // For Atlas Scientific EZO sensors, we need to send each character as its ASCII value
+    // Convert the command string to an array of ASCII values
+    const asciiValues = command.split('').map(char => char.charCodeAt(0));
+    
+    // Construct i2c-tools command with proper ASCII values
+    // Format: i2cset -y 1 [address] [ascii values] i
+    const writeCmd = `i2cset -y 1 ${address} ${asciiValues.join(' ')} i`;
     
     try {
       await execAsync(writeCmd);
