@@ -576,7 +576,7 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
       // Save dosing config
       const configPath = path.join(dataPath, 'autodosing.json');
       fs.writeFileSync(configPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
-      console.log('Auto-dosing config saved to:', configPath);
+      trace(MODULE, 'Auto-dosing config saved with updated dose timestamps');
     }
   } catch (error) {
     console.error('Failed to save auto-dosing config:', error);
@@ -793,12 +793,15 @@ function saveDosingConfig(): void {
 
 /**
  * Perform nutrient dosing - extracted as a separate function to ensure proper async handling
+ * @param sensorData The sensor data to base dosing on
+ * @param isSimulation Whether the sensor readings are simulated
+ * @param dispenseMode When true, always dispense regardless of simulation mode
  */
-async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean): Promise<{
+async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, dispenseMode: boolean = false): Promise<{
   action: string;
   details: any;
 }> {
-  console.log(`[doNutrientDosing] Starting nutrient dosing process for EC ${sensorData.ec}, target: ${dosingConfig.targets.ec.target}`);
+  debug(MODULE, `Starting nutrient dosing process for EC ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
   
   try {
     // Calculate how far EC is from target
@@ -806,12 +809,12 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean): 
     const ecDeviation = ecDeficit / dosingConfig.targets.ec.tolerance;
     const scaleFactor = Math.min(1 + ecDeviation, 2); // Cap at 2x dosage
     
-    console.log(`[doNutrientDosing] EC deficit: ${ecDeficit.toFixed(2)}, scale factor: ${scaleFactor.toFixed(2)}`);
+    trace(MODULE, `EC deficit: ${ecDeficit.toFixed(2)}, scale factor: ${scaleFactor.toFixed(2)}`);
     
     // Get active profile for nutrient proportions
     const profile = await getActiveProfile();
     if (!profile) {
-      console.error('[doNutrientDosing] No active profile found');
+      error(MODULE, 'No active profile found');
       return {
         action: 'error',
         details: { reason: 'No active profile found for nutrient dosing' }
@@ -821,7 +824,7 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean): 
     // Verify we have pump assignments in the profile
     const pumpDosages = profile.pumpDosages || [];
     if (pumpDosages.length === 0) {
-      console.error('[doNutrientDosing] No pump dosages defined in active profile');
+      error(MODULE, 'No pump dosages defined in active profile');
       return {
         action: 'error',
         details: { reason: 'No pump dosages defined in active profile' }
@@ -835,7 +838,7 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean): 
     );
     
     if (nutrientPumpDosages.length === 0) {
-      console.error('[doNutrientDosing] No nutrient pumps defined in active profile');
+      error(MODULE, 'No nutrient pumps defined in active profile');
       return {
         action: 'error',
         details: { reason: 'No nutrient pumps defined in active profile' }
@@ -847,50 +850,50 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean): 
       sum + (Number(pump.dosage) || 0), 0);
       
     if (totalDosage <= 0) {
-      console.error('[doNutrientDosing] Zero total dosage for nutrients in profile');
+      error(MODULE, 'Zero total dosage for nutrients in profile');
       return {
         action: 'error',
         details: { reason: 'Zero total dosage for nutrients in profile' }
       };
     }
     
-    console.log(`[doNutrientDosing] Total dosage from profile: ${totalDosage}, ${nutrientPumpDosages.length} nutrient pumps`);
+    debug(MODULE, `Total dosage from profile: ${totalDosage}, ${nutrientPumpDosages.length} nutrient pumps`);
     
     // Calculate proportions for each pump based on profile
     const nutrientProportions: Record<string, number> = {};
     nutrientPumpDosages.forEach((pump: any) => {
       if (pump.pumpName && Number(pump.dosage) > 0) {
         nutrientProportions[pump.pumpName] = Number(pump.dosage) / totalDosage;
-        console.log(`[doNutrientDosing] ${pump.pumpName}: dosage=${pump.dosage}, proportion=${nutrientProportions[pump.pumpName].toFixed(2)}`);
+        trace(MODULE, `${pump.pumpName}: dosage=${pump.dosage}, proportion=${nutrientProportions[pump.pumpName].toFixed(2)}`);
       }
     });
     
     // Get configured pumps from dosing config
     const configuredPumps = Object.keys(dosingConfig.dosing.nutrientPumps);
-    console.log(`[doNutrientDosing] Configured pumps in auto-dosing: ${configuredPumps.join(', ')}`);
+    debug(MODULE, `Configured pumps in auto-dosing: ${configuredPumps.join(', ')}`);
     
     // Check which pumps we can actually dose (based on timing)
     const dosablePumps = configuredPumps.filter(pumpName => {
       const canDose = canDoseNutrient(pumpName);
-      console.log(`[doNutrientDosing] ${pumpName} can dose: ${canDose}`);
+      trace(MODULE, `${pumpName} can dose: ${canDose}`);
       return canDose;
     });
     
     if (dosablePumps.length === 0) {
-      console.log('[doNutrientDosing] No pumps available for dosing (timing restrictions)');
+      debug(MODULE, 'No pumps available for dosing (timing restrictions)');
       return {
         action: 'waiting',
         details: { reason: 'No nutrient pumps available for dosing due to minimum interval restrictions' }
       };
     }
     
-    console.log(`[doNutrientDosing] ${dosablePumps.length} pumps available for dosing`);
+    debug(MODULE, `${dosablePumps.length} pumps available for dosing`);
     
     // Total base amount to dose (will be distributed according to proportions)
     const baseTotalDoseAmount = 2.0; // 2mL total base dose
     const totalDoseAmount = baseTotalDoseAmount * scaleFactor;
     
-    console.log(`[doNutrientDosing] Total dose amount: ${totalDoseAmount.toFixed(2)}mL (base ${baseTotalDoseAmount}mL × ${scaleFactor.toFixed(2)})`);
+    debug(MODULE, `Total dose amount: ${totalDoseAmount.toFixed(2)}mL (base ${baseTotalDoseAmount}mL × ${scaleFactor.toFixed(2)})`);
     
     // Track what was dispensed
     const dispensed = [];
@@ -901,7 +904,7 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean): 
       try {
         // Skip if pump not in profile or has zero proportion
         if (!nutrientProportions[pumpName] || nutrientProportions[pumpName] <= 0) {
-          console.log(`[doNutrientDosing] Skipping ${pumpName} - not in profile or zero proportion`);
+          trace(MODULE, `Skipping ${pumpName} - not in profile or zero proportion`);
           continue;
         }
         
@@ -913,13 +916,18 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean): 
         const doseAmount = Math.max(0.1, Math.round((totalDoseAmount * proportion) * 10) / 10);
         const flowRate = pump.flowRate || 1.0;
         
-        console.log(`[doNutrientDosing] Dispensing ${doseAmount.toFixed(1)}mL from ${pumpName} (${(proportion * 100).toFixed(1)}% of total)`);
+        debug(MODULE, `Dispensing ${doseAmount.toFixed(1)}mL from ${pumpName} (${(proportion * 100).toFixed(1)}% of total)`);
         
-        if (isSimulation) {
-          console.log(`[doNutrientDosing] SIMULATION: Would dispense ${doseAmount.toFixed(1)}mL from ${pumpName}`);
+        // Always dispense if dispenseMode is true
+        if (dispenseMode) {
+          // Actually dispense the nutrient
+          info(MODULE, `DISPENSING ${doseAmount.toFixed(1)}mL from ${pumpName}`);
+          await dispensePump(pumpName as PumpName, doseAmount, flowRate);
+        } else if (isSimulation) {
+          info(MODULE, `SIMULATION: Would dispense ${doseAmount.toFixed(1)}mL from ${pumpName}`);
         } else {
           // Actually dispense the nutrient
-          console.log(`[doNutrientDosing] ACTUALLY DISPENSING ${doseAmount.toFixed(1)}mL from ${pumpName}`);
+          info(MODULE, `DISPENSING ${doseAmount.toFixed(1)}mL from ${pumpName}`);
           await dispensePump(pumpName as PumpName, doseAmount, flowRate);
         }
         
@@ -931,38 +939,37 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean): 
           pumpName,
           amount: doseAmount,
           proportion,
-          simulated: isSimulation
+          sensorSimulation: isSimulation
         });
-      } catch (error) {
-        console.error(`[doNutrientDosing] Error dispensing from ${pumpName}:`, error);
+      } catch (err) {
+        error(MODULE, `Error dispensing from ${pumpName}`, err);
         // Continue with other pumps despite errors
       }
     }
     
     if (successfulDoses > 0) {
-      console.log(`[doNutrientDosing] Successfully dosed ${successfulDoses} nutrient pumps`);
+      info(MODULE, `Successfully dosed ${successfulDoses} nutrient pumps`);
       return {
         action: 'dosed',
         details: {
           type: 'Nutrients',
           dispensed,
-          simulated: isSimulation,
+          sensorSimulation: isSimulation,
           reason: `EC ${sensorData.ec} below target range (${dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance})`
         }
       };
     } else {
-      console.log('[doNutrientDosing] Failed to dose any pumps');
+      warn(MODULE, 'Failed to dose any pumps');
       return {
         action: 'error',
         details: { reason: 'Failed to dose any nutrient pumps' }
       };
     }
-  } catch (error) {
-    console.error('[doNutrientDosing] Error during nutrient dosing:', error);
-    // Note: We're NOT releasing the dosing lock here - that's handled by the parent function
+  } catch (err) {
+    error(MODULE, 'Error during nutrient dosing', err);
     return {
       action: 'error',
-      details: { error: `Error during nutrient dosing: ${error}` }
+      details: { error: `Error during nutrient dosing: ${err}` }
     };
   }
 }
@@ -1008,16 +1015,16 @@ export async function performAutoDosing(): Promise<{
     
     info(MODULE, 'Starting auto-dosing cycle (LOCK ACQUIRED)');
   
-    // Get the latest sensor readings
+    // Get the latest sensor readings - may be real or simulated
     let sensorData: SensorData;
-    let isSimulation = false;
+    let isSensorSimulation = false;
   
     try {
       // Check if we should use simulated readings
-      isSimulation = await isSimulationEnabled();
-      debug(MODULE, `Simulation mode: ${isSimulation ? 'ENABLED' : 'DISABLED'}`);
+      isSensorSimulation = await isSimulationEnabled();
+      debug(MODULE, `Sensor simulation mode: ${isSensorSimulation ? 'ENABLED' : 'DISABLED'}`);
       
-      if (isSimulation) {
+      if (isSensorSimulation) {
         sensorData = await getSimulatedSensorReadings();
         debug(MODULE, `Using SIMULATED readings: pH=${sensorData.ph}, EC=${sensorData.ec}`);
       } else {
@@ -1046,21 +1053,19 @@ export async function performAutoDosing(): Promise<{
     lastReading = sensorData;
     
     // Check for already active pumps (don't dose if pumps are already running)
-    if (!isSimulation) {
-      try {
-        const pumpStatus = getAllPumpStatus();
-        const activePumps = pumpStatus.filter(pump => pump.active).map(pump => pump.name);
-        
-        if (activePumps.length > 0) {
-          warn(MODULE, `Active pumps detected, skipping dosing: ${activePumps.join(', ')}`);
-          return { 
-            action: 'waiting', 
-            details: { reason: `Active pumps detected: ${activePumps.join(', ')}` } 
-          };
-        }
-      } catch (err) {
-        error(MODULE, 'Error checking pump status', err);
+    try {
+      const pumpStatus = getAllPumpStatus();
+      const activePumps = pumpStatus.filter(pump => pump.active).map(pump => pump.name);
+      
+      if (activePumps.length > 0) {
+        warn(MODULE, `Active pumps detected, skipping dosing: ${activePumps.join(', ')}`);
+        return { 
+          action: 'waiting', 
+          details: { reason: `Active pumps detected: ${activePumps.join(', ')}` } 
+        };
       }
+    } catch (err) {
+      error(MODULE, 'Error checking pump status', err);
     }
     
     // Handle pH adjustment first - pH is always prioritized over EC adjustment
@@ -1084,14 +1089,11 @@ export async function performAutoDosing(): Promise<{
           
           info(MODULE, `Dispensing ${amount}ml of pH Up from ${pumpName} at ${flowRate}ml/s`);
           
-          if (!isSimulation) {
-            await dispensePump(pumpName, amount, flowRate);
-            info(MODULE, `Successfully dispensed ${amount}ml of pH Up`);
-          } else {
-            info(MODULE, `SIMULATION: Would dispense ${amount}ml of pH Up`);
-          }
+          // Always dispense regardless of sensor simulation mode
+          await dispensePump(pumpName, amount, flowRate);
+          info(MODULE, `Successfully dispensed ${amount}ml of pH Up`);
           
-          // Record the dose in both real and simulation modes
+          // Record the dose
           recordDose('phUp');
           
           return {
@@ -1100,7 +1102,7 @@ export async function performAutoDosing(): Promise<{
               type: 'pH Up',
               amount,
               pumpName,
-              simulated: isSimulation,
+              sensorSimulation: isSensorSimulation,
               reason: `pH ${sensorData.ph} below target range (${dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance})`
             }
           };
@@ -1145,14 +1147,11 @@ export async function performAutoDosing(): Promise<{
           
           info(MODULE, `Dispensing ${amount}ml of pH Down from ${pumpName} at ${flowRate}ml/s`);
           
-          if (!isSimulation) {
-            await dispensePump(pumpName, amount, flowRate);
-            info(MODULE, `Successfully dispensed ${amount}ml of pH Down`);
-          } else {
-            info(MODULE, `SIMULATION: Would dispense ${amount}ml of pH Down`);
-          }
+          // Always dispense regardless of sensor simulation mode
+          await dispensePump(pumpName, amount, flowRate);
+          info(MODULE, `Successfully dispensed ${amount}ml of pH Down`);
           
-          // Record the dose in both real and simulation modes
+          // Record the dose
           recordDose('phDown');
           
           return {
@@ -1161,7 +1160,7 @@ export async function performAutoDosing(): Promise<{
               type: 'pH Down',
               amount,
               pumpName,
-              simulated: isSimulation,
+              sensorSimulation: isSensorSimulation,
               reason: `pH ${sensorData.ph} above target range (${dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance})`
             }
           };
@@ -1192,7 +1191,8 @@ export async function performAutoDosing(): Promise<{
       info(MODULE, `EC too low: ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
       
       // Use dedicated function for nutrient dosing to ensure proper async handling
-      return await doNutrientDosing(sensorData, isSimulation);
+      // Pass sensorSimulation flag but true dispenseMode flag to force actual dispensing
+      return await doNutrientDosing(sensorData, isSensorSimulation, true);
     }
     
     // If EC is too high, we can't automatically reduce it (requires water change)

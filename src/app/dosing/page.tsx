@@ -28,6 +28,9 @@ export default function DosingPage() {
   const [phDownInterval, setPhDownInterval] = useState<number | string>("");
   const [nutrientInterval, setNutrientInterval] = useState<number | string>("");
 
+  // Simulation mode state
+  const [simulationEnabled, setSimulationEnabled] = useState<boolean>(true);
+
   const { 
     data, 
     activeProfile,
@@ -106,6 +109,46 @@ export default function DosingPage() {
       }
     }
   }, [data, autoDoseConfig, autoDoseLoading, updateAutoDoseConfig]);
+
+  // Fetch simulation status on page load
+  useEffect(() => {
+    async function fetchSimulationStatus() {
+      try {
+        const response = await fetch('/api/simulation');
+        if (response.ok) {
+          const data = await response.json();
+          setSimulationEnabled(data.enabled);
+        }
+      } catch (err) {
+        console.error('Error fetching simulation status:', err);
+      }
+    }
+    
+    fetchSimulationStatus();
+  }, []);
+
+  // Toggle simulation mode
+  const toggleSimulationMode = async () => {
+    try {
+      const action = simulationEnabled ? 'disable' : 'enable';
+      const response = await fetch('/api/simulation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSimulationEnabled(data.enabled);
+        // Reload page after 1 second to make changes take effect
+        setTimeout(() => window.location.reload(), 1000);
+      }
+    } catch (err) {
+      console.error('Error toggling simulation mode:', err);
+    }
+  };
 
   // Remove handlers for pH and EC inputs since they're not editable
   
@@ -741,6 +784,46 @@ export default function DosingPage() {
                             </span>
                           )}
                         </p>
+                      </div>
+                    </div>
+
+                    {/* Simulation Mode Controls */}
+                    <div className="mt-6">
+                      <div className="bg-[#1e1e1e] rounded-lg p-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h3 className="text-md font-medium mb-1">Sensor Simulation Mode</h3>
+                            <p className="text-sm text-gray-400">
+                              In simulation mode, the system generates fake sensor readings for testing, but pumps will still actually dispense.
+                            </p>
+                          </div>
+                          <div className="ml-4">
+                            <button
+                              className={`btn ${simulationEnabled ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
+                              onClick={toggleSimulationMode}
+                            >
+                              {simulationEnabled ? 'Use Real Sensors' : 'Use Simulated Sensors'}
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className={`mt-3 p-2 rounded-lg ${simulationEnabled ? 'bg-red-900/30 border border-red-700' : 'bg-green-900/30 border border-green-700'}`}>
+                          <p className="text-sm text-gray-300">
+                            <span className={`font-bold ${simulationEnabled ? 'text-red-400' : 'text-green-400'}`}>
+                              {simulationEnabled ? 'SIMULATED SENSOR READINGS' : 'REAL SENSOR READINGS'}
+                            </span>
+                            <span className="ml-2">
+                              {simulationEnabled 
+                                ? 'Using simulated pH and EC readings, but pumps will ACTUALLY DISPENSE when triggered.' 
+                                : 'Using real sensor data from your hardware.'}
+                            </span>
+                          </p>
+                          {simulationEnabled && (
+                            <p className="mt-2 text-sm text-yellow-400 font-bold">
+                              WARNING: Even though sensor readings are simulated, pumps will ACTUALLY DISPENSE when triggered. Make sure your containers are ready!
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
