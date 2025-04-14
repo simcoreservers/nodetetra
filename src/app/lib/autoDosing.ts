@@ -9,6 +9,10 @@ import { getAllSensorReadings } from './sensors';
 import { getSimulatedSensorReadings, isSimulationEnabled } from './simulation';
 import fs from 'fs';
 import path from 'path';
+import { info, error, debug, trace, warn } from './logger';
+
+// Module name for logging
+const MODULE = 'autoDosing';
 
 // Path to the active profile file
 const DATA_PATH = path.join(process.cwd(), 'data');
@@ -133,7 +137,7 @@ try {
     
     if (fs.existsSync(configPath)) {
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      console.log('Loading saved auto-dosing config from disk:', configPath);
+      info(MODULE, 'Loading saved auto-dosing config from disk', { path: configPath });
       
       // Deep merge the saved config with defaults to ensure all properties exist
       dosingConfig = deepMerge(DEFAULT_DOSING_CONFIG, savedConfig);
@@ -154,20 +158,20 @@ try {
         }
       });
       
-      console.log('Loaded auto-dosing configuration:', JSON.stringify({
+      debug(MODULE, 'Loaded auto-dosing configuration', {
         'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
         'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
         'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
           name,
           minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval
         }))
-      }, null, 2));
+      });
     } else {
-      console.log('No existing auto-dosing config found, using defaults');
+      info(MODULE, 'No existing auto-dosing config found, using defaults');
     }
   }
-} catch (error) {
-  console.error('Error loading auto-dosing config from disk:', error);
+} catch (err) {
+  error(MODULE, 'Error loading auto-dosing config from disk', err);
   // Continue with defaults if loading fails
 }
 
@@ -666,7 +670,7 @@ function canDose(pumpType: 'phUp' | 'phDown'): boolean {
   
   // If never dosed before, allow dosing
   if (!lastDoseTime) {
-    console.log(`[canDose] ${pumpType} - Never dosed before, allowing dose`);
+    trace(MODULE, `${pumpType} - Never dosed before, allowing dose`);
     return true;
   }
   
@@ -683,10 +687,7 @@ function canDose(pumpType: 'phUp' | 'phDown'): boolean {
   
   const canDoseNow = timeSinceLastDose >= minInterval;
   
-  console.log(`[canDose] ${pumpType} - Last dose: ${new Date(lastDoseTimestamp).toISOString()}`);
-  console.log(`[canDose] ${pumpType} - Current time: ${new Date(nowTimestamp).toISOString()}`);
-  console.log(`[canDose] ${pumpType} - Time since last dose: ${timeSinceLastDose.toFixed(1)}s of ${minInterval}s required`);
-  console.log(`[canDose] ${pumpType} - Can dose: ${canDoseNow}`);
+  trace(MODULE, `${pumpType} interval check: ${timeSinceLastDose.toFixed(1)}s of ${minInterval}s required, can dose: ${canDoseNow}`);
   
   return canDoseNow;
 }
@@ -699,7 +700,7 @@ function canDose(pumpType: 'phUp' | 'phDown'): boolean {
 function canDoseNutrient(pumpName: string): boolean {
   // If pump doesn't exist in config, return false
   if (!dosingConfig.dosing.nutrientPumps[pumpName]) {
-    console.log(`[canDoseNutrient] ${pumpName} - Pump not found in configuration`);
+    warn(MODULE, `${pumpName} - Pump not found in configuration`);
     return false;
   }
 
@@ -707,7 +708,7 @@ function canDoseNutrient(pumpName: string): boolean {
   
   // If never dosed before, allow dosing
   if (!lastDoseTime) {
-    console.log(`[canDoseNutrient] ${pumpName} - Never dosed before, allowing dose`);
+    trace(MODULE, `${pumpName} - Never dosed before, allowing dose`);
     return true;
   }
   
@@ -724,10 +725,7 @@ function canDoseNutrient(pumpName: string): boolean {
   
   const canDoseNow = timeSinceLastDose >= minInterval;
   
-  console.log(`[canDoseNutrient] ${pumpName} - Last dose: ${new Date(lastDoseTimestamp).toISOString()}`);
-  console.log(`[canDoseNutrient] ${pumpName} - Current time: ${new Date(nowTimestamp).toISOString()}`);
-  console.log(`[canDoseNutrient] ${pumpName} - Time since last dose: ${timeSinceLastDose.toFixed(1)}s of ${minInterval}s required`);
-  console.log(`[canDoseNutrient] ${pumpName} - Can dose: ${canDoseNow}`);
+  trace(MODULE, `${pumpName} interval check: ${timeSinceLastDose.toFixed(1)}s of ${minInterval}s required, can dose: ${canDoseNow}`);
   
   return canDoseNow;
 }
@@ -738,7 +736,7 @@ function canDoseNutrient(pumpName: string): boolean {
  */
 function recordDose(pumpType: 'phUp' | 'phDown'): void {
   const now = new Date();
-  console.log(`[recordDose] Recording ${pumpType} dose at ${now.toISOString()}`);
+  debug(MODULE, `Recording ${pumpType} dose at ${now.toISOString()}`);
   
   // Store the current date
   dosingConfig.lastDose[pumpType] = now;
@@ -757,7 +755,7 @@ function recordNutrientDose(pumpName: string): void {
   }
   
   const now = new Date();
-  console.log(`[recordNutrientDose] Recording dose for ${pumpName} at ${now.toISOString()}`);
+  debug(MODULE, `Recording dose for ${pumpName} at ${now.toISOString()}`);
   
   // Store the current date
   dosingConfig.lastDose.nutrientPumps[pumpName] = now;
@@ -786,10 +784,10 @@ function saveDosingConfig(): void {
       // Save dosing config
       const configPath = path.join(dataPath, 'autodosing.json');
       fs.writeFileSync(configPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
-      console.log('[saveDosingConfig] Auto-dosing config saved with updated dose timestamps');
+      trace(MODULE, 'Auto-dosing config saved with updated dose timestamps');
     }
-  } catch (error) {
-    console.error('[saveDosingConfig] Failed to save auto-dosing config:', error);
+  } catch (err) {
+    error(MODULE, 'Failed to save auto-dosing config', err);
   }
 }
 
@@ -978,6 +976,7 @@ export async function performAutoDosing(): Promise<{
 }> {
   // Check if auto-dosing is enabled
   if (!dosingConfig.enabled) {
+    debug(MODULE, 'Auto-dosing is disabled, skipping cycle');
     return { 
       action: 'none', 
       details: { reason: 'Auto-dosing is disabled' } 
@@ -986,7 +985,7 @@ export async function performAutoDosing(): Promise<{
   
   // Check if a dosing operation is already in progress
   if (dosingInProgress) {
-    console.log('[performAutoDosing] Dosing already in progress, cannot start another operation');
+    warn(MODULE, 'Dosing already in progress, cannot start another operation');
     return {
       action: 'waiting',
       details: { reason: 'A dosing operation is already in progress' }
@@ -1002,77 +1001,77 @@ export async function performAutoDosing(): Promise<{
       clearTimeout(dosingLockTimeout);
     }
     dosingLockTimeout = setTimeout(() => {
-      console.log('[performAutoDosing] Safety timeout reached, releasing dosing lock');
+      warn(MODULE, 'Safety timeout reached, releasing dosing lock');
       dosingInProgress = false;
       dosingLockTimeout = null;
     }, MAX_DOSING_LOCK_TIME);
     
-    console.log('[performAutoDosing] Starting auto-dosing cycle (LOCK ACQUIRED)');
+    info(MODULE, 'Starting auto-dosing cycle (LOCK ACQUIRED)');
   
-  // Get the latest sensor readings
-  let sensorData: SensorData;
-  let isSimulation = false;
+    // Get the latest sensor readings
+    let sensorData: SensorData;
+    let isSimulation = false;
   
-  try {
-    // Check if we should use simulated readings
+    try {
+      // Check if we should use simulated readings
       isSimulation = await isSimulationEnabled();
-      console.log(`[performAutoDosing] Simulation mode: ${isSimulation ? 'ENABLED' : 'DISABLED'}`);
-    
-    if (isSimulation) {
+      debug(MODULE, `Simulation mode: ${isSimulation ? 'ENABLED' : 'DISABLED'}`);
+      
+      if (isSimulation) {
         sensorData = await getSimulatedSensorReadings();
-        console.log(`[performAutoDosing] Using SIMULATED readings: pH=${sensorData.ph}, EC=${sensorData.ec}`);
-    } else {
+        debug(MODULE, `Using SIMULATED readings: pH=${sensorData.ph}, EC=${sensorData.ec}`);
+      } else {
         const readings = await getAllSensorReadings();
         sensorData = {
           ...readings,
           timestamp: new Date().toISOString()
         };
-        console.log(`[performAutoDosing] Using REAL readings: pH=${sensorData.ph}, EC=${sensorData.ec}`);
-    }
-  } catch (error) {
-      console.error('[performAutoDosing] Error getting sensor readings:', error);
-    return { 
-      action: 'error', 
-      details: { error: `Failed to get sensor readings: ${error}` } 
-    };
+        debug(MODULE, `Using REAL readings: pH=${sensorData.ph}, EC=${sensorData.ec}`);
+      }
+    } catch (err) {
+      error(MODULE, 'Error getting sensor readings', err);
+      return { 
+        action: 'error', 
+        details: { error: `Failed to get sensor readings: ${err}` } 
+      };
     } finally {
       // Make sure we unlock if the function exits here
       if (dosingLockTimeout) {
         clearTimeout(dosingLockTimeout);
         dosingLockTimeout = null;
       }
-  }
-  
-  // Store the reading for reference
-  lastReading = sensorData;
-  
+    }
+    
+    // Store the reading for reference
+    lastReading = sensorData;
+    
     // Check for already active pumps (don't dose if pumps are already running)
-  if (!isSimulation) {
-    try {
+    if (!isSimulation) {
+      try {
         const pumpStatus = getAllPumpStatus();
         const activePumps = pumpStatus.filter(pump => pump.active).map(pump => pump.name);
-      
-      if (activePumps.length > 0) {
-          console.log(`[performAutoDosing] Active pumps detected, skipping dosing: ${activePumps.join(', ')}`);
-        return { 
-          action: 'waiting', 
-          details: { reason: `Active pumps detected: ${activePumps.join(', ')}` } 
-        };
-      }
-    } catch (error) {
-        console.error('[performAutoDosing] Error checking pump status:', error);
+        
+        if (activePumps.length > 0) {
+          warn(MODULE, `Active pumps detected, skipping dosing: ${activePumps.join(', ')}`);
+          return { 
+            action: 'waiting', 
+            details: { reason: `Active pumps detected: ${activePumps.join(', ')}` } 
+          };
+        }
+      } catch (err) {
+        error(MODULE, 'Error checking pump status', err);
       }
     }
     
     // Handle pH adjustment first - pH is always prioritized over EC adjustment
-  
-  // Check if pH is too low (need to add pH Up)
-  if (sensorData.ph < (dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance)) {
-    console.log(`[performAutoDosing] pH too low: ${sensorData.ph}, target: ${dosingConfig.targets.ph.target}`);
+
+    // Check if pH is too low (need to add pH Up)
+    if (sensorData.ph < (dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance)) {
+      info(MODULE, `pH too low: ${sensorData.ph.toFixed(2)}, target: ${dosingConfig.targets.ph.target.toFixed(2)}`);
       
       // Check if we can dose pH Up
-    if (canDose('phUp')) {
-      try {
+      if (canDose('phUp')) {
+        try {
           // Calculate dose amount based on how far from target
           const phDelta = dosingConfig.targets.ph.target - sensorData.ph;
           const baseDoseAmount = dosingConfig.dosing.phUp.doseAmount;
@@ -1080,60 +1079,60 @@ export async function performAutoDosing(): Promise<{
           const scaleFactor = Math.min(1 + (phDelta / dosingConfig.targets.ph.tolerance), 2);
           const amount = Math.round((baseDoseAmount * scaleFactor) * 10) / 10; // Round to 1 decimal place
           
-        const pumpName = dosingConfig.dosing.phUp.pumpName;
-        const flowRate = dosingConfig.dosing.phUp.flowRate;
+          const pumpName = dosingConfig.dosing.phUp.pumpName;
+          const flowRate = dosingConfig.dosing.phUp.flowRate;
           
-          console.log(`[performAutoDosing] Dispensing ${amount}ml of pH Up from ${pumpName} at ${flowRate}ml/s`);
-        
-        if (!isSimulation) {
-          await dispensePump(pumpName, amount, flowRate);
-            console.log(`[performAutoDosing] Successfully dispensed ${amount}ml of pH Up`);
-        } else {
-            console.log(`[performAutoDosing] SIMULATION: Would dispense ${amount}ml of pH Up`);
-        }
-        
-        // Record the dose in both real and simulation modes
-        recordDose('phUp');
-        
-        return {
-          action: 'dosed',
-          details: {
-            type: 'pH Up',
-            amount,
-            pumpName,
-            simulated: isSimulation,
-            reason: `pH ${sensorData.ph} below target range (${dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance})`
+          info(MODULE, `Dispensing ${amount}ml of pH Up from ${pumpName} at ${flowRate}ml/s`);
+          
+          if (!isSimulation) {
+            await dispensePump(pumpName, amount, flowRate);
+            info(MODULE, `Successfully dispensed ${amount}ml of pH Up`);
+          } else {
+            info(MODULE, `SIMULATION: Would dispense ${amount}ml of pH Up`);
           }
-        };
-      } catch (error) {
-          console.error('[performAutoDosing] Error dispensing pH Up:', error);
+          
+          // Record the dose in both real and simulation modes
+          recordDose('phUp');
+          
+          return {
+            action: 'dosed',
+            details: {
+              type: 'pH Up',
+              amount,
+              pumpName,
+              simulated: isSimulation,
+              reason: `pH ${sensorData.ph} below target range (${dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance})`
+            }
+          };
+        } catch (err) {
+          error(MODULE, 'Error dispensing pH Up', err);
+          return {
+            action: 'error',
+            details: {
+              type: 'pH Up',
+              error: `Failed to dispense pH Up: ${err}`
+            }
+          };
+        }
+      } else {
+        debug(MODULE, 'Cannot dose pH Up yet due to minimum interval');
         return {
-          action: 'error',
+          action: 'waiting',
           details: {
             type: 'pH Up',
-            error: `Failed to dispense pH Up: ${error}`
+            reason: 'Minimum interval between doses not reached'
           }
         };
       }
-    } else {
-        console.log(`[performAutoDosing] Cannot dose pH Up yet due to minimum interval`);
-      return {
-        action: 'waiting',
-        details: {
-          type: 'pH Up',
-          reason: 'Minimum interval between doses not reached'
-        }
-      };
     }
-  }
-  
-  // Check if pH is too high (need to add pH Down)
-  if (sensorData.ph > (dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance)) {
-    console.log(`[performAutoDosing] pH too high: ${sensorData.ph}, target: ${dosingConfig.targets.ph.target}`);
+    
+    // Check if pH is too high (need to add pH Down)
+    if (sensorData.ph > (dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance)) {
+      info(MODULE, `pH too high: ${sensorData.ph.toFixed(2)}, target: ${dosingConfig.targets.ph.target.toFixed(2)}`);
       
       // Check if we can dose pH Down
-    if (canDose('phDown')) {
-      try {
+      if (canDose('phDown')) {
+        try {
           // Calculate dose amount based on how far from target
           const phDelta = sensorData.ph - dosingConfig.targets.ph.target;
           const baseDoseAmount = dosingConfig.dosing.phDown.doseAmount;
@@ -1141,56 +1140,56 @@ export async function performAutoDosing(): Promise<{
           const scaleFactor = Math.min(1 + (phDelta / dosingConfig.targets.ph.tolerance), 2);
           const amount = Math.round((baseDoseAmount * scaleFactor) * 10) / 10; // Round to 1 decimal place
           
-        const pumpName = dosingConfig.dosing.phDown.pumpName;
-        const flowRate = dosingConfig.dosing.phDown.flowRate;
+          const pumpName = dosingConfig.dosing.phDown.pumpName;
+          const flowRate = dosingConfig.dosing.phDown.flowRate;
           
-          console.log(`[performAutoDosing] Dispensing ${amount}ml of pH Down from ${pumpName} at ${flowRate}ml/s`);
-        
-        if (!isSimulation) {
-          await dispensePump(pumpName, amount, flowRate);
-            console.log(`[performAutoDosing] Successfully dispensed ${amount}ml of pH Down`);
-        } else {
-            console.log(`[performAutoDosing] SIMULATION: Would dispense ${amount}ml of pH Down`);
-        }
-        
-        // Record the dose in both real and simulation modes
-        recordDose('phDown');
-        
-        return {
-          action: 'dosed',
-          details: {
-            type: 'pH Down',
-            amount,
-            pumpName,
-            simulated: isSimulation,
-            reason: `pH ${sensorData.ph} above target range (${dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance})`
+          info(MODULE, `Dispensing ${amount}ml of pH Down from ${pumpName} at ${flowRate}ml/s`);
+          
+          if (!isSimulation) {
+            await dispensePump(pumpName, amount, flowRate);
+            info(MODULE, `Successfully dispensed ${amount}ml of pH Down`);
+          } else {
+            info(MODULE, `SIMULATION: Would dispense ${amount}ml of pH Down`);
           }
-        };
-      } catch (error) {
-          console.error('[performAutoDosing] Error dispensing pH Down:', error);
+          
+          // Record the dose in both real and simulation modes
+          recordDose('phDown');
+          
+          return {
+            action: 'dosed',
+            details: {
+              type: 'pH Down',
+              amount,
+              pumpName,
+              simulated: isSimulation,
+              reason: `pH ${sensorData.ph} above target range (${dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance})`
+            }
+          };
+        } catch (err) {
+          error(MODULE, 'Error dispensing pH Down', err);
+          return {
+            action: 'error',
+            details: {
+              type: 'pH Down',
+              error: `Failed to dispense pH Down: ${err}`
+            }
+          };
+        }
+      } else {
+        debug(MODULE, 'Cannot dose pH Down yet due to minimum interval');
         return {
-          action: 'error',
+          action: 'waiting',
           details: {
             type: 'pH Down',
-            error: `Failed to dispense pH Down: ${error}`
+            reason: 'Minimum interval between doses not reached'
           }
         };
       }
-    } else {
-        console.log(`[performAutoDosing] Cannot dose pH Down yet due to minimum interval`);
-      return {
-        action: 'waiting',
-        details: {
-          type: 'pH Down',
-          reason: 'Minimum interval between doses not reached'
-        }
-      };
     }
-  }
-  
-  // Check if EC is too low (need to add nutrients)
-  if (sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
-    console.log(`[performAutoDosing] EC too low: ${sensorData.ec}, target: ${dosingConfig.targets.ec.target}`);
+    
+    // Check if EC is too low (need to add nutrients)
+    if (sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
+      info(MODULE, `EC too low: ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
       
       // Use dedicated function for nutrient dosing to ensure proper async handling
       return await doNutrientDosing(sensorData, isSimulation);
@@ -1198,35 +1197,35 @@ export async function performAutoDosing(): Promise<{
     
     // If EC is too high, we can't automatically reduce it (requires water change)
     if (sensorData.ec > (dosingConfig.targets.ec.target + dosingConfig.targets.ec.tolerance)) {
-      console.log(`[performAutoDosing] EC too high: ${sensorData.ec}, target: ${dosingConfig.targets.ec.target}`);
-        return {
+      info(MODULE, `EC too high: ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
+      return {
         action: 'warning',
-          details: {
+        details: {
           type: 'EC High',
           reason: `EC ${sensorData.ec} above target range (${dosingConfig.targets.ec.target + dosingConfig.targets.ec.tolerance}). Consider adding fresh water to dilute solution.`
         }
       };
-  }
-  
-  // If we get here, everything is within target ranges
-    console.log('[performAutoDosing] All parameters within target ranges');
-  return {
-    action: 'none',
-    details: {
-      reason: 'All parameters within target ranges',
-      currentValues: {
-        ph: sensorData.ph,
-        ec: sensorData.ec,
-        waterTemp: sensorData.waterTemp
-      },
-      targets: dosingConfig.targets
     }
-  };
-  } catch (error) {
-    console.error('[performAutoDosing] Unexpected error in auto-dosing:', error);
+    
+    // If we get here, everything is within target ranges
+    info(MODULE, 'All parameters within target ranges');
+    return {
+      action: 'none',
+      details: {
+        reason: 'All parameters within target ranges',
+        currentValues: {
+          ph: sensorData.ph,
+          ec: sensorData.ec,
+          waterTemp: sensorData.waterTemp
+        },
+        targets: dosingConfig.targets
+      }
+    };
+  } catch (err) {
+    error(MODULE, 'Unexpected error in auto-dosing', err);
     return {
       action: 'error',
-      details: { error: `Unexpected error in auto-dosing: ${error}` }
+      details: { error: `Unexpected error in auto-dosing: ${err}` }
     };
   } finally {
     // Always release the lock when we're done, regardless of outcome
@@ -1235,7 +1234,7 @@ export async function performAutoDosing(): Promise<{
       dosingLockTimeout = null;
     }
     dosingInProgress = false;
-    console.log('[performAutoDosing] Dosing cycle completed, lock released');
+    debug(MODULE, 'Dosing cycle completed, lock released');
   }
 }
 

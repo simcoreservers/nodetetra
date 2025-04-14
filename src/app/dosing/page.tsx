@@ -437,6 +437,49 @@ export default function DosingPage() {
                 </div>
               </div>
             </div>
+            
+            {/* System Logging Settings */}
+            <div className="card md:col-span-2 mt-6">
+              <div className="card-header">
+                <h2 className="card-title">System Logging</h2>
+              </div>
+              <div className="mt-4">
+                <p className="text-sm text-gray-400 mb-4">
+                  Configure how much detail is logged in the server console. Higher levels include more detailed logs which is useful for debugging but can make the console harder to read.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                  {['ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE'].map((level, index) => (
+                    <button
+                      key={level}
+                      className={`py-2 px-4 rounded-md text-sm ${
+                        process.env.NUTETRA_LOG_LEVEL === index.toString() 
+                          ? 'bg-[#00a3e0] text-white' 
+                          : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#333333]'
+                      }`}
+                      onClick={() => {
+                        // This just saves the setting locally - requires a server restart to take effect
+                        localStorage.setItem('NUTETRA_LOG_LEVEL', index.toString());
+                        alert(`Log level set to ${level}. Restart the server for this to take effect.`);
+                      }}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="mt-3 text-xs text-gray-400">
+                  <span className="text-[#00a3e0]">Note:</span> Log level changes require a server restart to take effect. In production, set the NUTETRA_LOG_LEVEL environment variable.
+                  <ul className="list-disc ml-5 mt-1">
+                    <li>ERROR (0): Only show critical errors</li>
+                    <li>WARN (1): Show errors and warnings</li>
+                    <li>INFO (2): Default - show operational messages</li>
+                    <li>DEBUG (3): Detailed messages for troubleshooting</li>
+                    <li>TRACE (4): Very verbose, shows all system activity</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

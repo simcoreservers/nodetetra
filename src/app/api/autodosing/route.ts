@@ -8,10 +8,32 @@ import {
   syncProfilePumps,
   DosingConfig 
 } from '../../lib/autoDosing';
+import { info, error, debug, trace, warn, LogLevel, setLogLevel } from '../../lib/logger';
+
+// Module name for logging
+const MODULE = 'autodosingAPI';
+
+// Set log level - use INFO by default, but can be adjusted via environment variables
+// Options: ERROR=0, WARN=1, INFO=2, DEBUG=3, TRACE=4
+const envLogLevel = process.env.NUTETRA_LOG_LEVEL;
+let logLevel = LogLevel.INFO;
+
+// Set log level from environment if provided
+if (envLogLevel !== undefined) {
+  const parsedLevel = parseInt(envLogLevel, 10);
+  if (!isNaN(parsedLevel) && parsedLevel >= 0 && parsedLevel <= 4) {
+    logLevel = parsedLevel;
+    info(MODULE, `Setting log level from environment: ${LogLevel[logLevel]}`);
+  } else {
+    warn(MODULE, `Invalid log level in environment (${envLogLevel}), using default: ${LogLevel[logLevel]}`);
+  }
+}
+
+setLogLevel(logLevel);
 
 // Initialize auto-dosing when server starts
 try {
-  console.log('Initializing auto-dosing system');
+  info(MODULE, 'Initializing auto-dosing system');
   
   // Notice we don't pass any config parameters here to ensure we use the 
   // configuration loaded from disk, preserving custom minInterval settings
@@ -19,17 +41,17 @@ try {
   
   // Log the initialized config for verification
   const config = getDosingConfig();
-  console.log('Auto-dosing initialized with intervals:', JSON.stringify({
+  info(MODULE, 'Auto-dosing initialized with intervals', {
     phUp: config.dosing.phUp.minInterval,
     phDown: config.dosing.phDown.minInterval,
     nutrientPumps: Object.keys(config.dosing.nutrientPumps).map(name => ({
       name,
       minInterval: config.dosing.nutrientPumps[name].minInterval
     }))
-  }, null, 2));
+  });
   
-} catch (error) {
-  console.error('Error initializing auto-dosing system:', error);
+} catch (err) {
+  error(MODULE, 'Error initializing auto-dosing system', err);
 }
 
 /**
@@ -46,8 +68,10 @@ export async function GET(request: NextRequest) {
       const { dosingInProgress } = require('../../lib/autoDosing');
       isDosingInProgress = dosingInProgress;
     } catch (err) {
-      console.error('Error checking dosing progress:', err);
+      error(MODULE, 'Error checking dosing progress', err);
     }
+    
+    trace(MODULE, 'GET request completed successfully');
     
     return NextResponse.json({
       config,
@@ -55,11 +79,11 @@ export async function GET(request: NextRequest) {
       isDosingInProgress,
       status: 'ok'
     });
-  } catch (error) {
-    console.error('Error fetching auto-dosing configuration:', error);
+  } catch (err) {
+    error(MODULE, 'Error fetching auto-dosing configuration', err);
     
     return NextResponse.json({
-      error: `Failed to fetch auto-dosing configuration: ${error instanceof Error ? error.message : String(error)}`,
+      error: `Failed to fetch auto-dosing configuration: ${err instanceof Error ? err.message : String(err)}`,
       status: 'error',
       timestamp: new Date().toISOString()
     }, { status: 500 });
@@ -85,6 +109,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    info(MODULE, `POST request received with action: ${action}`);
     let response: any = {};
     
     // Handle different actions
@@ -99,35 +124,38 @@ export async function POST(request: NextRequest) {
           );
         }
         
-        console.log('Received update request with config:', JSON.stringify(config, null, 2));
+        debug(MODULE, 'Received update request with config', config);
         
         // Special handling for nutrient pump minInterval updates
         if (config.dosing && config.dosing.nutrientPumps) {
-          console.log('Processing nutrient pump updates:');
+          debug(MODULE, 'Processing nutrient pump updates');
           const nutrientPumps = config.dosing.nutrientPumps;
           
           // Log each pump update
           Object.keys(nutrientPumps).forEach(pumpName => {
             const pumpConfig = nutrientPumps[pumpName];
-            console.log(`  - Pump ${pumpName}: minInterval = ${pumpConfig.minInterval}, doseAmount = ${pumpConfig.doseAmount}, flowRate = ${pumpConfig.flowRate}`);
+            trace(MODULE, `Pump ${pumpName} settings`, {
+              minInterval: pumpConfig.minInterval, 
+              doseAmount: pumpConfig.doseAmount, 
+              flowRate: pumpConfig.flowRate
+            });
           });
         }
         
         // Update the configuration
         const updatedConfig = updateDosingConfig(config as Partial<DosingConfig>);
         
-        // Verify the updates were applied
-        console.log('Configuration after update:');
-        console.log(`  - pH Up minInterval: ${updatedConfig.dosing.phUp.minInterval}`);
-        console.log(`  - pH Down minInterval: ${updatedConfig.dosing.phDown.minInterval}`);
+        // Verify the updates were applied (but only at debug level)
+        debug(MODULE, 'Configuration after update', {
+          phUp: updatedConfig.dosing.phUp.minInterval,
+          phDown: updatedConfig.dosing.phDown.minInterval,
+          nutrientPumps: Object.keys(updatedConfig.dosing.nutrientPumps).map(name => ({
+            name,
+            minInterval: updatedConfig.dosing.nutrientPumps[name].minInterval
+          }))
+        });
         
-        // Verify nutrient pump updates
-        if (updatedConfig.dosing.nutrientPumps) {
-          console.log('  - Nutrient pump intervals:');
-          Object.keys(updatedConfig.dosing.nutrientPumps).forEach(pumpName => {
-            console.log(`    * ${pumpName}: ${updatedConfig.dosing.nutrientPumps[pumpName].minInterval}`);
-          });
-        }
+        info(MODULE, 'Auto-dosing configuration updated successfully');
         
         response = {
           action: 'update',
@@ -138,7 +166,7 @@ export async function POST(request: NextRequest) {
         
       case 'enable':
         // Enable auto-dosing
-        console.log('Enabling auto-dosing with configuration:', getDosingConfig());
+        info(MODULE, 'Enabling auto-dosing');
         
         // Store current interval settings before enabling
         const preEnableConfig = getDosingConfig();
@@ -153,7 +181,7 @@ export async function POST(request: NextRequest) {
           savedEnableIntervals.nutrientPumps[pumpName] = preEnableConfig.dosing.nutrientPumps[pumpName].minInterval;
         });
         
-        console.log('Saved intervals before enabling auto-dosing:', JSON.stringify(savedEnableIntervals, null, 2));
+        debug(MODULE, 'Saved intervals before enabling auto-dosing', savedEnableIntervals);
         
         // Enable auto-dosing
         const enabledConfig = updateDosingConfig({ enabled: true });
@@ -193,7 +221,7 @@ export async function POST(request: NextRequest) {
           
           // Apply the restored interval settings
           updateDosingConfig(restoreIntervals);
-          console.log('Restored custom interval settings after enabling auto-dosing');
+          info(MODULE, 'Auto-dosing enabled and custom interval settings restored');
           
           // Try to get pump status for diagnostics
           let pumpInfo = "Unable to get pump status";
@@ -201,13 +229,12 @@ export async function POST(request: NextRequest) {
             const { getAllPumpStatus } = await import('../../lib/pumps');
             const pumps = getAllPumpStatus();
             pumpInfo = JSON.stringify(pumps.map(p => ({ name: p.name, active: p.active })));
+            debug(MODULE, 'Auto-dosing enabled with pump status', pumps.map(p => ({ name: p.name, active: p.active })));
           } catch (err) {
-            console.error('Failed to get pump status for diagnostics:', err);
+            error(MODULE, 'Failed to get pump status for diagnostics', err);
           }
-          
-          console.log('Auto-dosing enabled successfully with pumps:', pumpInfo);
         } else {
-          console.warn('Auto-dosing was not properly enabled');
+          error(MODULE, 'Auto-dosing was not properly enabled');
         }
         
         response = {
@@ -219,6 +246,7 @@ export async function POST(request: NextRequest) {
         
       case 'disable':
         // Disable auto-dosing
+        info(MODULE, 'Disabling auto-dosing');
         const disabledConfig = updateDosingConfig({ enabled: false });
         response = {
           action: 'disable',
@@ -229,6 +257,7 @@ export async function POST(request: NextRequest) {
         
       case 'reset':
         // Reset auto-dosing configuration to defaults
+        info(MODULE, 'Resetting auto-dosing configuration to defaults');
         const resetConfig = resetDosingConfig();
         response = {
           action: 'reset',
@@ -239,7 +268,7 @@ export async function POST(request: NextRequest) {
         
       case 'dose':
         // Manually trigger a dosing cycle
-        console.log('Manually triggering dosing cycle...');
+        info(MODULE, 'Manually triggering dosing cycle');
         
         // Verify auto-dosing is enabled
         const dosingConfig = getDosingConfig();
@@ -256,9 +285,10 @@ export async function POST(request: NextRequest) {
           await syncProfilePumps();
           
           // Perform the auto-dosing
-          console.log('Executing auto-dosing...');
+          info(MODULE, 'Executing auto-dosing...');
           const result = await performAutoDosing();
-          console.log('Auto-dosing result:', JSON.stringify(result, null, 2));
+          info(MODULE, 'Auto-dosing completed', { action: result.action });
+          debug(MODULE, 'Auto-dosing result details', result);
           
           // Include diagnostic info
           let diagnostics = {};
@@ -274,8 +304,10 @@ export async function POST(request: NextRequest) {
               pumps: pumps.map(p => ({ name: p.name, active: p.active })),
               config: getDosingConfig()
             };
+            
+            debug(MODULE, 'Auto-dosing diagnostics', diagnostics);
           } catch (err) {
-            console.error('Failed to get diagnostic info:', err);
+            error(MODULE, 'Failed to get diagnostic info', err);
           }
           
           // Return the result
@@ -285,11 +317,11 @@ export async function POST(request: NextRequest) {
             diagnostics,
             success: true
           };
-        } catch (error) {
-          console.error('Error performing auto-dosing:', error);
+        } catch (err) {
+          error(MODULE, 'Error performing auto-dosing', err);
           return NextResponse.json({
             error: 'Failed to perform auto-dosing',
-            details: error instanceof Error ? error.message : String(error),
+            details: err instanceof Error ? err.message : String(err),
             action: 'dose',
             success: false
           }, { status: 500 });
@@ -309,12 +341,12 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     });
     
-  } catch (error) {
-    console.error('Error in auto-dosing API:', error);
+  } catch (err) {
+    error(MODULE, 'Error in auto-dosing API', err);
     return NextResponse.json(
       { 
         error: 'Failed to execute auto-dosing action', 
-        details: error instanceof Error ? error.message : String(error) 
+        details: err instanceof Error ? err.message : String(err) 
       },
       { status: 500 }
     );
