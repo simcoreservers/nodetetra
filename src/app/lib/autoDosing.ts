@@ -462,6 +462,9 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
   
   console.log('Received updates:', JSON.stringify(updates, null, 2));
   
+  // Check if any minInterval values have changed
+  const hasIntervalChanges = checkForIntervalChanges(updates);
+  
   // Log the before state of dosing config
   console.log('Updating dosing config, before:', JSON.stringify({
     'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
@@ -476,6 +479,12 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
   
   // Deep merge changes
   dosingConfig = deepMerge(dosingConfig, updates);
+  
+  // If intervals changed, reset lastDose timestamps to allow immediate dosing
+  if (hasIntervalChanges) {
+    console.log('Interval settings changed, resetting lastDose timestamps');
+    resetDoseTimestamps();
+  }
   
   // Log the after state of dosing config
   console.log('Updated dosing config, after:', JSON.stringify({
@@ -492,6 +501,9 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
   // If auto-dosing was just enabled, log this important event
   if (!oldEnabled && newEnabled) {
     console.log('Auto-dosing has been enabled with configuration:', dosingConfig);
+    
+    // Reset lastDose timestamps when enabling to allow immediate dosing
+    resetDoseTimestamps();
     
     // Sync with pump assignments from active profile
     syncProfilePumps().catch(err => {
@@ -620,19 +632,27 @@ function canDose(pumpType: 'phUp' | 'phDown'): boolean {
   
   // If never dosed before, allow dosing
   if (!lastDoseTime) {
-    console.log(`[canDose] ${pumpType} - Never dosed before, allowing dose`);
+    console.log(`[canDose] ${pumpType} - Never dosed before, allowing dose. MinInterval: ${dosingConfig.dosing[pumpType].minInterval}s`);
     return true;
   }
   
-  const now = new Date();
-  // Ensure we're working with numbers by using Number() conversion
-  const timeSinceLastDose = Number(now.getTime() - lastDoseTime.getTime()) / 1000; // in seconds
+  // Get timestamps as primitive numbers
+  const lastDoseTimestamp = typeof lastDoseTime === 'object' ? 
+    lastDoseTime.getTime() : 
+    (new Date(lastDoseTime)).getTime();
+  
+  const nowTimestamp = Date.now();
+  
+  // Calculate time difference in seconds
+  const timeSinceLastDose = (nowTimestamp - lastDoseTimestamp) / 1000;
   const minInterval = Number(dosingConfig.dosing[pumpType].minInterval);
   
   const canDoseNow = timeSinceLastDose >= minInterval;
-  console.log(`[canDose] ${pumpType} - Last dose: ${lastDoseTime.toISOString()}`);
-  console.log(`[canDose] ${pumpType} - Current time: ${now.toISOString()}`);
-  console.log(`[canDose] ${pumpType} - Time difference: ${timeSinceLastDose.toFixed(1)}s`);
+  
+  console.log(`[canDose] ${pumpType} - DETAILED TIMING CHECK`);
+  console.log(`[canDose] ${pumpType} - Last dose timestamp: ${lastDoseTimestamp}`);
+  console.log(`[canDose] ${pumpType} - Current timestamp: ${nowTimestamp}`);
+  console.log(`[canDose] ${pumpType} - Time since last dose: ${timeSinceLastDose.toFixed(3)}s`);
   console.log(`[canDose] ${pumpType} - Min interval: ${minInterval}s`);
   console.log(`[canDose] ${pumpType} - Can dose: ${canDoseNow}`);
   
@@ -649,27 +669,27 @@ function canDoseNutrient(pumpName: string): boolean {
   
   // If never dosed before, allow dosing
   if (!lastDoseTime) {
-    console.log(`[canDoseNutrient] ${pumpName} - Never dosed before, allowing dose. Configured minInterval: ${dosingConfig.dosing.nutrientPumps[pumpName]?.minInterval || 'not set, using default 180'}`);
-    
-    // Also log all configured nutrient pumps for reference
-    const allPumps = Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
-      name,
-      minInterval: dosingConfig.dosing.nutrientPumps[name]?.minInterval
-    }));
-    console.log(`[canDoseNutrient] All nutrient pump intervals:`, JSON.stringify(allPumps, null, 2));
-    
+    console.log(`[canDoseNutrient] ${pumpName} - Never dosed before, allowing dose. MinInterval: ${dosingConfig.dosing.nutrientPumps[pumpName]?.minInterval || 180}s`);
     return true;
   }
   
-  const now = new Date();
-  // Ensure we're working with numbers by using Number() conversion
-  const timeSinceLastDose = Number(now.getTime() - lastDoseTime.getTime()) / 1000; // in seconds
+  // Get timestamps as primitive numbers
+  const lastDoseTimestamp = typeof lastDoseTime === 'object' ? 
+    lastDoseTime.getTime() : 
+    (new Date(lastDoseTime)).getTime();
+  
+  const nowTimestamp = Date.now();
+  
+  // Calculate time difference in seconds
+  const timeSinceLastDose = (nowTimestamp - lastDoseTimestamp) / 1000;
   const minInterval = Number(dosingConfig.dosing.nutrientPumps[pumpName]?.minInterval || 180);
   
   const canDoseNow = timeSinceLastDose >= minInterval;
-  console.log(`[canDoseNutrient] ${pumpName} - Last dose: ${lastDoseTime.toISOString()}`);
-  console.log(`[canDoseNutrient] ${pumpName} - Current time: ${now.toISOString()}`);
-  console.log(`[canDoseNutrient] ${pumpName} - Time difference: ${timeSinceLastDose.toFixed(1)}s`);
+  
+  console.log(`[canDoseNutrient] ${pumpName} - DETAILED TIMING CHECK`);
+  console.log(`[canDoseNutrient] ${pumpName} - Last dose timestamp: ${lastDoseTimestamp}`);
+  console.log(`[canDoseNutrient] ${pumpName} - Current timestamp: ${nowTimestamp}`);
+  console.log(`[canDoseNutrient] ${pumpName} - Time since last dose: ${timeSinceLastDose.toFixed(3)}s`);
   console.log(`[canDoseNutrient] ${pumpName} - Min interval: ${minInterval}s`);
   console.log(`[canDoseNutrient] ${pumpName} - Can dose: ${canDoseNow}`);
   
@@ -681,9 +701,11 @@ function canDoseNutrient(pumpName: string): boolean {
  * @param pumpType The type of pump dosed
  */
 function recordDose(pumpType: 'phUp' | 'phDown'): void {
-  const now = new Date();
-  dosingConfig.lastDose[pumpType] = now;
-  console.log(`[recordDose] Recorded ${pumpType} dose at ${now.toISOString()}`);
+  // Store as a primitive ISO string instead of Date object to avoid serialization issues
+  dosingConfig.lastDose[pumpType] = new Date();
+  
+  // Log with timestamp for debugging
+  console.log(`[recordDose] Recorded ${pumpType} dose at ${Date.now()}`);
   
   // Immediately save to disk to ensure timestamps are preserved across restarts
   saveDosingConfig();
@@ -697,9 +719,12 @@ function recordNutrientDose(pumpName: string): void {
   if (!dosingConfig.lastDose.nutrientPumps) {
     dosingConfig.lastDose.nutrientPumps = {};
   }
-  const now = new Date();
-  dosingConfig.lastDose.nutrientPumps[pumpName] = now;
-  console.log(`[recordNutrientDose] Recorded ${pumpName} dose at ${now.toISOString()}`);
+  
+  // Store as a primitive ISO string instead of Date object to avoid serialization issues
+  dosingConfig.lastDose.nutrientPumps[pumpName] = new Date();
+  
+  // Log with timestamp for debugging
+  console.log(`[recordNutrientDose] Recorded ${pumpName} dose at ${Date.now()}`);
   
   // Immediately save to disk to ensure timestamps are preserved across restarts
   saveDosingConfig();
@@ -1019,4 +1044,49 @@ export async function performAutoDosing(): Promise<{
       targets: dosingConfig.targets
     }
   };
+}
+
+/**
+ * Check if interval settings were changed in the updates
+ */
+function checkForIntervalChanges(updates: Partial<DosingConfig>): boolean {
+  if (!updates.dosing) return false;
+  
+  // Check pH Up/Down interval changes
+  if (updates.dosing.phUp?.minInterval !== undefined && 
+      updates.dosing.phUp.minInterval !== dosingConfig.dosing.phUp.minInterval) {
+    return true;
+  }
+  
+  if (updates.dosing.phDown?.minInterval !== undefined && 
+      updates.dosing.phDown.minInterval !== dosingConfig.dosing.phDown.minInterval) {
+    return true;
+  }
+  
+  // Check nutrient pump interval changes
+  if (updates.dosing.nutrientPumps) {
+    for (const pumpName in updates.dosing.nutrientPumps) {
+      const updatedInterval = updates.dosing.nutrientPumps[pumpName]?.minInterval;
+      const currentInterval = dosingConfig.dosing.nutrientPumps[pumpName]?.minInterval;
+      
+      if (updatedInterval !== undefined && updatedInterval !== currentInterval) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Reset all lastDose timestamps to allow immediate dosing
+ */
+function resetDoseTimestamps(): void {
+  console.log('[resetDoseTimestamps] Resetting all dose timestamps to allow immediate dosing');
+  dosingConfig.lastDose.phUp = null;
+  dosingConfig.lastDose.phDown = null;
+  dosingConfig.lastDose.nutrientPumps = {};
+  
+  // Save immediately to persist changes
+  saveDosingConfig();
 } 
