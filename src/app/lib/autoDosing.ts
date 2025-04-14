@@ -638,7 +638,7 @@ function canDose(pumpType: 'phUp' | 'phDown'): boolean {
 function canDoseNutrient(pumpName: string): boolean {
   const lastDoseTime = dosingConfig.lastDose.nutrientPumps[pumpName];
   
-  // Log all nutrient pumps and their intervals when checking
+  // If never dosed before, allow dosing
   if (!lastDoseTime) {
     console.log(`[canDoseNutrient] ${pumpName} - Never dosed before, allowing dose. Configured minInterval: ${dosingConfig.dosing.nutrientPumps[pumpName]?.minInterval || 'not set, using default 180'}`);
     
