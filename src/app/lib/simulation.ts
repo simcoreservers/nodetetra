@@ -15,6 +15,28 @@ const mkdirAsync = promisify(fs.mkdir);
 // Define simulation configuration file path
 const DATA_DIR = path.join(process.cwd(), 'data');
 const SIMULATION_CONFIG_FILE = path.join(DATA_DIR, 'simulation.json');
+const TEMP_CONFIG_FILE = path.join(DATA_DIR, 'simulation.json.tmp');
+
+// File operation timeout in milliseconds (3 seconds)
+const FILE_OP_TIMEOUT = 3000;
+
+// Define a helper to add timeout to filesystem operations
+async function withTimeout<T>(operation: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+  return new Promise<T>(async (resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`Timeout: ${errorMessage}`));
+    }, timeoutMs);
+    
+    try {
+      const result = await operation;
+      clearTimeout(timeout);
+      resolve(result);
+    } catch (error) {
+      clearTimeout(timeout);
+      reject(error);
+    }
+  });
+}
 
 // Define simulation configuration interface
 export interface SimulationConfig {
@@ -65,36 +87,68 @@ let currentSimulatedValues = {
   waterTemp: DEFAULT_SIMULATION_CONFIG.baseline.waterTemp
 };
 
+// In-memory cache of configuration to avoid frequent disk reads
+let cachedConfig: SimulationConfig | null = null;
+let lastConfigRead = 0;
+const CONFIG_CACHE_TTL = 30000; // 30 seconds cache validity
+
 /**
  * Initialize the simulation system
  */
 export async function initializeSimulation(): Promise<void> {
   try {
     // Ensure the data directory exists
-    if (!fs.existsSync(DATA_DIR)) {
-      await mkdirAsync(DATA_DIR, { recursive: true });
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        await withTimeout(
+          mkdirAsync(DATA_DIR, { recursive: true }),
+          FILE_OP_TIMEOUT,
+          'Creating data directory timed out'
+        );
+      }
+    } catch (error) {
+      console.error('Error creating data directory:', error);
+      // Continue execution - we'll use in-memory defaults
     }
 
     // Check if the simulation config file exists
     if (!fs.existsSync(SIMULATION_CONFIG_FILE)) {
       // Create default simulation configuration file
-      await writeFileAsync(
-        SIMULATION_CONFIG_FILE,
-        JSON.stringify(DEFAULT_SIMULATION_CONFIG, null, 2),
-        'utf8'
-      );
-      console.log('Default simulation configuration created');
+      try {
+        await withTimeout(
+          writeFileAsync(
+            SIMULATION_CONFIG_FILE,
+            JSON.stringify(DEFAULT_SIMULATION_CONFIG, null, 2),
+            'utf8'
+          ),
+          FILE_OP_TIMEOUT,
+          'Writing default configuration timed out'
+        );
+        console.log('Default simulation configuration created');
+      } catch (error) {
+        console.error('Error creating default configuration file:', error);
+        // Continue with in-memory defaults
+      }
     } else {
-      // Load existing configuration
-      const config = await getSimulationConfig();
-      
-      // Initialize current values from baseline
-      currentSimulatedValues = { ...config.baseline };
-      console.log('Simulation configuration loaded');
+      // Load existing configuration with timeout
+      try {
+        const config = await getSimulationConfig();
+        // Initialize current values from baseline
+        currentSimulatedValues = { ...config.baseline };
+        console.log('Simulation configuration loaded');
+      } catch (error) {
+        console.error('Error loading existing configuration:', error);
+        // Continue with in-memory defaults
+      }
     }
+    
+    // Cache the current config
+    cachedConfig = await getSimulationConfig();
+    lastConfigRead = Date.now();
   } catch (error) {
     console.error('Error initializing simulation system:', error);
-    throw new Error(`Failed to initialize simulation system: ${error}`);
+    // Don't throw - use defaults and log error
+    console.log('Using default simulation configuration due to initialization error');
   }
 }
 
@@ -102,11 +156,34 @@ export async function initializeSimulation(): Promise<void> {
  * Get the current simulation configuration
  */
 export async function getSimulationConfig(): Promise<SimulationConfig> {
+  // Check if we have a valid cached config
+  const now = Date.now();
+  if (cachedConfig && (now - lastConfigRead) < CONFIG_CACHE_TTL) {
+    return { ...cachedConfig };
+  }
+  
   try {
-    const data = await readFileAsync(SIMULATION_CONFIG_FILE, 'utf8');
-    return JSON.parse(data) as SimulationConfig;
+    const data = await withTimeout(
+      readFileAsync(SIMULATION_CONFIG_FILE, 'utf8'),
+      FILE_OP_TIMEOUT,
+      'Reading simulation config timed out'
+    );
+    
+    const config = JSON.parse(data) as SimulationConfig;
+    
+    // Update cache
+    cachedConfig = config;
+    lastConfigRead = now;
+    
+    return config;
   } catch (error) {
     console.error('Error reading simulation config:', error);
+    // If we have a previously cached config, return that instead of defaults
+    if (cachedConfig) {
+      console.log('Using cached simulation config due to file read error');
+      return { ...cachedConfig };
+    }
+    // Otherwise use defaults
     return DEFAULT_SIMULATION_CONFIG;
   }
 }
@@ -117,7 +194,13 @@ export async function getSimulationConfig(): Promise<SimulationConfig> {
 export async function updateSimulationConfig(updates: Partial<SimulationConfig>): Promise<SimulationConfig> {
   try {
     // Get current config
-    const currentConfig = await getSimulationConfig();
+    let currentConfig: SimulationConfig;
+    try {
+      currentConfig = await getSimulationConfig();
+    } catch (error) {
+      console.error('Error reading current config, using defaults:', error);
+      currentConfig = DEFAULT_SIMULATION_CONFIG;
+    }
     
     // Create updated config
     const updatedConfig: SimulationConfig = {
@@ -131,17 +214,41 @@ export async function updateSimulationConfig(updates: Partial<SimulationConfig>)
       currentSimulatedValues = { ...updatedConfig.baseline };
     }
     
-    // Save updated config
-    await writeFileAsync(
-      SIMULATION_CONFIG_FILE,
-      JSON.stringify(updatedConfig, null, 2),
-      'utf8'
+    // Ensure directory exists
+    if (!fs.existsSync(DATA_DIR)) {
+      await withTimeout(
+        mkdirAsync(DATA_DIR, { recursive: true }),
+        FILE_OP_TIMEOUT,
+        'Creating data directory timed out'
+      );
+    }
+    
+    // Save to temp file first
+    await withTimeout(
+      writeFileAsync(
+        TEMP_CONFIG_FILE,
+        JSON.stringify(updatedConfig, null, 2),
+        'utf8'
+      ),
+      FILE_OP_TIMEOUT,
+      'Writing to temp config file timed out'
     );
+    
+    // Rename temp file to actual file - atomic operation
+    fs.renameSync(TEMP_CONFIG_FILE, SIMULATION_CONFIG_FILE);
+    
+    // Update cache
+    cachedConfig = updatedConfig;
+    lastConfigRead = Date.now();
     
     return updatedConfig;
   } catch (error) {
     console.error('Error updating simulation config:', error);
-    throw new Error(`Failed to update simulation config: ${error}`);
+    // Log error but don't throw - use current cached config or defaults
+    if (cachedConfig) {
+      return { ...cachedConfig };
+    }
+    return DEFAULT_SIMULATION_CONFIG;
   }
 }
 
@@ -152,8 +259,15 @@ export async function updateSimulationConfig(updates: Partial<SimulationConfig>)
  */
 export async function getSimulatedSensorReadings(): Promise<SensorData> {
   try {
-    // Get current configuration
-    const config = await getSimulationConfig();
+    // Get current configuration - use cached if available
+    let config: SimulationConfig;
+    try {
+      config = await getSimulationConfig();
+    } catch (error) {
+      console.error('Error getting simulation config, using defaults:', error);
+      // Use cached config if available, otherwise defaults
+      config = cachedConfig || DEFAULT_SIMULATION_CONFIG;
+    }
     
     if (!config.enabled) {
       throw new Error('Simulation mode is not enabled');
@@ -192,7 +306,13 @@ export async function getSimulatedSensorReadings(): Promise<SensorData> {
     };
   } catch (error) {
     console.error('Error generating simulated readings:', error);
-    throw error;
+    // Provide fallback values in case of error
+    return {
+      ph: 6.0,
+      ec: 1.4,
+      waterTemp: 22.0,
+      timestamp: new Date().toISOString()
+    };
   }
 }
 
@@ -231,12 +351,24 @@ function applyRealisticVariation(
  */
 export async function resetSimulation(): Promise<void> {
   try {
-    const config = await getSimulationConfig();
+    // Use cached config if available to avoid file system access
+    let config: SimulationConfig;
+    if (cachedConfig && (Date.now() - lastConfigRead) < CONFIG_CACHE_TTL) {
+      config = cachedConfig;
+    } else {
+      try {
+        config = await getSimulationConfig();
+      } catch (error) {
+        console.error('Error reading config for reset, using defaults:', error);
+        config = DEFAULT_SIMULATION_CONFIG;
+      }
+    }
+    
     currentSimulatedValues = { ...config.baseline };
     console.log('Simulation values reset to baseline');
   } catch (error) {
     console.error('Error resetting simulation:', error);
-    throw new Error(`Failed to reset simulation: ${error}`);
+    // Don't throw, just log error
   }
 }
 
@@ -245,10 +377,16 @@ export async function resetSimulation(): Promise<void> {
  */
 export async function isSimulationEnabled(): Promise<boolean> {
   try {
+    // Use cached config if available
+    if (cachedConfig && (Date.now() - lastConfigRead) < CONFIG_CACHE_TTL) {
+      return cachedConfig.enabled;
+    }
+    
     const config = await getSimulationConfig();
     return config.enabled;
   } catch (error) {
-    console.error('Error checking simulation status:', error);
+    console.error('Error checking if simulation is enabled:', error);
+    // Default to false if there's an error
     return false;
   }
 } 

@@ -203,16 +203,38 @@ export async function performAutoDosing(): Promise<{
   
   try {
     // Check if we should use simulated readings
-    const isSimulation = await isSimulationEnabled();
+    let isSimulation: boolean;
+    try {
+      isSimulation = await isSimulationEnabled();
+    } catch (error) {
+      console.error('Error checking simulation status, assuming not enabled:', error);
+      isSimulation = false;
+    }
     
     if (isSimulation) {
-      sensorData = await getSimulatedSensorReadings();
+      try {
+        sensorData = await getSimulatedSensorReadings();
+      } catch (error) {
+        console.error('Error getting simulated readings:', error);
+        return { 
+          action: 'error', 
+          details: { error: `Failed to get simulated sensor readings: ${error}` } 
+        };
+      }
     } else {
-      const readings = await getAllSensorReadings();
-      sensorData = {
-        ...readings,
-        timestamp: new Date().toISOString()
-      };
+      try {
+        const readings = await getAllSensorReadings();
+        sensorData = {
+          ...readings,
+          timestamp: new Date().toISOString()
+        };
+      } catch (error) {
+        console.error('Error getting sensor readings:', error);
+        return { 
+          action: 'error', 
+          details: { error: `Failed to get sensor readings: ${error}` } 
+        };
+      }
     }
   } catch (error) {
     console.error('Error getting sensor readings for auto-dosing:', error);
@@ -225,12 +247,36 @@ export async function performAutoDosing(): Promise<{
   // Store the reading for reference
   lastReading = sensorData;
   
+  // Define the maximum execution time for auto-dosing
+  const autoDoseTimeoutMs = 60000; // 60 seconds max
+  const startTime = Date.now();
+  
+  // Ensure we don't exceed the maximum execution time
+  const checkTimeout = (): boolean => {
+    const elapsedTime = Date.now() - startTime;
+    if (elapsedTime > autoDoseTimeoutMs) {
+      console.error(`Auto-dosing execution timed out after ${elapsedTime}ms`);
+      return true;
+    }
+    return false;
+  };
+  
   // Check if pH is out of range and needs adjustment
   let dosingAction = 'none';
   let dosingDetails = {};
   
   // Get pump status to make sure we don't interfere with active pumps
-  const pumpStatus = getAllPumpStatus();
+  let pumpStatus;
+  try {
+    pumpStatus = getAllPumpStatus();
+  } catch (error) {
+    console.error('Error getting pump status:', error);
+    return { 
+      action: 'error', 
+      details: { error: `Failed to get pump status: ${error}` } 
+    };
+  }
+  
   const activePumps = pumpStatus.filter(pump => pump.active).map(pump => pump.name);
   
   if (activePumps.length > 0) {
@@ -245,129 +291,171 @@ export async function performAutoDosing(): Promise<{
     // pH is too low, need to add pH Up solution
     if (canDose('phUp')) {
       try {
+        // Check for timeout before starting a potentially long operation
+        if (checkTimeout()) {
+          return { 
+            action: 'timeout', 
+            details: { reason: 'Auto-dosing execution time limit exceeded' } 
+          };
+        }
+        
         // Dispense pH Up solution
         const pumpName = dosingConfig.dosing.phUp.pumpName;
         const amount = dosingConfig.dosing.phUp.doseAmount;
         const flowRate = dosingConfig.dosing.phUp.flowRate;
         
         await dispensePump(pumpName, amount, flowRate);
+        
+        // Record the dose
         recordDose('phUp');
         
-        dosingAction = 'ph-up';
-        dosingDetails = {
-          initialPh: sensorData.ph,
-          targetPh: dosingConfig.targets.ph.target,
-          doseAmount: amount,
-          pumpName
+        return {
+          action: 'dosed',
+          details: {
+            type: 'pH Up',
+            amount,
+            pumpName,
+            reason: `pH ${sensorData.ph} below target range (${dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance})`
+          }
         };
       } catch (error) {
-        console.error('Error dispensing pH Up solution:', error);
-        return { 
-          action: 'error', 
-          details: { error: `Failed to dispense pH Up: ${error}` } 
+        console.error('Error dispensing pH Up:', error);
+        return {
+          action: 'error',
+          details: {
+            type: 'pH Up',
+            error: `Failed to dispense pH Up: ${error}`
+          }
         };
       }
     } else {
-      dosingAction = 'waiting';
-      dosingDetails = {
-        reason: 'pH Up pump in cooldown period',
-        phLevel: sensorData.ph,
-        targetPh: dosingConfig.targets.ph.target,
-        lastDose: dosingConfig.lastDose.phUp
+      return {
+        action: 'waiting',
+        details: {
+          type: 'pH Up',
+          reason: 'Minimum interval between doses not reached'
+        }
       };
     }
-  } 
+  }
+  
   // Check if pH is too high (need to add pH Down)
-  else if (sensorData.ph > (dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance)) {
+  if (sensorData.ph > (dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance)) {
     // pH is too high, need to add pH Down solution
     if (canDose('phDown')) {
       try {
+        // Check for timeout before starting a potentially long operation
+        if (checkTimeout()) {
+          return { 
+            action: 'timeout', 
+            details: { reason: 'Auto-dosing execution time limit exceeded' } 
+          };
+        }
+        
         // Dispense pH Down solution
         const pumpName = dosingConfig.dosing.phDown.pumpName;
         const amount = dosingConfig.dosing.phDown.doseAmount;
         const flowRate = dosingConfig.dosing.phDown.flowRate;
         
         await dispensePump(pumpName, amount, flowRate);
+        
+        // Record the dose
         recordDose('phDown');
         
-        dosingAction = 'ph-down';
-        dosingDetails = {
-          initialPh: sensorData.ph,
-          targetPh: dosingConfig.targets.ph.target,
-          doseAmount: amount,
-          pumpName
+        return {
+          action: 'dosed',
+          details: {
+            type: 'pH Down',
+            amount,
+            pumpName,
+            reason: `pH ${sensorData.ph} above target range (${dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance})`
+          }
         };
       } catch (error) {
-        console.error('Error dispensing pH Down solution:', error);
-        return { 
-          action: 'error', 
-          details: { error: `Failed to dispense pH Down: ${error}` } 
+        console.error('Error dispensing pH Down:', error);
+        return {
+          action: 'error',
+          details: {
+            type: 'pH Down',
+            error: `Failed to dispense pH Down: ${error}`
+          }
         };
       }
     } else {
-      dosingAction = 'waiting';
-      dosingDetails = {
-        reason: 'pH Down pump in cooldown period',
-        phLevel: sensorData.ph,
-        targetPh: dosingConfig.targets.ph.target,
-        lastDose: dosingConfig.lastDose.phDown
+      return {
+        action: 'waiting',
+        details: {
+          type: 'pH Down',
+          reason: 'Minimum interval between doses not reached'
+        }
       };
     }
   }
   
-  // If pH is within range and we haven't already dosed something,
-  // check if EC (nutrient level) is too low
-  if (dosingAction === 'none' && 
-      sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
-    // EC is too low, need to add nutrients
+  // Check if EC is too low (need to add nutrients)
+  if (sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
+    // EC is too low, need to add nutrient solution
     if (canDose('nutrient')) {
       try {
+        // Check for timeout before starting a potentially long operation
+        if (checkTimeout()) {
+          return { 
+            action: 'timeout', 
+            details: { reason: 'Auto-dosing execution time limit exceeded' } 
+          };
+        }
+        
         // Dispense nutrient solution
         const pumpName = dosingConfig.dosing.nutrient.pumpName;
         const amount = dosingConfig.dosing.nutrient.doseAmount;
         const flowRate = dosingConfig.dosing.nutrient.flowRate;
         
         await dispensePump(pumpName, amount, flowRate);
+        
+        // Record the dose
         recordDose('nutrient');
         
-        dosingAction = 'nutrient';
-        dosingDetails = {
-          initialEc: sensorData.ec,
-          targetEc: dosingConfig.targets.ec.target,
-          doseAmount: amount,
-          pumpName
+        return {
+          action: 'dosed',
+          details: {
+            type: 'Nutrient',
+            amount,
+            pumpName,
+            reason: `EC ${sensorData.ec} below target range (${dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance})`
+          }
         };
       } catch (error) {
-        console.error('Error dispensing nutrient solution:', error);
-        return { 
-          action: 'error', 
-          details: { error: `Failed to dispense nutrients: ${error}` } 
+        console.error('Error dispensing nutrients:', error);
+        return {
+          action: 'error',
+          details: {
+            type: 'Nutrient',
+            error: `Failed to dispense nutrients: ${error}`
+          }
         };
       }
     } else {
-      dosingAction = 'waiting';
-      dosingDetails = {
-        reason: 'Nutrient pump in cooldown period',
-        ecLevel: sensorData.ec,
-        targetEc: dosingConfig.targets.ec.target,
-        lastDose: dosingConfig.lastDose.nutrient
+      return {
+        action: 'waiting',
+        details: {
+          type: 'Nutrient',
+          reason: 'Minimum interval between doses not reached'
+        }
       };
     }
   }
   
-  // If we didn't trigger any dosing and we're not waiting for cooldown
-  if (dosingAction === 'none') {
-    dosingDetails = {
-      reason: 'All parameters within target ranges',
-      ph: sensorData.ph,
-      ec: sensorData.ec,
-      phTarget: dosingConfig.targets.ph,
-      ecTarget: dosingConfig.targets.ec
-    };
-  }
-  
+  // If we get here, everything is within target ranges
   return {
-    action: dosingAction,
-    details: dosingDetails
+    action: 'none',
+    details: {
+      reason: 'All parameters within target ranges',
+      currentValues: {
+        ph: sensorData.ph,
+        ec: sensorData.ec,
+        waterTemp: sensorData.waterTemp
+      },
+      targets: dosingConfig.targets
+    }
   };
 } 

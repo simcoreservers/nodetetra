@@ -443,76 +443,124 @@ export async function deactivatePump(pumpName: PumpName): Promise<void> {
 
 /**
  * Dispense a specific amount from a pump
- * @param pumpName - Name of the pump
- * @param amount - Amount to dispense in mL
- * @param flowRate - Flow rate in mL per second
+ * @param pumpName The name of the pump to dispense from
+ * @param amount The amount in mL to dispense
+ * @param flowRate The flow rate in mL per second
  */
 export async function dispensePump(pumpName: PumpName, amount: number, flowRate: number): Promise<void> {
   if (isClient) {
-    return;
+    throw new Error('Cannot dispense pump from client-side code');
+  }
+
+  // Validate input parameters
+  if (!pumpName || !PUMP_GPIO[pumpName]) {
+    throw new Error(`Invalid pump name: ${pumpName}`);
   }
   
+  if (amount <= 0) {
+    throw new Error(`Invalid amount to dispense: ${amount}mL`);
+  }
+  
+  if (flowRate <= 0) {
+    throw new Error(`Invalid flow rate: ${flowRate}mL/s`);
+  }
+  
+  // Check if the pump is already active
+  if (pumpStatus[pumpName].active) {
+    throw new Error(`Pump ${pumpName} is already active`);
+  }
+  
+  // Calculate how long to run the pump based on flow rate
+  const runTime = Math.round((amount / flowRate) * 1000); // Convert to milliseconds
+  const maxRunTime = 60000; // Maximum 60 seconds as a safety measure
+  
+  if (runTime > maxRunTime) {
+    throw new Error(`Requested dispense time (${runTime}ms) exceeds maximum allowed time (${maxRunTime}ms)`);
+  }
+  
+  // Get the GPIO pin for this pump
+  const pin = PUMP_GPIO[pumpName];
+  
   try {
-    // Input validation
-    if (amount <= 0) {
-      throw new Error('Dispense amount must be greater than 0');
-    }
-    
-    if (flowRate <= 0) {
-      throw new Error('Flow rate must be greater than 0');
-    }
-    
-    // Calculate how long to run the pump
-    const durationMs = (amount / flowRate) * 1000;
-    
-    // Check if pump has an error
-    if (pumpStatus[pumpName].error) {
-      throw new Error(`Cannot dispense from pump with error: ${pumpStatus[pumpName].error}`);
-    }
-    
-    console.log(`Dispensing ${amount}mL from ${pumpName} (duration: ${durationMs}ms at ${flowRate}mL/s)`);
-    
-    // Store flow rate in the pump status
-    pumpStatus[pumpName].flowRate = flowRate;
-    
-    // Activate the pump
-    await activatePump(pumpName);
-    
-    // Wait for the calculated duration
-    await new Promise(resolve => setTimeout(resolve, durationMs));
-    
-    // Deactivate the pump
-    await deactivatePump(pumpName);
-    
-    // Add the dispense event
+    // Log the event
+    const event = `Dispensing ${amount}mL from ${pumpName} at ${flowRate}mL/s (${runTime}ms)`;
     recentEvents.unshift({
       time: new Date().toLocaleTimeString(),
-      event: `Dispensed ${amount}mL from pump ${pumpName}`,
+      event,
       timestamp: new Date()
     });
+    console.log(event);
     
-    // Save updated configuration (flow rate)
-    savePumpConfig();
+    // Turn on the pump
+    await activatePump(pumpName);
     
-    console.log(`Dispensed ${amount}mL from ${pumpName}`);
-  } catch (error) {
-    console.error(`Error dispensing from pump ${pumpName}:`, error);
-    
-    // Log the error event
-    recentEvents.unshift({
-      time: new Date().toLocaleTimeString(),
-      event: `Failed to dispense from pump ${pumpName}: ${error}`,
-      timestamp: new Date(),
-      isError: true
+    // Create a promise that resolves after the run time
+    // and a timeout to ensure we eventually resolve
+    return new Promise((resolve, reject) => {
+      // Safety timeout that's slightly longer than the run time
+      const safetyTimeout = setTimeout(() => {
+        // If this timeout triggers, something went wrong with the main timer
+        console.error(`Safety timeout triggered for ${pumpName}`);
+        
+        // Attempt to deactivate the pump as a safety measure
+        deactivatePump(pumpName)
+          .catch(err => console.error(`Error deactivating pump in safety timeout: ${err}`))
+          .finally(() => {
+            reject(new Error(`Dispense operation timed out for pump ${pumpName}`));
+          });
+      }, runTime + 5000); // 5 seconds more than the run time
+      
+      // Set a timeout to turn off the pump after the calculated run time
+      const runTimer = setTimeout(async () => {
+        clearTimeout(safetyTimeout); // Clear the safety timeout
+        
+        try {
+          await deactivatePump(pumpName);
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      }, runTime);
+      
+      // Add event listeners to handle unexpected termination
+      const cleanup = () => {
+        clearTimeout(runTimer);
+        clearTimeout(safetyTimeout);
+      };
+      
+      // Attach cleanup to process events for safety
+      process.once('SIGINT', cleanup);
+      process.once('SIGTERM', cleanup);
+      
+      // Also handle unhandled promise rejections
+      const rejectionHandler = () => {
+        cleanup();
+        deactivatePump(pumpName).catch(console.error);
+      };
+      
+      // Attach rejection handler
+      process.once('unhandledRejection', rejectionHandler);
+      
+      // Remove event listeners once completed
+      const removeListeners = () => {
+        process.removeListener('SIGINT', cleanup);
+        process.removeListener('SIGTERM', cleanup);
+        process.removeListener('unhandledRejection', rejectionHandler);
+      };
+      
+      // Ensure listeners are removed in both success and failure cases
+      runTimer.unref(); // Allow the process to exit if this timer is the only thing running
+      safetyTimeout.unref(); // Allow the process to exit if this timer is the only thing running
     });
-    
-    // Make sure pump is off in case of error
+  } catch (error) {
+    // Make sure to deactivate the pump if anything goes wrong
     try {
       await deactivatePump(pumpName);
     } catch (deactivateError) {
-      console.error(`Error ensuring pump ${pumpName} is off after dispense error:`, deactivateError);
+      console.error(`Error deactivating pump after failure: ${deactivateError}`);
     }
     
+    // Re-throw the original error
     throw error;
   }
 }
@@ -641,7 +689,7 @@ export function ensureDevPumpsInitialized(): void {
  * Cleanup GPIO resources when shutting down the application
  * This should be called when the server is shutting down to release GPIO resources
  */
-export function cleanupGpio(): void {
+export async function cleanupGpio(): Promise<void> {
   if (isClient) {
     return;
   }
@@ -649,16 +697,16 @@ export function cleanupGpio(): void {
   console.log('Cleaning up GPIO resources...');
   
   // Ensure all pumps are turned off by setting pins low
-  for (const [name, pin] of Object.entries(PUMP_GPIO)) {
+  const cleanupPromises = Object.entries(PUMP_GPIO).map(async ([name, pin]) => {
     try {
       // Turn off the pump
-      execAsync(`gpio -g write ${pin} 0`).catch(err => {
-        console.error(`Error cleaning up GPIO pin ${pin}:`, err);
-      });
-      
+      await execAsync(`gpio -g write ${pin} 0`);
       console.log(`Cleaned up GPIO pin ${pin}`);
     } catch (error) {
       console.error(`Error cleaning up GPIO pin ${pin}:`, error);
     }
-  }
+  });
+  
+  // Wait for all cleanup operations to complete
+  await Promise.all(cleanupPromises);
 } 
