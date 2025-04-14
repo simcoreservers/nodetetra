@@ -310,19 +310,28 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
   const oldEnabled = dosingConfig.enabled;
   const newEnabled = updates.enabled !== undefined ? updates.enabled : oldEnabled;
   
-  // Update the configuration
-  dosingConfig = {
-    ...dosingConfig,
-    ...updates,
-    targets: {
-      ...dosingConfig.targets,
-      ...(updates.targets || {})
-    },
-    dosing: {
-      ...dosingConfig.dosing,
-      ...(updates.dosing || {})
-    }
-  };
+  // Log the before state of dosing config
+  console.log('Updating dosing config, before:', JSON.stringify({
+    'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
+    'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
+    'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
+      name,
+      minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval
+    }))
+  }));
+  
+  // Deep merge changes
+  dosingConfig = deepMerge(dosingConfig, updates);
+  
+  // Log the after state of dosing config
+  console.log('Updated dosing config, after:', JSON.stringify({
+    'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
+    'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
+    'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
+      name,
+      minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval
+    }))
+  }));
   
   // If auto-dosing was just enabled, log this important event
   if (!oldEnabled && newEnabled) {
@@ -345,7 +354,59 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
     }
   }
   
+  // Save the config to disk
+  try {
+    if (typeof window === 'undefined') {
+      // Only save on the server side
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Create data directory if it doesn't exist
+      const dataPath = path.join(process.cwd(), 'data');
+      if (!fs.existsSync(dataPath)) {
+        fs.mkdirSync(dataPath, { recursive: true });
+      }
+      
+      // Save dosing config
+      const configPath = path.join(dataPath, 'autodosing.json');
+      fs.writeFileSync(configPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
+      console.log('Auto-dosing config saved to:', configPath);
+    }
+  } catch (error) {
+    console.error('Failed to save auto-dosing config:', error);
+  }
+  
   return dosingConfig;
+}
+
+/**
+ * Deep merge two objects
+ */
+function deepMerge(target: any, source: any): any {
+  const output = { ...target };
+  
+  if (isObject(target) && isObject(source)) {
+    Object.keys(source).forEach(key => {
+      if (isObject(source[key])) {
+        if (!(key in target)) {
+          Object.assign(output, { [key]: source[key] });
+        } else {
+          output[key] = deepMerge(target[key], source[key]);
+        }
+      } else {
+        Object.assign(output, { [key]: source[key] });
+      }
+    });
+  }
+  
+  return output;
+}
+
+/**
+ * Check if value is an object
+ */
+function isObject(item: any): boolean {
+  return (item && typeof item === 'object' && !Array.isArray(item));
 }
 
 /**
@@ -378,6 +439,8 @@ function canDose(pumpType: 'phUp' | 'phDown'): boolean {
   const timeSinceLastDose = (now.getTime() - lastDoseTime.getTime()) / 1000; // in seconds
   const minInterval = dosingConfig.dosing[pumpType].minInterval;
   
+  console.log(`[canDose] ${pumpType} - Last dose: ${lastDoseTime.toISOString()}, Time since: ${timeSinceLastDose}s, Min interval: ${minInterval}s`);
+  
   return timeSinceLastDose >= minInterval;
 }
 
@@ -395,6 +458,8 @@ function canDoseNutrient(pumpName: string): boolean {
   const now = new Date();
   const timeSinceLastDose = (now.getTime() - lastDoseTime.getTime()) / 1000; // in seconds
   const minInterval = dosingConfig.dosing.nutrientPumps[pumpName]?.minInterval || 180;
+  
+  console.log(`[canDoseNutrient] ${pumpName} - Last dose: ${lastDoseTime.toISOString()}, Time since: ${timeSinceLastDose}s, Min interval: ${minInterval}s`);
   
   return timeSinceLastDose >= minInterval;
 }
