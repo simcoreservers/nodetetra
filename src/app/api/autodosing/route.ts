@@ -231,99 +231,60 @@ export async function POST(request: NextRequest) {
         // Manually trigger a dosing cycle
         console.log('Manually triggering dosing cycle...');
         
-        // Store current interval settings before sync
-        const preDosingConfig = getDosingConfig();
-        const savedIntervals = {
-          phUp: preDosingConfig.dosing.phUp.minInterval,
-          phDown: preDosingConfig.dosing.phDown.minInterval,
-          nutrientPumps: {} as Record<string, number>
-        };
+        // Verify auto-dosing is enabled
+        const config = getDosingConfig();
+        if (!config.enabled) {
+          return NextResponse.json({
+            error: 'Auto-dosing is disabled, enable it first',
+            action: 'dose',
+            success: false
+          }, { status: 400 });
+        }
         
-        // Save all nutrient pump intervals
-        Object.keys(preDosingConfig.dosing.nutrientPumps).forEach(pumpName => {
-          savedIntervals.nutrientPumps[pumpName] = preDosingConfig.dosing.nutrientPumps[pumpName].minInterval;
-        });
-        
-        console.log('Saved current intervals before sync:', JSON.stringify(savedIntervals, null, 2));
-        
-        // First sync with profile pumps to ensure using the correct pumps
         try {
+          // Sync with profile to ensure we have the latest pump assignments
           await syncProfilePumps();
           
-          // Restore the minInterval settings after sync
-          const postSyncConfig = getDosingConfig();
+          // Perform the auto-dosing
+          console.log('Executing auto-dosing...');
+          const result = await performAutoDosing();
+          console.log('Auto-dosing result:', JSON.stringify(result, null, 2));
           
-          // Create updates object to restore intervals
-          const intervalUpdates: Partial<DosingConfig> = {
-            dosing: {
-              phUp: {
-                ...postSyncConfig.dosing.phUp,
-                minInterval: savedIntervals.phUp
-              },
-              phDown: {
-                ...postSyncConfig.dosing.phDown,
-                minInterval: savedIntervals.phDown
-              },
-              nutrientPumps: {}
-            }
+          // Include diagnostic info
+          let diagnostics = {};
+          try {
+            const { getAllSensorReadings } = await import('../../lib/sensors');
+            const { getAllPumpStatus } = await import('../../lib/pumps');
+            
+            const readings = await getAllSensorReadings();
+            const pumps = getAllPumpStatus();
+            
+            diagnostics = {
+              sensors: readings,
+              pumps: pumps.map(p => ({ name: p.name, active: p.active })),
+              config: getDosingConfig()
+            };
+          } catch (err) {
+            console.error('Failed to get diagnostic info:', err);
+          }
+          
+          // Return the result
+          response = {
+            action: 'dose',
+            result,
+            diagnostics,
+            success: true
           };
-          
-          // Restore all nutrient pump intervals that still exist
-          Object.keys(postSyncConfig.dosing.nutrientPumps).forEach(pumpName => {
-            if (pumpName in savedIntervals.nutrientPumps) {
-              if (!intervalUpdates.dosing) {
-                intervalUpdates.dosing = { 
-                  phUp: postSyncConfig.dosing.phUp,
-                  phDown: postSyncConfig.dosing.phDown,
-                  nutrientPumps: {}
-                };
-              }
-              
-              if (!intervalUpdates.dosing.nutrientPumps) {
-                intervalUpdates.dosing.nutrientPumps = {};
-              }
-              
-              intervalUpdates.dosing.nutrientPumps[pumpName] = {
-                ...postSyncConfig.dosing.nutrientPumps[pumpName],
-                minInterval: savedIntervals.nutrientPumps[pumpName]
-              };
-            }
-          });
-          
-          // Apply the interval updates
-          updateDosingConfig(intervalUpdates);
-          console.log('Restored user interval settings after sync');
-          
-        } catch (err) {
-          console.warn('Could not sync profile pumps before dosing:', err);
+        } catch (error) {
+          console.error('Error performing auto-dosing:', error);
+          return NextResponse.json({
+            error: 'Failed to perform auto-dosing',
+            details: error instanceof Error ? error.message : String(error),
+            action: 'dose',
+            success: false
+          }, { status: 500 });
         }
         
-        const result = await performAutoDosing();
-        console.log('Manual dosing cycle result:', result);
-        
-        // Include more diagnostic info
-        let diagnostics = {};
-        try {
-          const { getAllSensorReadings } = await import('../../lib/sensors');
-          const { getAllPumpStatus } = await import('../../lib/pumps');
-          
-          const readings = await getAllSensorReadings();
-          const pumps = getAllPumpStatus();
-          
-          diagnostics = {
-            sensors: readings,
-            pumps: pumps.map(p => ({ name: p.name, active: p.active }))
-          };
-        } catch (err) {
-          console.error('Failed to get diagnostic info:', err);
-        }
-        
-        response = {
-          action: 'dose',
-          result,
-          diagnostics,
-          success: true
-        };
         break;
         
       default:
