@@ -107,8 +107,8 @@ export async function initializeServer(): Promise<void> {
  * Set up scheduled tasks that run at regular intervals
  */
 function setupScheduledTasks(): void {
-  // We removed the scheduled auto-dosing check as per user requirement
-  // The system now relies only on live sensor readings triggered by user actions
+  // We're removing the scheduled auto-dosing check as per user requirement
+  // The system will now check for auto-dosing needs when sensors are polled
   
   // Schedule profile pump sync every 15 minutes to keep auto-dosing using the correct pumps
   const profileSyncInterval = setInterval(async () => {
@@ -166,6 +166,8 @@ export async function cleanupServer(): Promise<void> {
 // Initialize server when this module is imported
 if (typeof window === 'undefined') {
   // Note: Actual initialization now triggered from middleware.ts
+  
+  // Auto-dosing check now happens with each sensor poll, not on startup
   
   // Set up cleanup on process termination
   process.on('SIGINT', async () => {

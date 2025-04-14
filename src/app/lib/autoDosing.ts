@@ -1229,4 +1229,26 @@ function resetDoseTimestamps(): void {
   
   // Save immediately to persist changes
   saveDosingConfig();
+}
+
+/**
+ * Force the next dosing cycle by resetting the last dose timestamps
+ * This allows a dosing to occur immediately, ignoring the minimum interval
+ */
+export function forceNextDosing(): void {
+  console.log('Forcing next dosing cycle by resetting dose timestamps');
+  
+  // Reset all dose timestamps
+  dosingConfig.lastDose.phUp = null;
+  dosingConfig.lastDose.phDown = null;
+  
+  // Reset nutrient pump timestamps
+  Object.keys(dosingConfig.lastDose.nutrientPumps).forEach(pumpName => {
+    dosingConfig.lastDose.nutrientPumps[pumpName] = null;
+  });
+  
+  // Save the updated configuration
+  saveDosingConfig();
+  
+  console.log('Dose timestamps reset, next performAutoDosing call will attempt to dose if needed');
 } 

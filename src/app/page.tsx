@@ -7,6 +7,7 @@ import { useSidebar } from "./components/SidebarContext";
 import { useSensorData } from "./hooks/useSensorData";
 import { usePumpData } from "./hooks/usePumpData";
 import { useProfileData } from "./hooks/useProfileData";
+import { useStreamData } from "./hooks/useStreamData";
 import { useSimulationContext } from "./components/SimulationContext";
 import { SensorData } from "./lib/sensors";
 import SensorCard from "./components/SensorCard";
@@ -24,20 +25,29 @@ export default function Home() {
   // Use the simulation context to check if simulation mode is enabled
   const { isEnabled: simulationEnabled } = useSimulationContext();
   
-  // Use the custom hooks to fetch real-time data
-  const { data: sensorData, isLoading: sensorsLoading, error: sensorError, refresh: refreshSensors } = useSensorData(1000); // Refresh every 1 second
-  const { data: pumpData, isLoading: pumpsLoading, error: pumpError, refresh: refreshPumps } = usePumpData(1000); // Refresh every 1 second
+  // Use the stream data hook for real-time updates
+  const { data: streamData, isConnected: streamConnected, error: streamError } = useStreamData();
+  
+  // Use the old hooks as fallback if streaming not working
+  const { data: sensorData, isLoading: sensorsLoading, error: sensorError, refresh: refreshSensors } = useSensorData(0); // Only used as fallback
+  const { data: pumpData, isLoading: pumpsLoading, error: pumpError, refresh: refreshPumps } = usePumpData(0); // Only used as fallback
   const { activeProfile, isLoading: profileLoading } = useProfileData({ 
     refreshInterval: 0, // No need to constantly refresh all profiles
     activeProfileRefreshInterval: 30000 // Refresh active profile every 30 seconds
   });
   
+  // Use stream data if available, otherwise fall back to polling data
+  const effectiveSensorData = streamData?.sensors || sensorData;
+  const effectivePumpData = streamData?.pumps || pumpData;
+  const effectiveSensorError = sensorError || (streamError ? { type: 'connection', message: streamError.message } : null);
+  const effectiveStreamError = streamError || (!streamConnected && !streamData);
+  
   // Set initial load state once data is first loaded
   useEffect(() => {
-    if (sensorData && !initialLoaded) {
+    if (effectiveSensorData && !initialLoaded) {
       setInitialLoaded(true);
     }
-  }, [sensorData, initialLoaded]);
+  }, [effectiveSensorData, initialLoaded]);
   
   // Initialize the system via API on component mount
   useEffect(() => {
@@ -47,41 +57,43 @@ export default function Home() {
     });
   }, []);
 
-  // Refresh all data function
+  // Refresh all data function (only used if streaming fails)
   const refreshAllData = () => {
-    refreshSensors();
-    refreshPumps();
+    if (!streamConnected) {
+      refreshSensors();
+      refreshPumps();
+    }
   };
 
   // Format the timestamp if we have data
-  const lastUpdate = sensorData?.timestamp 
-    ? new Date(sensorData.timestamp).toLocaleTimeString() 
+  const lastUpdate = effectiveSensorData?.timestamp 
+    ? new Date(effectiveSensorData.timestamp).toLocaleTimeString() 
     : 'Loading...';
   
   // Calculate status indicators based on real-time values
-  const phStatus = !sensorData ? "status-warning" : 
-    sensorData.ph < 5.5 || sensorData.ph > 6.5 
+  const phStatus = !effectiveSensorData ? "status-warning" : 
+    effectiveSensorData.ph < 5.5 || effectiveSensorData.ph > 6.5 
       ? "status-danger" 
-      : (sensorData.ph < 5.8 || sensorData.ph > 6.2) 
+      : (effectiveSensorData.ph < 5.8 || effectiveSensorData.ph > 6.2) 
         ? "status-warning" 
         : "status-good";
   
-  const ecStatus = !sensorData ? "status-warning" : 
-    sensorData.ec < 1.0 || sensorData.ec > 1.8 
+  const ecStatus = !effectiveSensorData ? "status-warning" : 
+    effectiveSensorData.ec < 1.0 || effectiveSensorData.ec > 1.8 
       ? "status-danger" 
-      : (sensorData.ec < 1.2 || sensorData.ec > 1.5) 
+      : (effectiveSensorData.ec < 1.2 || effectiveSensorData.ec > 1.5) 
         ? "status-warning" 
         : "status-good";
   
-  const tempStatus = !sensorData ? "status-warning" : 
-    sensorData.waterTemp < 18 || sensorData.waterTemp > 26 
+  const tempStatus = !effectiveSensorData ? "status-warning" : 
+    effectiveSensorData.waterTemp < 18 || effectiveSensorData.waterTemp > 26 
       ? "status-danger" 
-      : (sensorData.waterTemp < 20 || sensorData.waterTemp > 24) 
+      : (effectiveSensorData.waterTemp < 20 || effectiveSensorData.waterTemp > 24) 
         ? "status-warning" 
         : "status-good";
 
   // Only show error if not in simulation mode
-  const shouldShowSensorError = sensorError && !simulationEnabled;
+  const shouldShowSensorError = ((effectiveStreamError || effectiveSensorError) && !simulationEnabled) ? true : false;
 
   // Calculate current week for growth schedule if available
   // If we have a growthPhase, try to find that phase in the schedule
@@ -103,12 +115,12 @@ export default function Home() {
   const totalWeeks = activeProfile?.growthSchedule?.length || 0;
 
   // Only show loading animation on initial load, not during refreshes
-  const showLoadingState = sensorsLoading && !initialLoaded;
+  const showLoadingState = !streamData && sensorsLoading && !initialLoaded;
 
   // Format sensor values for display
-  const phValue = sensorData ? sensorData.ph.toFixed(2) : null;
-  const ecValue = sensorData ? `${sensorData.ec.toFixed(2)} mS/cm` : null;
-  const tempValue = sensorData ? `${sensorData.waterTemp.toFixed(1)}°C` : null;
+  const phValue = effectiveSensorData ? effectiveSensorData.ph.toFixed(2) : null;
+  const ecValue = effectiveSensorData ? `${effectiveSensorData.ec.toFixed(2)} mS/cm` : null;
+  const tempValue = effectiveSensorData ? `${effectiveSensorData.waterTemp.toFixed(1)}°C` : null;
 
   return (
     <div className="flex h-screen bg-[var(--background)]">
@@ -120,6 +132,13 @@ export default function Home() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <div className="flex items-center">
+            <span className="text-sm mr-3">
+              {streamConnected ? 
+                <span className="text-green-500">●</span> : 
+                <span className="text-yellow-500">●</span>
+              } 
+              {streamConnected ? 'Live' : 'Polling'} data
+            </span>
             <span className="text-sm">Last update: {lastUpdate}</span>
           </div>
         </div>
@@ -141,15 +160,15 @@ export default function Home() {
               </svg>
               <div>
                 <h3 className="text-lg font-semibold">Sensor Connection Issues</h3>
-                {sensorError.type === 'connection' ? (
+                {effectiveSensorError && effectiveSensorError.type === 'connection' ? (
                   <div>
                     <p className="mb-2">
                       {/* If there's a connection error and any one sensor is mentioned, likely all are affected */}
-                      {(sensorError.message.includes('connection error') || 
-                        sensorError.message.includes('Failed to fetch') ||
-                        sensorError.message.includes('I2C') ||
-                        (sensorError.message.includes('pH') && sensorError.message.includes('EC') && 
-                        (sensorError.message.includes('Temperature') || sensorError.message.includes('RTD')))) ? (
+                      {(effectiveSensorError.message.includes('connection error') || 
+                        effectiveSensorError.message.includes('Failed to fetch') ||
+                        effectiveSensorError.message.includes('I2C') ||
+                        (effectiveSensorError.message.includes('pH') && effectiveSensorError.message.includes('EC') && 
+                        (effectiveSensorError.message.includes('Temperature') || effectiveSensorError.message.includes('RTD')))) ? (
                         <>
                           <span className="inline-block px-2 py-1 mr-2 bg-red-900/50 rounded">pH Sensor</span>
                           <span className="inline-block px-2 py-1 mr-2 bg-red-900/50 rounded">EC Sensor</span>
@@ -158,17 +177,17 @@ export default function Home() {
                         </>
                       ) : (
                         <>
-                          {sensorError.message.includes('pH') ? (
+                          {effectiveSensorError.message.includes('pH') ? (
                             <span className="inline-block px-2 py-1 mr-2 bg-red-900/50 rounded">pH Sensor</span>
                           ) : null}
-                          {sensorError.message.includes('EC') ? (
+                          {effectiveSensorError.message.includes('EC') ? (
                             <span className="inline-block px-2 py-1 mr-2 bg-red-900/50 rounded">EC Sensor</span>
                           ) : null}
-                          {sensorError.message.includes('Temperature') || sensorError.message.includes('RTD') ? (
+                          {effectiveSensorError.message.includes('Temperature') || effectiveSensorError.message.includes('RTD') ? (
                             <span className="inline-block px-2 py-1 mr-2 bg-red-900/50 rounded">Temperature Sensor</span>
                           ) : null}
-                          {!sensorError.message.includes('pH') && !sensorError.message.includes('EC') && 
-                            !sensorError.message.includes('Temperature') && !sensorError.message.includes('RTD') ? (
+                          {!effectiveSensorError.message.includes('pH') && !effectiveSensorError.message.includes('EC') && 
+                            !effectiveSensorError.message.includes('Temperature') && !effectiveSensorError.message.includes('RTD') ? (
                             <span>One or more sensors are disconnected</span>
                           ) : (
                             <span>disconnected or not responding</span>
@@ -179,7 +198,7 @@ export default function Home() {
                     <p className="text-sm">Please check connections and restart the system if necessary.</p>
                   </div>
                 ) : (
-                  <p>{sensorError.message}</p>
+                  <p>{streamError ? streamError.message : 'Connection issue with sensors'}</p>
                 )}
               </div>
             </div>
@@ -222,17 +241,16 @@ export default function Home() {
         {/* Pump Status, Auto-Dosing and Recent Activity */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <PumpStatusCard
-            pumpStatus={pumpData?.pumpStatus || null}
+            pumpStatus={Array.isArray(effectivePumpData) ? effectivePumpData : effectivePumpData?.pumpStatus || null}
             isLoading={!initialLoaded && pumpsLoading}
             hasError={!!pumpError}
-            errorMessage={pumpError?.message}
           />
 
           <RecentActivityCard
-            events={pumpData?.recentEvents || null}
+            events={Array.isArray(effectivePumpData) ? [] : effectivePumpData?.recentEvents || null}
             isLoading={!initialLoaded && pumpsLoading}
             hasError={!!pumpError}
-            hasSensorError={!!sensorError && !simulationEnabled}
+            hasSensorError={shouldShowSensorError}
             errorMessage={pumpError?.message}
           />
         </div>
