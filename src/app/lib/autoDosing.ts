@@ -52,24 +52,23 @@ export interface DosingConfig {
       flowRate: number;
       minInterval: number;
     };
-    nutrientA: {
-      pumpName: PumpName;
-      doseAmount: number;
-      flowRate: number;
-      minInterval: number;
-    };
-    nutrientB: {
-      pumpName: PumpName;
-      doseAmount: number;
-      flowRate: number;
-      minInterval: number;
+    // Dynamic nutrient pumps stored by their pump name
+    nutrientPumps: {
+      [pumpName: string]: {
+        doseAmount: number;
+        flowRate: number;
+        minInterval: number;
+        nutrientType?: string; // Optional info about the nutrient type
+      }
     };
   };
   lastDose: {
     phUp: Date | null;
     phDown: Date | null;
-    nutrientA: Date | null;
-    nutrientB: Date | null;
+    // Dynamic timestamps for last dosing of each pump
+    nutrientPumps: {
+      [pumpName: string]: Date | null;
+    };
   };
 }
 
@@ -99,24 +98,12 @@ const DEFAULT_DOSING_CONFIG: DosingConfig = {
       flowRate: 1.0,
       minInterval: 120
     },
-    nutrientA: {
-      pumpName: 'Pump 1', // Default to Pump 1 for nutrient A
-      doseAmount: 1.0,
-      flowRate: 1.0,
-      minInterval: 180 // 3 minutes between doses
-    },
-    nutrientB: {
-      pumpName: 'Pump 2', // Default to Pump 2 for nutrient B
-      doseAmount: 1.0,
-      flowRate: 1.0,
-      minInterval: 180 // 3 minutes between doses
-    }
+    nutrientPumps: {}
   },
   lastDose: {
     phUp: null,
     phDown: null,
-    nutrientA: null,
-    nutrientB: null
+    nutrientPumps: {}
   }
 };
 
@@ -205,8 +192,7 @@ export async function syncProfilePumps(): Promise<boolean> {
     const phDownPump = pumps.find(p => p.name === 'pH Down')?.name as PumpName || dosingConfig.dosing.phDown.pumpName;
     
     // Default to current configuration first
-    let nutrientAPump = dosingConfig.dosing.nutrientA.pumpName;
-    let nutrientBPump = dosingConfig.dosing.nutrientB.pumpName;
+    let nutrientPumps = dosingConfig.dosing.nutrientPumps;
     
     // First try to get pump assignments from profile
     if (profile.pumpAssignments && profile.pumpAssignments.length > 0) {
@@ -214,37 +200,41 @@ export async function syncProfilePumps(): Promise<boolean> {
       console.log(`Found ${pumpAssignments.length} pump assignments in profile "${profile.name}"`);
       
       // Find all nutrient pumps from profile assignments
-      const nutrientPumps = pumpAssignments.filter(p => 
+      const nutrientPumpsFromProfile = pumpAssignments.filter(p => 
         // Consider any pump with nutrient info as a valid nutrient pump
         p.nutrientId || p.productName || p.brandName
-      );
+      ).map(p => p.pumpName as PumpName);
       
-      console.log(`Found ${nutrientPumps.length} nutrient pumps in profile`);
+      console.log(`Found ${nutrientPumpsFromProfile.length} nutrient pumps in profile`);
       
-      if (nutrientPumps.length > 0) {
-        // Assign first nutrient pump as nutrient A
-        nutrientAPump = nutrientPumps[0]?.pumpName as PumpName;
-        
-        // If there's a second nutrient pump, assign it as nutrient B
-        if (nutrientPumps.length > 1) {
-          nutrientBPump = nutrientPumps[1]?.pumpName as PumpName;
-        }
+      if (nutrientPumpsFromProfile.length > 0) {
+        // Assign nutrient pumps from profile
+        nutrientPumps = nutrientPumpsFromProfile.reduce((acc, pumpName) => {
+          acc[pumpName] = {
+            doseAmount: 1.0,
+            flowRate: 1.0,
+            minInterval: 180 // 3 minutes between doses
+          };
+          return acc;
+        }, {} as { [pumpName: string]: { doseAmount: number; flowRate: number; minInterval: number } });
       }
     } else {
       console.log("No pump assignments found in profile, checking for available pumps");
       
       // If no pump assignments in profile, look for pumps with nutrients as fallback
-      const nutrientPumps = pumps.filter(p => p.nutrient !== null && p.nutrient !== undefined);
-      console.log(`Found ${nutrientPumps.length} pumps with nutrients in system`);
+      const nutrientPumpsFromSystem = pumps.filter(p => p.nutrient !== null && p.nutrient !== undefined).map(p => p.name as PumpName);
+      console.log(`Found ${nutrientPumpsFromSystem.length} pumps with nutrients in system`);
       
-      if (nutrientPumps.length > 0) {
-        // Assign first nutrient pump as nutrient A
-        nutrientAPump = nutrientPumps[0]?.name as PumpName;
-        
-        // If there's a second nutrient pump, assign it as nutrient B
-        if (nutrientPumps.length > 1) {
-          nutrientBPump = nutrientPumps[1]?.name as PumpName;
-        }
+      if (nutrientPumpsFromSystem.length > 0) {
+        // Assign nutrient pumps from system
+        nutrientPumps = nutrientPumpsFromSystem.reduce((acc, pumpName) => {
+          acc[pumpName] = {
+            doseAmount: 1.0,
+            flowRate: 1.0,
+            minInterval: 180 // 3 minutes between doses
+          };
+          return acc;
+        }, {} as { [pumpName: string]: { doseAmount: number; flowRate: number; minInterval: number } });
       }
     }
 
@@ -260,14 +250,7 @@ export async function syncProfilePumps(): Promise<boolean> {
           ...dosingConfig.dosing.phDown,
           pumpName: phDownPump
         },
-        nutrientA: {
-          ...dosingConfig.dosing.nutrientA,
-          pumpName: nutrientAPump
-        },
-        nutrientB: {
-          ...dosingConfig.dosing.nutrientB,
-          pumpName: nutrientBPump
-        }
+        nutrientPumps: nutrientPumps
       }
     };
 
@@ -277,8 +260,7 @@ export async function syncProfilePumps(): Promise<boolean> {
     console.log("Auto-dosing pump assignments updated from active profile:", {
       phUp: phUpPump,
       phDown: phDownPump,
-      nutrientA: nutrientAPump,
-      nutrientB: nutrientBPump
+      nutrientPumps
     });
     
     return true;
@@ -383,10 +365,10 @@ export function resetDosingConfig(): DosingConfig {
 
 /**
  * Check if a pump can be dosed based on its minimum interval
- * @param pumpType The type of pump ('phUp', 'phDown', or 'nutrient')
+ * @param pumpType The type of pump ('phUp', 'phDown')
  * @returns Boolean indicating if dosing is allowed
  */
-function canDose(pumpType: 'phUp' | 'phDown' | 'nutrientA' | 'nutrientB'): boolean {
+function canDose(pumpType: 'phUp' | 'phDown'): boolean {
   const lastDoseTime = dosingConfig.lastDose[pumpType];
   
   // If never dosed before, allow dosing
@@ -400,11 +382,40 @@ function canDose(pumpType: 'phUp' | 'phDown' | 'nutrientA' | 'nutrientB'): boole
 }
 
 /**
+ * Check if a nutrient pump can be dosed based on its minimum interval
+ * @param pumpName The name of the nutrient pump
+ * @returns Boolean indicating if dosing is allowed
+ */
+function canDoseNutrient(pumpName: string): boolean {
+  const lastDoseTime = dosingConfig.lastDose.nutrientPumps[pumpName];
+  
+  // If never dosed before, allow dosing
+  if (!lastDoseTime) return true;
+  
+  const now = new Date();
+  const timeSinceLastDose = (now.getTime() - lastDoseTime.getTime()) / 1000; // in seconds
+  const minInterval = dosingConfig.dosing.nutrientPumps[pumpName]?.minInterval || 180;
+  
+  return timeSinceLastDose >= minInterval;
+}
+
+/**
  * Record a dose event
  * @param pumpType The type of pump dosed
  */
-function recordDose(pumpType: 'phUp' | 'phDown' | 'nutrientA' | 'nutrientB'): void {
+function recordDose(pumpType: 'phUp' | 'phDown'): void {
   dosingConfig.lastDose[pumpType] = new Date();
+}
+
+/**
+ * Record a nutrient dose event
+ * @param pumpName The name of the nutrient pump dosed
+ */
+function recordNutrientDose(pumpName: string): void {
+  if (!dosingConfig.lastDose.nutrientPumps) {
+    dosingConfig.lastDose.nutrientPumps = {};
+  }
+  dosingConfig.lastDose.nutrientPumps[pumpName] = new Date();
 }
 
 /**
@@ -484,10 +495,6 @@ export async function performAutoDosing(): Promise<{
     }
     return false;
   };
-  
-  // Check if pH is out of range and needs adjustment
-  let dosingAction = 'none';
-  let dosingDetails = {};
   
   // Get pump status to make sure we don't interfere with active pumps
   let pumpStatus;
@@ -618,54 +625,44 @@ export async function performAutoDosing(): Promise<{
   
   // Check if EC is too low (need to add nutrients)
   if (sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
-    // EC is too low, need to add nutrient solutions in proper ratio
-    const canDoseA = canDose('nutrientA');
-    const canDoseB = canDose('nutrientB');
+    // EC is too low, need to add nutrient solutions
     
-    // Try to dose both nutrients if possible, or one if the other is on cooldown
-    if (canDoseA || canDoseB) {
-      try {
-        // Check for timeout before starting a potentially long operation
-        if (checkTimeout()) {
-          return { 
-            action: 'timeout', 
-            details: { reason: 'Auto-dosing execution time limit exceeded' } 
-          };
-        }
-        
-        // Track what was dispensed
-        const dispensed = [];
-        
-        // Try to dispense nutrient A if available
-        if (canDoseA) {
-          const pumpNameA = dosingConfig.dosing.nutrientA.pumpName;
-          const amountA = dosingConfig.dosing.nutrientA.doseAmount;
-          const flowRateA = dosingConfig.dosing.nutrientA.flowRate;
+    try {
+      // Check for timeout before starting a potentially long operation
+      if (checkTimeout()) {
+        return { 
+          action: 'timeout', 
+          details: { reason: 'Auto-dosing execution time limit exceeded' } 
+        };
+      }
+      
+      // Track what was dispensed
+      const dispensed = [];
+      let anyNutrientDosed = false;
+      
+      // Try to dispense all available nutrient pumps
+      const nutrientPumpNames = Object.keys(dosingConfig.dosing.nutrientPumps);
+      console.log(`Attempting to dose ${nutrientPumpNames.length} nutrient pumps`);
+      
+      for (const pumpName of nutrientPumpNames) {
+        if (canDoseNutrient(pumpName)) {
+          const pump = dosingConfig.dosing.nutrientPumps[pumpName];
+          const { doseAmount, flowRate } = pump;
           
-          await dispensePump(pumpNameA, amountA, flowRateA);
-          recordDose('nutrientA');
-          dispensed.push({
-            type: 'Nutrient A',
-            amount: amountA,
-            pumpName: pumpNameA
-          });
-        }
-        
-        // Try to dispense nutrient B if available
-        if (canDoseB) {
-          const pumpNameB = dosingConfig.dosing.nutrientB.pumpName;
-          const amountB = dosingConfig.dosing.nutrientB.doseAmount;
-          const flowRateB = dosingConfig.dosing.nutrientB.flowRate;
+          await dispensePump(pumpName as PumpName, doseAmount, flowRate);
+          recordNutrientDose(pumpName);
           
-          await dispensePump(pumpNameB, amountB, flowRateB);
-          recordDose('nutrientB');
           dispensed.push({
-            type: 'Nutrient B',
-            amount: amountB,
-            pumpName: pumpNameB
+            type: 'Nutrient',
+            amount: doseAmount,
+            pumpName: pumpName
           });
+          
+          anyNutrientDosed = true;
         }
-        
+      }
+      
+      if (anyNutrientDosed) {
         return {
           action: 'dosed',
           details: {
@@ -674,22 +671,22 @@ export async function performAutoDosing(): Promise<{
             reason: `EC ${sensorData.ec} below target range (${dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance})`
           }
         };
-      } catch (error) {
-        console.error('Error dispensing nutrients:', error);
+      } else {
         return {
-          action: 'error',
+          action: 'waiting',
           details: {
             type: 'Nutrients',
-            error: `Failed to dispense nutrients: ${error}`
+            reason: 'Minimum interval between doses not reached for all nutrient pumps'
           }
         };
       }
-    } else {
+    } catch (error) {
+      console.error('Error dispensing nutrients:', error);
       return {
-        action: 'waiting',
+        action: 'error',
         details: {
           type: 'Nutrients',
-          reason: 'Minimum interval between doses not reached for both nutrient pumps'
+          error: `Failed to dispense nutrients: ${error}`
         }
       };
     }

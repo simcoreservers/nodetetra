@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../components/SidebarContext";
-import { useDosingData } from "../hooks/useDosingData";
+import { useDosingData, DosingHistoryEntry } from "../hooks/useDosingData";
 import { useAutoDosing } from "../hooks/useAutoDosing";
 
 export default function DosingPage() {
@@ -22,6 +22,11 @@ export default function DosingPage() {
   const [phDownLimit, setPhDownLimit] = useState<number | string>("");
   const [nutrientALimit, setNutrientALimit] = useState<number | string>("");
   const [nutrientBLimit, setNutrientBLimit] = useState<number | string>("");
+
+  // New form state for minInterval settings
+  const [phUpInterval, setPhUpInterval] = useState<number | string>("");
+  const [phDownInterval, setPhDownInterval] = useState<number | string>("");
+  const [nutrientInterval, setNutrientInterval] = useState<number | string>("");
 
   const { 
     data, 
@@ -53,6 +58,23 @@ export default function DosingPage() {
       setNutrientBLimit(data.settings.dosingLimits.nutrientB);
     }
   }, [data]);
+
+  // Update minInterval state from autodosing config
+  useEffect(() => {
+    if (autoDoseConfig) {
+      setPhUpInterval(autoDoseConfig.dosing.phUp.minInterval);
+      setPhDownInterval(autoDoseConfig.dosing.phDown.minInterval);
+      
+      // Set a default value for nutrient pumps (assuming all have the same interval)
+      const nutrientPumpKeys = Object.keys(autoDoseConfig.dosing.nutrientPumps);
+      if (nutrientPumpKeys.length > 0) {
+        const firstPump = nutrientPumpKeys[0];
+        setNutrientInterval(autoDoseConfig.dosing.nutrientPumps[firstPump].minInterval);
+      } else {
+        setNutrientInterval(180); // Default value
+      }
+    }
+  }, [autoDoseConfig]);
 
   // Auto-sync the auto-dosing config with active profile when data changes
   useEffect(() => {
@@ -100,6 +122,67 @@ export default function DosingPage() {
 
   const handleNutrientBLimitChange = (e: ChangeEvent<HTMLInputElement>) => {
     setNutrientBLimit(e.target.value);
+  };
+
+  // Handlers for minInterval inputs
+  const handlePhUpIntervalChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setPhUpInterval(e.target.value);
+  };
+
+  const handlePhDownIntervalChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setPhDownInterval(e.target.value);
+  };
+
+  const handleNutrientIntervalChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setNutrientInterval(e.target.value);
+  };
+
+  // Handler to update minInterval settings
+  const handleUpdateIntervals = async () => {
+    if (autoDoseConfig) {
+      // Create update object
+      const updates: any = {
+        dosing: {
+          ...autoDoseConfig.dosing
+        }
+      };
+      
+      // Update pH Up interval if changed
+      if (phUpInterval !== "" && phUpInterval !== autoDoseConfig.dosing.phUp.minInterval) {
+        updates.dosing.phUp = {
+          ...autoDoseConfig.dosing.phUp,
+          minInterval: Number(phUpInterval)
+        };
+      }
+      
+      // Update pH Down interval if changed
+      if (phDownInterval !== "" && phDownInterval !== autoDoseConfig.dosing.phDown.minInterval) {
+        updates.dosing.phDown = {
+          ...autoDoseConfig.dosing.phDown,
+          minInterval: Number(phDownInterval)
+        };
+      }
+      
+      // Update all nutrient pump intervals if changed
+      if (nutrientInterval !== "") {
+        const nutrientPumps: any = {};
+        
+        // Copy existing pump settings but update minInterval
+        Object.keys(autoDoseConfig.dosing.nutrientPumps).forEach(pumpName => {
+          nutrientPumps[pumpName] = {
+            ...autoDoseConfig.dosing.nutrientPumps[pumpName],
+            minInterval: Number(nutrientInterval)
+          };
+        });
+        
+        updates.dosing.nutrientPumps = nutrientPumps;
+      }
+      
+      // Only update if there are actual changes
+      if (Object.keys(updates.dosing).length > 0) {
+        await updateAutoDoseConfig(updates);
+      }
+    }
   };
 
   // Remove pH and EC target update handlers
@@ -455,9 +538,8 @@ export default function DosingPage() {
                         <div>
                           <p className="text-gray-400">Last Nutrient Dose:</p>
                           <p className="font-medium">
-                            {autoDoseConfig.lastDose.nutrient 
-                              ? new Date(autoDoseConfig.lastDose.nutrient).toLocaleTimeString() 
-                              : 'Never'}
+                            {Object.values(autoDoseConfig.lastDose.nutrientPumps).some(timestamp => timestamp !== null) 
+                              ? 'Recently' : 'Never'}
                           </p>
                         </div>
                       </div>
@@ -523,6 +605,84 @@ export default function DosingPage() {
                       </div>
                     </div>
 
+                    {/* Minimum Interval Settings - New Section */}
+                    <div>
+                      <h3 className="text-md font-medium mb-3">Minimum Dosing Intervals</h3>
+                      <div className="bg-[#1e1e1e] rounded-lg p-4">
+                        <p className="text-sm text-gray-400 mb-4">
+                          Set the minimum time required between consecutive doses for each pump type. This prevents over-dosing and allows time for chemicals to mix properly.
+                        </p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                          {/* pH Up Interval */}
+                          <div className="space-y-2">
+                            <label className="block text-sm text-gray-400">
+                              pH Up Minimum Interval (seconds)
+                            </label>
+                            <div className="flex">
+                              <input
+                                type="number"
+                                min="0"
+                                value={phUpInterval}
+                                onChange={handlePhUpIntervalChange}
+                                className="form-input w-full bg-[#2a2a2a] border-[#444] rounded text-white"
+                                placeholder="120"
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* pH Down Interval */}
+                          <div className="space-y-2">
+                            <label className="block text-sm text-gray-400">
+                              pH Down Minimum Interval (seconds)
+                            </label>
+                            <div className="flex">
+                              <input
+                                type="number"
+                                min="0"
+                                value={phDownInterval}
+                                onChange={handlePhDownIntervalChange}
+                                className="form-input w-full bg-[#2a2a2a] border-[#444] rounded text-white"
+                                placeholder="120"
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Nutrient Pumps Interval */}
+                          <div className="space-y-2">
+                            <label className="block text-sm text-gray-400">
+                              Nutrient Pumps Minimum Interval (seconds)
+                            </label>
+                            <div className="flex">
+                              <input
+                                type="number"
+                                min="0"
+                                value={nutrientInterval}
+                                onChange={handleNutrientIntervalChange}
+                                className="form-input w-full bg-[#2a2a2a] border-[#444] rounded text-white"
+                                placeholder="180"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-end">
+                          <button 
+                            className="btn btn-sm"
+                            onClick={handleUpdateIntervals}
+                            disabled={autoDoseLoading}
+                          >
+                            Update Intervals
+                          </button>
+                        </div>
+                        
+                        <div className="mt-3 text-xs text-gray-400">
+                          <span className="text-[#00a3e0]">Note:</span> Setting intervals too short may cause over-dosing. 
+                          Recommended minimum: 120 seconds (2 minutes) for pH adjusters, 180 seconds (3 minutes) for nutrients.
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Dosing Controls */}
                     <div>
                       <h3 className="text-md font-medium mb-3">Dosing Controls</h3>
@@ -576,9 +736,9 @@ export default function DosingPage() {
                 <tbody>
                   {data.history.map((event, index) => (
                     <tr key={index} className="border-b border-[#333333]">
-                      <td className="py-3 text-sm text-gray-400">{event.timestamp || event.time}</td>
-                      <td className="py-3">{event.pumpName || event.pump}</td>
-                      <td className="py-3">{event.action || event.event}</td>
+                      <td className="py-3 text-sm text-gray-400">{event.timestamp}</td>
+                      <td className="py-3">{event.details?.split(' ')[0] || 'Unknown'}</td>
+                      <td className="py-3">{event.action}</td>
                     </tr>
                   ))}
                 </tbody>
