@@ -133,27 +133,53 @@ async function getActiveProfile() {
   try {
     // Check if data directory exists
     if (!fs.existsSync(DATA_PATH)) {
+      console.error("Data directory doesn't exist: ", DATA_PATH);
       return null;
     }
 
     // Get active profile name
     if (!fs.existsSync(ACTIVE_PROFILE_FILE)) {
+      console.error("Active profile file doesn't exist: ", ACTIVE_PROFILE_FILE);
       return null;
     }
 
     const activeProfileData = fs.readFileSync(ACTIVE_PROFILE_FILE, 'utf8');
-    const { activeName } = JSON.parse(activeProfileData);
+    const activeProfileObj = JSON.parse(activeProfileData);
+    
+    if (!activeProfileObj.activeName) {
+      console.error("No active profile name in file: ", activeProfileObj);
+      return null;
+    }
+    
+    const activeName = activeProfileObj.activeName;
+    console.log("Active profile name: ", activeName);
 
     // Get profiles
     if (!fs.existsSync(PROFILES_FILE)) {
+      console.error("Profiles file doesn't exist: ", PROFILES_FILE);
       return null;
     }
 
     const profilesData = fs.readFileSync(PROFILES_FILE, 'utf8');
     const profiles = JSON.parse(profilesData);
+    
+    if (!Array.isArray(profiles) || profiles.length === 0) {
+      console.error("No profiles found or invalid profiles data");
+      return null;
+    }
 
     // Find the active profile
-    return profiles.find((profile: any) => profile.name === activeName) || null;
+    const profile = profiles.find((profile: any) => profile.name === activeName);
+    
+    if (!profile) {
+      console.error(`Active profile "${activeName}" not found in profiles`);
+      return null;
+    }
+    
+    // Log profile info for debugging
+    console.log(`Found active profile: "${profile.name}", has pump assignments: ${!!profile.pumpAssignments}`);
+    
+    return profile;
   } catch (error) {
     console.error("Error getting active profile for auto-dosing:", error);
     return null;
@@ -166,13 +192,10 @@ async function getActiveProfile() {
 export async function syncProfilePumps(): Promise<boolean> {
   try {
     const profile = await getActiveProfile();
-    if (!profile || !profile.pumpAssignments) {
-      console.log("No active profile with pump assignments found for auto-dosing");
+    if (!profile) {
+      console.log("No active profile found for auto-dosing");
       return false;
     }
-
-    const pumpAssignments: PumpAssignment[] = profile.pumpAssignments;
-    console.log(`Found ${pumpAssignments.length} pump assignments in profile "${profile.name}"`);
 
     // Get all available pumps
     const pumps = getAllPumpStatus();
@@ -181,20 +204,47 @@ export async function syncProfilePumps(): Promise<boolean> {
     const phUpPump = pumps.find(p => p.name === 'pH Up')?.name as PumpName || dosingConfig.dosing.phUp.pumpName;
     const phDownPump = pumps.find(p => p.name === 'pH Down')?.name as PumpName || dosingConfig.dosing.phDown.pumpName;
     
-    // Find nutrient pumps from profile assignments marked for auto-dosing
-    const autoDosePumps = pumpAssignments.filter(p => p.isAutoDosage === true);
-    
-    // Default to current configuration if no auto-dose pumps found
+    // Default to current configuration first
     let nutrientAPump = dosingConfig.dosing.nutrientA.pumpName;
     let nutrientBPump = dosingConfig.dosing.nutrientB.pumpName;
     
-    if (autoDosePumps.length > 0) {
-      // Assign first auto-dose pump as nutrient A
-      nutrientAPump = autoDosePumps[0]?.pumpName as PumpName;
+    // First try to get pump assignments from profile
+    if (profile.pumpAssignments && profile.pumpAssignments.length > 0) {
+      const pumpAssignments: PumpAssignment[] = profile.pumpAssignments;
+      console.log(`Found ${pumpAssignments.length} pump assignments in profile "${profile.name}"`);
       
-      // If there's a second auto-dose pump, assign it as nutrient B
-      if (autoDosePumps.length > 1) {
-        nutrientBPump = autoDosePumps[1]?.pumpName as PumpName;
+      // Find all nutrient pumps from profile assignments
+      const nutrientPumps = pumpAssignments.filter(p => 
+        // Consider any pump with nutrient info as a valid nutrient pump
+        p.nutrientId || p.productName || p.brandName
+      );
+      
+      console.log(`Found ${nutrientPumps.length} nutrient pumps in profile`);
+      
+      if (nutrientPumps.length > 0) {
+        // Assign first nutrient pump as nutrient A
+        nutrientAPump = nutrientPumps[0]?.pumpName as PumpName;
+        
+        // If there's a second nutrient pump, assign it as nutrient B
+        if (nutrientPumps.length > 1) {
+          nutrientBPump = nutrientPumps[1]?.pumpName as PumpName;
+        }
+      }
+    } else {
+      console.log("No pump assignments found in profile, checking for available pumps");
+      
+      // If no pump assignments in profile, look for pumps with nutrients as fallback
+      const nutrientPumps = pumps.filter(p => p.nutrient !== null && p.nutrient !== undefined);
+      console.log(`Found ${nutrientPumps.length} pumps with nutrients in system`);
+      
+      if (nutrientPumps.length > 0) {
+        // Assign first nutrient pump as nutrient A
+        nutrientAPump = nutrientPumps[0]?.name as PumpName;
+        
+        // If there's a second nutrient pump, assign it as nutrient B
+        if (nutrientPumps.length > 1) {
+          nutrientBPump = nutrientPumps[1]?.name as PumpName;
+        }
       }
     }
 
