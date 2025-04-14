@@ -191,6 +191,26 @@ export async function syncProfilePumps(): Promise<boolean> {
     const phUpPump = pumps.find(p => p.name === 'pH Up')?.name as PumpName || dosingConfig.dosing.phUp.pumpName;
     const phDownPump = pumps.find(p => p.name === 'pH Down')?.name as PumpName || dosingConfig.dosing.phDown.pumpName;
     
+    // Store existing intervals before reassigning pumps
+    const existingIntervals: Record<string, number> = {};
+    
+    // Preserve existing interval settings for pH pumps
+    const phUpInterval = dosingConfig.dosing.phUp.minInterval;
+    const phDownInterval = dosingConfig.dosing.phDown.minInterval;
+    
+    // Preserve existing interval settings for nutrient pumps
+    Object.keys(dosingConfig.dosing.nutrientPumps).forEach(pumpName => {
+      const interval = dosingConfig.dosing.nutrientPumps[pumpName].minInterval;
+      existingIntervals[pumpName] = interval;
+    });
+    
+    // Log existing intervals
+    console.log(`Existing intervals before sync:`, JSON.stringify({
+      phUp: phUpInterval,
+      phDown: phDownInterval,
+      nutrientPumps: existingIntervals
+    }, null, 2));
+    
     // Default to current configuration first
     let nutrientPumps = dosingConfig.dosing.nutrientPumps;
     
@@ -208,12 +228,15 @@ export async function syncProfilePumps(): Promise<boolean> {
       console.log(`Found ${nutrientPumpsFromProfile.length} nutrient pumps in profile`);
       
       if (nutrientPumpsFromProfile.length > 0) {
-        // Assign nutrient pumps from profile
+        // Assign nutrient pumps from profile, but preserve existing intervals where possible
         nutrientPumps = nutrientPumpsFromProfile.reduce((acc, pumpName) => {
+          // Check if we have an existing interval for this pump
+          const existingInterval = existingIntervals[pumpName] || 180; // Default to 180 if no existing interval
+          
           acc[pumpName] = {
             doseAmount: 1.0,
             flowRate: 1.0,
-            minInterval: 180 // 3 minutes between doses
+            minInterval: existingInterval
           };
           return acc;
         }, {} as { [pumpName: string]: { doseAmount: number; flowRate: number; minInterval: number } });
@@ -226,12 +249,15 @@ export async function syncProfilePumps(): Promise<boolean> {
       console.log(`Found ${nutrientPumpsFromSystem.length} pumps with nutrients in system`);
       
       if (nutrientPumpsFromSystem.length > 0) {
-        // Assign nutrient pumps from system
+        // Assign nutrient pumps from system, preserving existing intervals
         nutrientPumps = nutrientPumpsFromSystem.reduce((acc, pumpName) => {
+          // Check if we have an existing interval for this pump
+          const existingInterval = existingIntervals[pumpName] || 180; // Default to 180 if no existing interval
+          
           acc[pumpName] = {
             doseAmount: 1.0,
             flowRate: 1.0,
-            minInterval: 180 // 3 minutes between doses
+            minInterval: existingInterval
           };
           return acc;
         }, {} as { [pumpName: string]: { doseAmount: number; flowRate: number; minInterval: number } });
@@ -244,11 +270,13 @@ export async function syncProfilePumps(): Promise<boolean> {
         ...dosingConfig.dosing,
         phUp: {
           ...dosingConfig.dosing.phUp,
-          pumpName: phUpPump
+          pumpName: phUpPump,
+          minInterval: phUpInterval // Preserve existing interval
         },
         phDown: {
           ...dosingConfig.dosing.phDown,
-          pumpName: phDownPump
+          pumpName: phDownPump,
+          minInterval: phDownInterval // Preserve existing interval
         },
         nutrientPumps: nutrientPumps
       }
@@ -258,9 +286,12 @@ export async function syncProfilePumps(): Promise<boolean> {
     updateDosingConfig(updates);
     
     console.log("Auto-dosing pump assignments updated from active profile:", {
-      phUp: phUpPump,
-      phDown: phDownPump,
-      nutrientPumps
+      phUp: { pump: phUpPump, minInterval: phUpInterval },
+      phDown: { pump: phDownPump, minInterval: phDownInterval },
+      nutrientPumps: Object.keys(nutrientPumps).map(name => ({
+        name,
+        minInterval: nutrientPumps[name].minInterval
+      }))
     });
     
     return true;
@@ -310,15 +341,19 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
   const oldEnabled = dosingConfig.enabled;
   const newEnabled = updates.enabled !== undefined ? updates.enabled : oldEnabled;
   
+  console.log('Received updates:', JSON.stringify(updates, null, 2));
+  
   // Log the before state of dosing config
   console.log('Updating dosing config, before:', JSON.stringify({
     'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
     'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
     'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
       name,
-      minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval
+      minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval,
+      doseAmount: dosingConfig.dosing.nutrientPumps[name].doseAmount,
+      flowRate: dosingConfig.dosing.nutrientPumps[name].flowRate
     }))
-  }));
+  }, null, 2));
   
   // Deep merge changes
   dosingConfig = deepMerge(dosingConfig, updates);
@@ -329,9 +364,11 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
     'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
     'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
       name,
-      minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval
+      minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval,
+      doseAmount: dosingConfig.dosing.nutrientPumps[name].doseAmount,
+      flowRate: dosingConfig.dosing.nutrientPumps[name].flowRate
     }))
-  }));
+  }, null, 2));
   
   // If auto-dosing was just enabled, log this important event
   if (!oldEnabled && newEnabled) {
@@ -452,14 +489,25 @@ function canDose(pumpType: 'phUp' | 'phDown'): boolean {
 function canDoseNutrient(pumpName: string): boolean {
   const lastDoseTime = dosingConfig.lastDose.nutrientPumps[pumpName];
   
-  // If never dosed before, allow dosing
-  if (!lastDoseTime) return true;
+  // Log all nutrient pumps and their intervals when checking
+  if (!lastDoseTime) {
+    console.log(`[canDoseNutrient] ${pumpName} - Never dosed before, allowing dose. Configured minInterval: ${dosingConfig.dosing.nutrientPumps[pumpName]?.minInterval || 'not set, using default 180'}`);
+    
+    // Also log all configured nutrient pumps for reference
+    const allPumps = Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
+      name,
+      minInterval: dosingConfig.dosing.nutrientPumps[name]?.minInterval
+    }));
+    console.log(`[canDoseNutrient] All nutrient pump intervals:`, JSON.stringify(allPumps, null, 2));
+    
+    return true;
+  }
   
   const now = new Date();
   const timeSinceLastDose = (now.getTime() - lastDoseTime.getTime()) / 1000; // in seconds
   const minInterval = dosingConfig.dosing.nutrientPumps[pumpName]?.minInterval || 180;
   
-  console.log(`[canDoseNutrient] ${pumpName} - Last dose: ${lastDoseTime.toISOString()}, Time since: ${timeSinceLastDose}s, Min interval: ${minInterval}s`);
+  console.log(`[canDoseNutrient] ${pumpName} - Last dose: ${lastDoseTime.toISOString()}, Time since: ${timeSinceLastDose}s, Min interval: ${minInterval}s, Can dose: ${timeSinceLastDose >= minInterval}`);
   
   return timeSinceLastDose >= minInterval;
 }

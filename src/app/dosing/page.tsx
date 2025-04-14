@@ -140,47 +140,43 @@ export default function DosingPage() {
   // Handler to update minInterval settings
   const handleUpdateIntervals = async () => {
     if (autoDoseConfig) {
-      // Create update object
-      const updates: any = {
-        dosing: {
-          ...autoDoseConfig.dosing
-        }
-      };
+      // Create properly structured update object
+      const updates: any = {};
       
-      // Update pH Up interval if changed
+      // Only include what needs to be updated
       if (phUpInterval !== "" && phUpInterval !== autoDoseConfig.dosing.phUp.minInterval) {
-        updates.dosing.phUp = {
-          ...autoDoseConfig.dosing.phUp,
-          minInterval: Number(phUpInterval)
-        };
+        if (!updates.dosing) updates.dosing = {};
+        if (!updates.dosing.phUp) updates.dosing.phUp = {};
+        updates.dosing.phUp.minInterval = Number(phUpInterval);
       }
       
       // Update pH Down interval if changed
       if (phDownInterval !== "" && phDownInterval !== autoDoseConfig.dosing.phDown.minInterval) {
-        updates.dosing.phDown = {
-          ...autoDoseConfig.dosing.phDown,
-          minInterval: Number(phDownInterval)
-        };
+        if (!updates.dosing) updates.dosing = {};
+        if (!updates.dosing.phDown) updates.dosing.phDown = {};
+        updates.dosing.phDown.minInterval = Number(phDownInterval);
       }
       
       // Update all nutrient pump intervals if changed
       if (nutrientInterval !== "") {
-        const nutrientPumps: any = {};
+        if (!updates.dosing) updates.dosing = {};
+        if (!updates.dosing.nutrientPumps) updates.dosing.nutrientPumps = {};
         
-        // Copy existing pump settings but update minInterval
+        // Set the same interval for all nutrient pumps
         Object.keys(autoDoseConfig.dosing.nutrientPumps).forEach(pumpName => {
-          nutrientPumps[pumpName] = {
+          updates.dosing.nutrientPumps[pumpName] = {
             ...autoDoseConfig.dosing.nutrientPumps[pumpName],
             minInterval: Number(nutrientInterval)
           };
         });
-        
-        updates.dosing.nutrientPumps = nutrientPumps;
       }
       
+      console.log('Sending updates to server:', JSON.stringify(updates, null, 2));
+      
       // Only update if there are actual changes
-      if (Object.keys(updates.dosing).length > 0) {
-        await updateAutoDoseConfig(updates);
+      if (Object.keys(updates).length > 0) {
+        const result = await updateAutoDoseConfig(updates);
+        console.log('Update result:', result);
       }
     }
   };
