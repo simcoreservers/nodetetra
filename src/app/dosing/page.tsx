@@ -43,6 +43,7 @@ export default function DosingPage() {
     config: autoDoseConfig,
     isLoading: autoDoseLoading,
     error: autoDoseError,
+    isDosingInProgress,
     toggleEnabled: toggleAutoDosing,
     updateConfig: updateAutoDoseConfig,
     resetConfig: resetAutoDoseConfig,
@@ -484,6 +485,12 @@ export default function DosingPage() {
                     {/* Status Card */}
                     <div className="bg-[#1e1e1e] rounded-lg p-4">
                       <h3 className="text-md font-medium mb-3">System Status</h3>
+                      {isDosingInProgress && (
+                        <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 mb-3 flex items-center">
+                          <div className="inline-block animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-[#00a3e0] mr-2"></div>
+                          <p className="text-blue-400 text-sm">Dosing in progress... Please wait.</p>
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <p className="text-gray-400">Status:</p>
@@ -668,16 +675,16 @@ export default function DosingPage() {
                       <h3 className="text-md font-medium mb-3">Dosing Controls</h3>
                       <div className="flex space-x-4">
                         <button 
-                          className="btn"
+                          className={`btn ${isDosingInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
                           onClick={triggerAutoDosing}
-                          disabled={autoDoseLoading || !autoDoseConfig.enabled}
+                          disabled={autoDoseLoading || !autoDoseConfig.enabled || isDosingInProgress}
                         >
-                          Run Dosing Cycle Now
+                          {isDosingInProgress ? 'Dosing in Progress...' : 'Run Dosing Cycle Now'}
                         </button>
                         <button 
-                          className="btn btn-secondary"
+                          className={`btn btn-secondary ${isDosingInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
                           onClick={resetAutoDoseConfig}
-                          disabled={autoDoseLoading}
+                          disabled={autoDoseLoading || isDosingInProgress}
                         >
                           Reset Settings
                         </button>
@@ -685,6 +692,11 @@ export default function DosingPage() {
                       <div className="mt-3 p-3 bg-[#1e1e1e] rounded-lg">
                         <p className="text-sm text-gray-400">
                           <span className="text-[#00a3e0]">Note:</span> Auto-dosing targets are automatically synchronized with your active plant profile.
+                          {isDosingInProgress && (
+                            <span className="block mt-2 text-yellow-400">
+                              A dosing operation is currently in progress and cannot be interrupted. Please wait for it to complete.
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>

@@ -40,9 +40,19 @@ export async function GET(request: NextRequest) {
     // Get current configuration
     const config = getDosingConfig();
     
+    // Get dosing status - import the dosingInProgress variable from autoDosing
+    let isDosingInProgress = false;
+    try {
+      const { dosingInProgress } = require('../../lib/autoDosing');
+      isDosingInProgress = dosingInProgress;
+    } catch (err) {
+      console.error('Error checking dosing progress:', err);
+    }
+    
     return NextResponse.json({
       config,
       timestamp: new Date().toISOString(),
+      isDosingInProgress,
       status: 'ok'
     });
   } catch (error) {

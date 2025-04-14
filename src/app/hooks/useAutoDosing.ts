@@ -10,6 +10,7 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
   const [lastDosingResult, setLastDosingResult] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isDosingInProgress, setIsDosingInProgress] = useState<boolean>(false);
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -27,6 +28,7 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
       }
       
       setConfig(data.config);
+      setIsDosingInProgress(data.isDosingInProgress || false);
       setError(null);
     } catch (err) {
       console.error('Error fetching auto-dosing config:', err);
@@ -149,6 +151,15 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
     try {
       setIsLoading(true);
       
+      // Check if dosing is already in progress to prevent sending duplicate requests
+      if (isDosingInProgress) {
+        console.log('Dosing already in progress, not sending another request');
+        return {
+          action: 'waiting',
+          details: { reason: 'A dosing operation is already in progress' }
+        };
+      }
+      
       const response = await fetch('/api/autodosing', {
         method: 'POST',
         headers: {
@@ -167,6 +178,16 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
         throw new Error(data.error || 'Unknown error triggering dosing');
       }
       
+      // If dosing was initiated successfully, set local state
+      if (data.result && data.result.action !== 'waiting') {
+        setIsDosingInProgress(true);
+        
+        // Schedule a refresh to update status after a short delay
+        setTimeout(() => {
+          fetchConfig();
+        }, 2000);
+      }
+      
       setLastDosingResult(data.result);
       setError(null);
       return data.result;
@@ -177,7 +198,7 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isDosingInProgress, fetchConfig]);
 
   // Initial data fetch
   useEffect(() => {
@@ -200,6 +221,7 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
     lastDosingResult,
     isLoading,
     error,
+    isDosingInProgress,
     refresh: fetchConfig,
     updateConfig,
     toggleEnabled,
