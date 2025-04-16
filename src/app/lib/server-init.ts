@@ -14,9 +14,6 @@ let isServerInitialized = false;
 // Add timeout for task execution
 const TASK_TIMEOUT = 60000; // 60 seconds timeout for tasks
 
-// Auto-dosing check interval in milliseconds - matching the streaming route interval
-const AUTO_DOSING_CHECK_INTERVAL = 5000; // 5 seconds 
-
 /**
  * Execute function with timeout protection
  */
@@ -110,31 +107,8 @@ export async function initializeServer(): Promise<void> {
  * Set up scheduled tasks that run at regular intervals
  */
 function setupScheduledTasks(): void {
-  // Schedule auto-dosing checks periodically - this ensures dosing happens regardless of UI state
-  const autodosingInterval = setInterval(async () => {
-    try {
-      console.log('Running scheduled auto-dosing check...');
-      const result = await executeWithTimeout(
-        () => performAutoDosing(),
-        TASK_TIMEOUT,
-        'auto-dosing check'
-      );
-      
-      if (result.action === 'dosed') {
-        console.log(`Auto-dosing triggered successfully: ${result.details.type} (${result.details.amount}ml)`);
-      } else if (result.action === 'waiting') {
-        console.log(`Auto-dosing waiting: ${result.details.reason}`);
-      } else {
-        console.log(`Auto-dosing not needed: ${result.details.reason || 'pH and EC within target range'}`);
-      }
-    } catch (error) {
-      console.error('Error performing scheduled auto-dosing check:', error);
-      // Log error but continue execution
-    }
-  }, AUTO_DOSING_CHECK_INTERVAL); // Run every 5 seconds to match streaming interval
-  
-  // Add auto-dosing interval to the tracking array
-  intervals.push(autodosingInterval);
+  // We're removing the scheduled auto-dosing check as per user requirement
+  // The system will now check for auto-dosing needs when sensors are polled
   
   // Schedule profile pump sync every 15 minutes to keep auto-dosing using the correct pumps
   const profileSyncInterval = setInterval(async () => {

@@ -1,219 +1,133 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAllSensorReadings } from '@/app/lib/sensors';
-import { getAllPumpStatus, getRecentEvents } from '@/app/lib/pumps';
+import { getAllPumpStatus } from '@/app/lib/pumps';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
-import { getDosingConfig, performAutoDosing } from '@/app/lib/autoDosing';
+import { performAutoDosing, getDosingConfig } from '@/app/lib/autoDosing';
 
-// Much faster interval for real-time UI feedback
-const DATA_REFRESH_INTERVAL = 300; // 300ms for very responsive updates
+// Track active stream connections
+const CLIENTS = new Set<ReadableStreamController<Uint8Array>>();
+let streamInterval: NodeJS.Timeout | null = null;
+const STREAM_INTERVAL_MS = 500; // .5 second update interval
 
-// Keep track of last pump state to detect changes
-let lastPumpState: any = null;
-
-// Cache for the latest data - will be shared with the REST endpoint
-export interface StreamData {
-  sensors: {
-    ph: number;
-    ec: number;
-    waterTemp: number;
-    tds?: number;
-    timestamp: string;
-  };
-  autoDosing: {
-    enabled: boolean;
-    timestamp: string;
-    pumps?: any;
-    lastCheck?: string;
-    lastResult?: any;
-  };
-  lastUpdated: number; // timestamp when data was last fetched from hardware
-  lastSent: number; // timestamp when data was last sent to clients
-}
-
-export let latestData: StreamData = {
-  sensors: {
-    ph: 0,
-    ec: 0,
-    waterTemp: 0,
-    timestamp: new Date().toISOString()
-  },
-  autoDosing: {
-    enabled: false,
-    timestamp: new Date().toISOString()
-  },
-  lastUpdated: 0,
-  lastSent: 0
-};
-
-// Helper function to check if pump state has changed
-function hasPumpStateChanged(newPumpState: any, oldPumpState: any): boolean {
-  if (!oldPumpState || !newPumpState) return true;
+function startStreamInterval() {
+  if (streamInterval) return; // Only start if not already running
   
-  // Simple comparison of active state for each pump
-  if (Array.isArray(newPumpState) && Array.isArray(oldPumpState)) {
-    if (newPumpState.length !== oldPumpState.length) return true;
-    
-    for (let i = 0; i < newPumpState.length; i++) {
-      if (newPumpState[i]?.active !== oldPumpState[i]?.active) {
-        return true;
+  console.log('Starting data stream interval');
+  streamInterval = setInterval(async () => {
+    if (CLIENTS.size === 0) {
+      // No clients, clear the interval to save resources
+      if (streamInterval) {
+        clearInterval(streamInterval);
+        streamInterval = null;
+        console.log('Stopped data stream interval - no clients connected');
       }
+      return;
     }
-  }
-  return false;
+    
+    try {
+      // Get sensor data
+      let sensorData: any;
+      const simulationConfig = await getSimulationConfig();
+      
+      if (simulationConfig.enabled) {
+        sensorData = await getSimulatedSensorReadings();
+      } else {
+        try {
+          sensorData = await getAllSensorReadings();
+        } catch (error) {
+          sensorData = { error: 'Failed to get sensor readings', status: 'error' };
+        }
+      }
+      
+      // Get complete pump status (including nutrient information)
+      let pumpData: any;
+      try {
+        pumpData = getAllPumpStatus();
+        // Ensure all pump properties are included and properly serialized
+        // This ensures nutrient information is properly included
+      } catch (error) {
+        pumpData = { error: 'Failed to get pump status', status: 'error' };
+      }
+      
+      // Check if auto-dosing is needed
+      const dosingConfig = getDosingConfig();
+      if (dosingConfig.enabled) {
+        // Perform dosing check in the background (don't wait for it)
+        performAutoDosing().then(result => {
+          if (result.action === 'dosed') {
+            console.log(`Auto-dosing triggered: ${result.details.type} (${result.details.amount}ml)`);
+          }
+        }).catch(err => {
+          console.error('Error in auto-dosing check:', err);
+        });
+      }
+      
+      // Format the data for SSE
+      const data = {
+        sensors: {
+          ...sensorData,
+          timestamp: new Date().toISOString()
+        },
+        pumps: pumpData,
+        autoDosing: {
+          enabled: dosingConfig.enabled,
+          timestamp: new Date().toISOString()
+        }
+      };
+      
+      // Send to all connected clients
+      const event = `data: ${JSON.stringify(data)}\n\n`;
+      for (const controller of CLIENTS) {
+        try {
+          controller.enqueue(new TextEncoder().encode(event));
+        } catch (error) {
+          console.error('Error sending to client, removing from active clients:', error);
+          CLIENTS.delete(controller);
+        }
+      }
+    } catch (error) {
+      console.error('Error in stream interval:', error);
+    }
+  }, STREAM_INTERVAL_MS);
 }
 
-// Server-Sent Events (SSE) handler
 export async function GET(request: NextRequest) {
-  console.log('Streaming API connection established');
-  
-  // Initialize with fresh data
-  try {
-    const readings = await getSensorData();
-    const pumpStatus = await getAllPumpStatus();
-    const recentEvents = getRecentEvents(10); // Get last 10 events
-    const dosingConfig = getDosingConfig();
-    
-    // Update last pump state for change detection
-    lastPumpState = pumpStatus;
-    
-    latestData.sensors = readings;
-    latestData.lastUpdated = Date.now();
-    latestData.autoDosing = {
-      enabled: dosingConfig.enabled,
-      timestamp: new Date().toISOString(),
-      pumps: pumpStatus
-    };
-    
-    // Immediately check if dosing is needed
-    if (dosingConfig.enabled) {
-      const dosingResult = await performAutoDosing();
-      latestData.autoDosing.lastResult = dosingResult;
-    }
-  } catch (error) {
-    console.error('Initial data fetch failed:', error);
-  }
-
-  // Create a stream
   const stream = new ReadableStream({
-    async start(controller) {
-      let lastSensorReadTime = 0;
-      const SENSOR_READ_INTERVAL = 2000; // Read hardware sensors every 2 seconds
+    start(controller) {
+      // Add this client to the set of active clients
+      CLIENTS.add(controller);
       
-      // An interval that handles everything: sensor reads, dosing checks, and client updates
-      const intervalId = setInterval(async () => {
-        try {
-          const now = Date.now();
-          const dosingConfig = getDosingConfig();
-          
-          // Always get pump status every cycle for immediate feedback
-          const pumpStatus = await getAllPumpStatus();
-          const pumpStateChanged = hasPumpStateChanged(pumpStatus, lastPumpState);
-          
-          // Store current pump state for next comparison
-          lastPumpState = pumpStatus;
-          
-          // Only read sensors at a lower frequency to reduce hardware load
-          let readings = latestData.sensors;
-          let dosingResult = null;
-          const readSensors = now - lastSensorReadTime >= SENSOR_READ_INTERVAL;
-          
-          if (readSensors) {
-            // Get fresh sensor data (less frequently)
-            readings = await getSensorData();
-            latestData.sensors = readings;
-            lastSensorReadTime = now;
-            
-            // Check if auto-dosing is needed when sensor readings change
-            if (dosingConfig.enabled) {
-              try {
-                dosingResult = await performAutoDosing();
-              } catch (error) {
-                console.error('Error performing auto-dosing:', error);
-              }
-            }
-          }
-          
-          // Update cached data
-          latestData.lastUpdated = now;
-          
-          // Update auto-dosing status - always update pumps for immediate feedback
-          latestData.autoDosing = {
-            enabled: dosingConfig.enabled,
-            timestamp: new Date().toISOString(),
-            pumps: pumpStatus,
-            lastCheck: readSensors ? new Date().toISOString() : latestData.autoDosing.lastCheck,
-            lastResult: dosingResult || latestData.autoDosing.lastResult
-          };
-          
-          // Only send updates if something important changed or it's been a while
-          const forceUpdate = now - latestData.lastSent > 1000; // Always update at least every second
-          
-          if (pumpStateChanged || readSensors || forceUpdate) {
-            // Send the updated data to the client
-            latestData.lastSent = now;
-            const message = {
-              sensors: latestData.sensors,
-              timestamp: new Date().toISOString(),
-              autoDosing: latestData.autoDosing,
-              pumps: pumpStatus,
-              recentEvents: getRecentEvents(10), // Get the most recent events
-              pumpStateChanged: pumpStateChanged // Flag so UI can react specifically
-            };
-            
-            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(message)}\n\n`));
-          }
-        } catch (error) {
-          console.error('Error in stream:', error);
-          controller.enqueue(
-            new TextEncoder().encode(`data: ${JSON.stringify({ 
-              error: String(error), 
-              timestamp: new Date().toISOString(),
-              pumps: lastPumpState || [],
-              recentEvents: getRecentEvents(10) // Include events even in error case
-            })}\n\n`)
-          );
-        }
-      }, DATA_REFRESH_INTERVAL);
-
-      // Add abort handler to properly clean up when the client disconnects
+      // Send initial headers for SSE
+      controller.enqueue(new TextEncoder().encode(': ping\n\n'));
+      
+      // Start the interval if it's not running
+      startStreamInterval();
+      
+      // When the connection is closed, remove this client
       request.signal.addEventListener('abort', () => {
-        console.log('Client connection aborted');
-        clearInterval(intervalId);
+        CLIENTS.delete(controller);
+        console.log(`Client disconnected, active clients: ${CLIENTS.size}`);
       });
       
-      // Return cleanup function
-      return () => {
-        console.log('Client disconnected from streaming API');
-        clearInterval(intervalId);
-      };
+      console.log(`New client connected, active clients: ${CLIENTS.size}`);
+    },
+    cancel() {
+      // If the client disconnects, remove them from the set
+      for (const controller of CLIENTS) {
+        if (controller.desiredSize === 0) {
+          CLIENTS.delete(controller);
+        }
+      }
+      console.log(`Client manually disconnected, active clients: ${CLIENTS.size}`);
     }
   });
 
-  return new Response(stream, {
+  return new NextResponse(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive'
-    }
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'Content-Encoding': 'none',
+    },
   });
-}
-
-// Helper function to get sensor data
-async function getSensorData() {
-  try {
-    // First try to get real data
-    const readings = await getAllSensorReadings();
-    return {
-      ...readings,
-      timestamp: new Date().toISOString()
-    };
-  } catch (error) {
-    // Fall back to simulated data if real readings fail
-    console.log('Falling back to simulated sensor data');
-    const readings = await getSimulatedSensorReadings();
-    return {
-      ...readings,
-      timestamp: new Date().toISOString()
-    };
-  }
 } 

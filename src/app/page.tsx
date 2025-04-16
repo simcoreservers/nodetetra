@@ -25,29 +25,12 @@ export default function Home() {
   // Use the simulation context to check if simulation mode is enabled
   const { isEnabled: simulationEnabled } = useSimulationContext();
   
-  // Use the stream data hook for real-time updates with immediate UI refresh
-  const { data: streamData, isConnected: streamConnected, error: streamError, reconnect: reconnectStream } = useStreamData({
-    onData: (newData) => {
-      // Force immediate UI update for critical components
-      if (streamConnected && newData) {
-        // This callback allows immediate updates without waiting for React's next render cycle
-        console.log('Received real-time stream update');
-      }
-    }
-  });
+  // Use the stream data hook for real-time updates
+  const { data: streamData, isConnected: streamConnected, error: streamError } = useStreamData();
   
-  // IMPORTANT: Only use sensor and pump polling if streaming is NOT connected
-  // Set refreshInterval to 0 to prevent polling when streaming is working
-  const pollingDisabled = streamConnected || !!streamData;
-  const fallbackPollingInterval = pollingDisabled ? 0 : 5000; // 5 second polling when streaming fails
-  
-  // Use the old hooks as fallback if streaming not working, but disable polling with 0ms interval if streaming works
-  const { data: sensorData, isLoading: sensorsLoading, error: sensorError, refresh: refreshSensors } = useSensorData({
-    refreshInterval: fallbackPollingInterval,
-    disabled: pollingDisabled, // Completely disable the hook when streaming is active
-    debugName: 'home-page' // Add debug name to help identify which component is making requests
-  });
-  const { data: pumpData, isLoading: pumpsLoading, error: pumpError, refresh: refreshPumps } = usePumpData(fallbackPollingInterval);
+  // Use the old hooks as fallback if streaming not working
+  const { data: sensorData, isLoading: sensorsLoading, error: sensorError, refresh: refreshSensors } = useSensorData(0); // Only used as fallback
+  const { data: pumpData, isLoading: pumpsLoading, error: pumpError, refresh: refreshPumps } = usePumpData(0); // Only used as fallback
   const { activeProfile, isLoading: profileLoading } = useProfileData({ 
     refreshInterval: 0, // No need to constantly refresh all profiles
     activeProfileRefreshInterval: 30000 // Refresh active profile every 30 seconds
@@ -56,15 +39,8 @@ export default function Home() {
   // Use stream data if available, otherwise fall back to polling data
   const effectiveSensorData = streamData?.sensors || sensorData;
   const effectivePumpData = streamData?.pumps || pumpData;
-  const effectiveRecentEvents = streamData?.recentEvents || (Array.isArray(pumpData) ? [] : pumpData?.recentEvents || []);
   const effectiveSensorError = sensorError || (streamError ? { type: 'connection', message: streamError.message } : null);
   const effectiveStreamError = streamError || (!streamConnected && !streamData);
-  
-  // Log connection status change to help with debugging
-  useEffect(() => {
-    console.log(`Stream connection status changed: ${streamConnected ? 'CONNECTED' : 'DISCONNECTED'}`);
-    console.log(`Polling is ${pollingDisabled ? 'DISABLED' : 'ENABLED'} (${fallbackPollingInterval}ms)`);
-  }, [streamConnected, pollingDisabled, fallbackPollingInterval]);
   
   // Set initial load state once data is first loaded
   useEffect(() => {
@@ -187,14 +163,7 @@ export default function Home() {
               } 
               {streamConnected ? 'Live' : 'Polling'} data
             </span>
-            <span className="text-sm mr-3">Last update: {lastUpdate}</span>
-            <button 
-              onClick={() => streamConnected ? reconnectStream() : refreshAllData()}
-              className="bg-primary hover:bg-primary-dark text-white py-1 px-3 rounded text-sm"
-              title="Refresh data"
-            >
-              Refresh
-            </button>
+            <span className="text-sm">Last update: {lastUpdate}</span>
           </div>
         </div>
 
@@ -306,7 +275,7 @@ export default function Home() {
           />
 
           <RecentActivityCard
-            events={effectiveRecentEvents || []}
+            events={Array.isArray(effectivePumpData) ? [] : effectivePumpData?.recentEvents || null}
             isLoading={!initialLoaded && pumpsLoading}
             hasError={!!pumpError}
             hasSensorError={shouldShowSensorError}
