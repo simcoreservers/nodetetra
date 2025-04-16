@@ -25,6 +25,12 @@ interface StreamData {
     lastActivated?: Date;
     error?: string;
   }>;
+  recentEvents: Array<{
+    time: string;
+    event: string;
+    timestamp: Date;
+    isError?: boolean;
+  }>;
   autoDosing: {
     enabled: boolean;
     timestamp: string;

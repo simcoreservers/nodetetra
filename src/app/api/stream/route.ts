@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getAllSensorReadings } from '@/app/lib/sensors';
-import { getAllPumpStatus } from '@/app/lib/pumps';
+import { getAllPumpStatus, getRecentEvents } from '@/app/lib/pumps';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
 import { getDosingConfig, performAutoDosing } from '@/app/lib/autoDosing';
 
@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
   try {
     const readings = await getSensorData();
     const pumpStatus = await getAllPumpStatus();
+    const recentEvents = getRecentEvents(10); // Get last 10 events
     const dosingConfig = getDosingConfig();
     
     // Update last pump state for change detection
@@ -154,6 +155,8 @@ export async function GET(request: NextRequest) {
               sensors: latestData.sensors,
               timestamp: new Date().toISOString(),
               autoDosing: latestData.autoDosing,
+              pumps: pumpStatus,
+              recentEvents: getRecentEvents(10), // Get the most recent events
               pumpStateChanged: pumpStateChanged // Flag so UI can react specifically
             };
             
@@ -162,7 +165,12 @@ export async function GET(request: NextRequest) {
         } catch (error) {
           console.error('Error in stream:', error);
           controller.enqueue(
-            new TextEncoder().encode(`data: ${JSON.stringify({ error: String(error), timestamp: new Date().toISOString() })}\n\n`)
+            new TextEncoder().encode(`data: ${JSON.stringify({ 
+              error: String(error), 
+              timestamp: new Date().toISOString(),
+              pumps: lastPumpState || [],
+              recentEvents: getRecentEvents(10) // Include events even in error case
+            })}\n\n`)
           );
         }
       }, DATA_REFRESH_INTERVAL);

@@ -56,6 +56,7 @@ export default function Home() {
   // Use stream data if available, otherwise fall back to polling data
   const effectiveSensorData = streamData?.sensors || sensorData;
   const effectivePumpData = streamData?.pumps || pumpData;
+  const effectiveRecentEvents = streamData?.recentEvents || (Array.isArray(pumpData) ? [] : pumpData?.recentEvents || []);
   const effectiveSensorError = sensorError || (streamError ? { type: 'connection', message: streamError.message } : null);
   const effectiveStreamError = streamError || (!streamConnected && !streamData);
   
@@ -305,7 +306,7 @@ export default function Home() {
           />
 
           <RecentActivityCard
-            events={Array.isArray(effectivePumpData) ? [] : effectivePumpData?.recentEvents || null}
+            events={effectiveRecentEvents || []}
             isLoading={!initialLoaded && pumpsLoading}
             hasError={!!pumpError}
             hasSensorError={shouldShowSensorError}
