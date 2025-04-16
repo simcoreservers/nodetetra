@@ -72,18 +72,42 @@ export default function Home() {
   
   // Calculate status indicators based on real-time values
   const phStatus = !effectiveSensorData ? "status-warning" : 
-    effectiveSensorData.ph < 5.5 || effectiveSensorData.ph > 6.5 
-      ? "status-danger" 
-      : (effectiveSensorData.ph < 5.8 || effectiveSensorData.ph > 6.2) 
-        ? "status-warning" 
-        : "status-good";
+    activeProfile ? (
+      // Use active profile's target ranges if available
+      effectiveSensorData.ph < (activeProfile.targetPh.min || activeProfile.targetPh.target - activeProfile.targetPh.buffer) - 0.3 || 
+      effectiveSensorData.ph > (activeProfile.targetPh.max || activeProfile.targetPh.target + activeProfile.targetPh.buffer) + 0.3
+        ? "status-danger" 
+        : (effectiveSensorData.ph < (activeProfile.targetPh.min || activeProfile.targetPh.target - activeProfile.targetPh.buffer) || 
+           effectiveSensorData.ph > (activeProfile.targetPh.max || activeProfile.targetPh.target + activeProfile.targetPh.buffer)) 
+          ? "status-warning" 
+          : "status-good"
+    ) : (
+      // Fall back to default ranges if no active profile
+      effectiveSensorData.ph < 5.5 || effectiveSensorData.ph > 6.5 
+        ? "status-danger" 
+        : (effectiveSensorData.ph < 5.8 || effectiveSensorData.ph > 6.2) 
+          ? "status-warning" 
+          : "status-good"
+    );
   
   const ecStatus = !effectiveSensorData ? "status-warning" : 
-    effectiveSensorData.ec < 1.0 || effectiveSensorData.ec > 1.8 
-      ? "status-danger" 
-      : (effectiveSensorData.ec < 1.2 || effectiveSensorData.ec > 1.5) 
-        ? "status-warning" 
-        : "status-good";
+    activeProfile ? (
+      // Use active profile's target ranges if available
+      effectiveSensorData.ec < (activeProfile.targetEc.min || activeProfile.targetEc.target - activeProfile.targetEc.buffer) - 0.3 || 
+      effectiveSensorData.ec > (activeProfile.targetEc.max || activeProfile.targetEc.target + activeProfile.targetEc.buffer) + 0.3
+        ? "status-danger" 
+        : (effectiveSensorData.ec < (activeProfile.targetEc.min || activeProfile.targetEc.target - activeProfile.targetEc.buffer) || 
+           effectiveSensorData.ec > (activeProfile.targetEc.max || activeProfile.targetEc.target + activeProfile.targetEc.buffer)) 
+          ? "status-warning" 
+          : "status-good"
+    ) : (
+      // Fall back to default ranges if no active profile
+      effectiveSensorData.ec < 1.0 || effectiveSensorData.ec > 1.8 
+        ? "status-danger" 
+        : (effectiveSensorData.ec < 1.2 || effectiveSensorData.ec > 1.5) 
+          ? "status-warning" 
+          : "status-good"
+    );
   
   const tempStatus = !effectiveSensorData ? "status-warning" : 
     effectiveSensorData.waterTemp < 18 || effectiveSensorData.waterTemp > 26 
@@ -210,7 +234,9 @@ export default function Home() {
           <SensorCard
             title="pH Level"
             value={phValue}
-            target="5.8 - 6.2"
+            target={activeProfile ? 
+              `${activeProfile.targetPh.min?.toFixed(1) || (activeProfile.targetPh.target - activeProfile.targetPh.buffer).toFixed(1)} - ${activeProfile.targetPh.max?.toFixed(1) || (activeProfile.targetPh.target + activeProfile.targetPh.buffer).toFixed(1)}` 
+              : "5.8 - 6.2"}
             status={phStatus}
             isLoading={showLoadingState}
             hasError={!!sensorError && !simulationEnabled}
@@ -220,7 +246,9 @@ export default function Home() {
           <SensorCard
             title="EC Level"
             value={ecValue}
-            target="1.2 - 1.5 mS/cm"
+            target={activeProfile ? 
+              `${activeProfile.targetEc.min?.toFixed(1) || (activeProfile.targetEc.target - activeProfile.targetEc.buffer).toFixed(1)} - ${activeProfile.targetEc.max?.toFixed(1) || (activeProfile.targetEc.target + activeProfile.targetEc.buffer).toFixed(1)} mS/cm` 
+              : "1.2 - 1.5 mS/cm"}
             status={ecStatus}
             isLoading={showLoadingState}
             hasError={!!sensorError && !simulationEnabled}
