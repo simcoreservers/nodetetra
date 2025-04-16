@@ -2062,15 +2062,37 @@ export default function ProfilesPage() {
                           </label>
                         </div>
                         <div className="flex items-center">
+                          <button
+                            type="button"
+                            className="bg-[#333333] hover:bg-[#444444] w-6 h-6 flex items-center justify-center rounded-l text-white"
+                            onClick={() => {
+                              const input = document.getElementById(`new-week-pump-${pump.name}`) as HTMLInputElement;
+                              const currentValue = parseFloat(input.value || "0") || 0;
+                              input.value = Math.max(0, currentValue - 0.1).toFixed(1);
+                            }}
+                          >
+                            -
+                          </button>
                           <input 
                             type="number" 
-                            className="w-20 bg-[#1e1e1e] border border-[#333333] rounded p-2 text-center mr-2"
+                            className="w-20 bg-[#1e1e1e] border-y border-[#333333] rounded-none p-2 text-center"
                             placeholder="0"
                             min="0"
-                            step="0.01"
+                            step="0.1"
                             defaultValue={0}
                             id={`new-week-pump-${pump.name}`}
                           />
+                          <button 
+                            type="button"
+                            className="bg-[#333333] hover:bg-[#444444] w-6 h-6 flex items-center justify-center rounded-r text-white mr-2"
+                            onClick={() => {
+                              const input = document.getElementById(`new-week-pump-${pump.name}`) as HTMLInputElement;
+                              const currentValue = parseFloat(input.value || "0") || 0;
+                              input.value = (currentValue + 0.1).toFixed(1);
+                            }}
+                          >
+                            +
+                          </button>
                           <span className="text-sm text-gray-400">ml/L</span>
                         </div>
                       </div>
@@ -2252,15 +2274,37 @@ export default function ProfilesPage() {
                             </label>
                           </div>
                           <div className="flex items-center">
+                            <button
+                              type="button"
+                              className="bg-[#333333] hover:bg-[#444444] w-6 h-6 flex items-center justify-center rounded-l text-white"
+                              onClick={() => {
+                                const input = document.getElementById(`edit-week-pump-${pump.name}`) as HTMLInputElement;
+                                const currentValue = parseFloat(input.value || "0") || 0;
+                                input.value = Math.max(0, currentValue - 0.1).toFixed(1);
+                              }}
+                            >
+                              -
+                            </button>
                             <input 
                               type="number" 
-                              className="w-20 bg-[#1e1e1e] border border-[#333333] rounded p-2 text-center mr-2"
+                              className="w-20 bg-[#1e1e1e] border-y border-[#333333] rounded-none p-2 text-center"
                               placeholder="0"
                               min="0"
-                              step="0.01"
+                              step="0.1"
                               defaultValue={weekDosage}
                               id={`edit-week-pump-${pump.name}`}
                             />
+                            <button 
+                              type="button"
+                              className="bg-[#333333] hover:bg-[#444444] w-6 h-6 flex items-center justify-center rounded-r text-white mr-2"
+                              onClick={() => {
+                                const input = document.getElementById(`edit-week-pump-${pump.name}`) as HTMLInputElement;
+                                const currentValue = parseFloat(input.value || "0") || 0;
+                                input.value = (currentValue + 0.1).toFixed(1);
+                              }}
+                            >
+                              +
+                            </button>
                             <span className="text-sm text-gray-400">ml/L</span>
                           </div>
                         </div>
