@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
 import { getAllSensorReadings } from '@/app/lib/sensors';
 import { getDosingConfig } from '@/app/lib/autoDosing';
 import { latestData } from '../stream/route';
 
-// Implement a more aggressive rate limiter
+// Implement rate limiter
 const RATE_LIMIT = {
   maxRequests: 3, // Maximum 3 requests
   timeWindow: 1000, // Per 1 second
@@ -15,6 +15,9 @@ const RATE_LIMIT = {
 let excessiveRequestsCount = 0;
 let lastLoggedExcessive = 0;
 
+// Debug variables to track request sources
+const requestSources = new Map<string, number>();
+
 // Maximum age for cached data in milliseconds
 const MAX_CACHE_AGE = 5000; // 5 seconds
 
@@ -23,8 +26,19 @@ const MAX_CACHE_AGE = 5000; // 5 seconds
  * Uses cached data from the streaming route when available to avoid duplicate hardware access
  * Includes rate limiting to prevent excessive polling
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Get debug header if present
+    const debugHookId = request.headers.get('X-Debug-Hook-ID') || 'unknown';
+    
+    // Track request source for debugging
+    if (debugHookId !== 'unknown') {
+      requestSources.set(
+        debugHookId, 
+        (requestSources.get(debugHookId) || 0) + 1
+      );
+    }
+    
     // Check if we're getting hit with excessive requests
     const now = Date.now();
     
@@ -38,16 +52,30 @@ export async function GET() {
       
       // Log only once per second to avoid log spam
       if (now - lastLoggedExcessive > 1000) {
+        // Convert map to sorted array for logging
+        const sourcesArray = Array.from(requestSources.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5); // Top 5 sources
+          
         console.warn(`Rate limit exceeded for /api/sensors - blocked ${excessiveRequestsCount} excessive requests in the last second`);
+        console.warn(`Top request sources:`, sourcesArray);
+        console.warn(`Current request from: ${debugHookId}`);
+        
+        // Reset counters
         lastLoggedExcessive = now;
         excessiveRequestsCount = 0;
+        
+        // Clear request sources periodically to avoid memory issues
+        if (requestSources.size > 100) {
+          requestSources.clear();
+        }
       }
       
       return NextResponse.json({
         status: 'error',
         error: 'Too many requests',
         errorType: 'rate_limit',
-        message: 'Rate limit exceeded, please reduce request frequency'
+        message: 'Rate limit exceeded, please reduce request frequency or use the streaming API'
       }, { status: 429 }); // Too Many Requests
     }
     
@@ -66,7 +94,7 @@ export async function GET() {
       };
       
       // Debug log
-      console.log(`Using cached sensor data (${now - latestData.lastUpdated}ms old)`);
+      console.log(`Using cached sensor data (${now - latestData.lastUpdated}ms old) for ${debugHookId}`);
     } else {
       // Need to fetch fresh data - first check if simulation is enabled
       const config = await getSimulationConfig();

@@ -36,7 +36,8 @@ export default function Home() {
   // Use the old hooks as fallback if streaming not working, but disable polling with 0ms interval if streaming works
   const { data: sensorData, isLoading: sensorsLoading, error: sensorError, refresh: refreshSensors } = useSensorData({
     refreshInterval: fallbackPollingInterval,
-    disabled: pollingDisabled // Completely disable the hook when streaming is active
+    disabled: pollingDisabled, // Completely disable the hook when streaming is active
+    debugName: 'home-page' // Add debug name to help identify which component is making requests
   });
   const { data: pumpData, isLoading: pumpsLoading, error: pumpError, refresh: refreshPumps } = usePumpData(fallbackPollingInterval);
   const { activeProfile, isLoading: profileLoading } = useProfileData({ 
