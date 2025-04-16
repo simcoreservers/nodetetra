@@ -130,13 +130,14 @@ export default function DosingPage() {
   // Toggle simulation mode
   const toggleSimulationMode = async () => {
     try {
-      const action = simulationEnabled ? 'disable' : 'enable';
       const response = await fetch('/api/simulation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ 
+          enabled: !simulationEnabled 
+        }),
       });
       
       if (response.ok) {

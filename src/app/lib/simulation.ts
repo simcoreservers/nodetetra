@@ -209,9 +209,10 @@ export async function updateSimulationConfig(updates: Partial<SimulationConfig>)
       lastUpdated: new Date().toISOString()
     };
     
-    // If enabling simulation, reset current values to baseline
-    if (updates.enabled === true && !currentConfig.enabled) {
+    // If enabling simulation or updating baseline values, reset current values to match baseline
+    if (updates.enabled === true && !currentConfig.enabled || updates.baseline) {
       currentSimulatedValues = { ...updatedConfig.baseline };
+      console.log('Reset simulated values to new baseline:', updatedConfig.baseline);
     }
     
     // Ensure directory exists
@@ -364,7 +365,15 @@ export async function resetSimulation(): Promise<void> {
       }
     }
     
+    // Reset current simulated values to match baseline
     currentSimulatedValues = { ...config.baseline };
+    
+    // This is important to force the system to use these values immediately
+    // rather than allowing drift to continue from previous values
+    await updateSimulationConfig({
+      enabled: config.enabled // Keep current enabled state
+    });
+    
     console.log('Simulation values reset to baseline');
   } catch (error) {
     console.error('Error resetting simulation:', error);

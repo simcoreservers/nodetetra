@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSimulationConfig } from '@/app/lib/simulation';
+import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
 import { getAllSensorReadings } from '@/app/lib/sensors';
 import { performAutoDosing, getDosingConfig } from '@/app/lib/autoDosing';
 
@@ -15,19 +15,12 @@ export async function GET() {
     let sensorData;
     
     if (config.enabled) {
-      // Get baseline and variation values from configuration
-      const { baseline, variation } = config;
+      // Use the same simulation method as autoDosing for consistency
+      const simulatedData = await getSimulatedSensorReadings();
       
-      // Generate simulated data using the configured values
-      const randomPh = baseline.ph + (Math.random() * 2 - 1) * variation.ph;
-      const randomEc = baseline.ec + (Math.random() * 2 - 1) * variation.ec; 
-      const randomTemp = baseline.waterTemp + (Math.random() * 2 - 1) * variation.waterTemp;
-      
+      // Create the response with status property
       sensorData = {
-        ph: parseFloat(randomPh.toFixed(2)),
-        ec: parseFloat(randomEc.toFixed(2)),
-        waterTemp: parseFloat(randomTemp.toFixed(1)),
-        timestamp: new Date().toISOString(),
+        ...simulatedData,
         status: 'ok'
       };
     } else {
