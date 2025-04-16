@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SensorData } from '@/app/lib/sensors';
 
 export interface SensorError {
@@ -7,22 +7,45 @@ export interface SensorError {
   timestamp: string;
 }
 
+interface UseSensorDataOptions {
+  refreshInterval?: number;
+  disabled?: boolean;
+}
+
 /**
- * Custom hook for fetching and managing real-time sensor data
- * @param refreshInterval - How often to poll for new data (in ms)
+ * Custom hook for fetching and managing sensor data
+ * @param options - Configuration options:
+ *   - refreshInterval: How often to poll for new data (in ms), 0 to disable automatic polling
+ *   - disabled: Set to true to completely disable the hook from making any API calls
  */
-export function useSensorData(refreshInterval = 1000) {
+export function useSensorData(refreshIntervalOrOptions: number | UseSensorDataOptions = 1000) {
+  // Parse options
+  const options: UseSensorDataOptions = typeof refreshIntervalOrOptions === 'number' 
+    ? { refreshInterval: refreshIntervalOrOptions } 
+    : refreshIntervalOrOptions;
+  
+  const { refreshInterval = 1000, disabled = false } = options;
+  
   const [data, setData] = useState<SensorData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(!disabled);
   const [error, setError] = useState<SensorError | null>(null);
+  
+  // Use a ref to track if a fetch is in progress to prevent overlap
+  const fetchInProgress = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: NodeJS.Timeout | null = null;
 
     const fetchData = async () => {
+      // Skip if disabled or another fetch is in progress
+      if (disabled || fetchInProgress.current) return;
+      
       try {
+        // Mark fetch as in progress
+        fetchInProgress.current = true;
         setIsLoading(true);
+        
         const response = await fetch('/api/sensors');
         
         // Check if the response is ok before trying to parse it
@@ -62,16 +85,27 @@ export function useSensorData(refreshInterval = 1000) {
           });
         }
       } finally {
+        // Clear the in-progress flag
+        fetchInProgress.current = false;
+        
         if (isMounted) {
           setIsLoading(false);
-          // Schedule next update
-          timeoutId = setTimeout(fetchData, refreshInterval);
+          
+          // Schedule next update if refreshInterval > 0 and not disabled
+          if (refreshInterval > 0 && !disabled) {
+            timeoutId = setTimeout(fetchData, refreshInterval);
+          }
         }
       }
     };
 
-    // Initial fetch
-    fetchData();
+    // Initial fetch only if not disabled
+    if (!disabled) {
+      fetchData();
+    } else {
+      // If disabled, make sure we're not loading
+      setIsLoading(false);
+    }
 
     // Cleanup function
     return () => {
@@ -80,11 +114,15 @@ export function useSensorData(refreshInterval = 1000) {
         clearTimeout(timeoutId);
       }
     };
-  }, [refreshInterval]);
+  }, [refreshInterval, disabled]);
 
-  // Manual refresh function
+  // Manual refresh function that respects disabled state
   const refresh = async () => {
+    if (disabled || fetchInProgress.current) return null;
+    
     setIsLoading(true);
+    fetchInProgress.current = true;
+    
     try {
       const response = await fetch('/api/sensors');
       
@@ -100,6 +138,7 @@ export function useSensorData(refreshInterval = 1000) {
       
       setData(responseData);
       setError(null);
+      return responseData;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       
@@ -117,8 +156,10 @@ export function useSensorData(refreshInterval = 1000) {
         type: errorType,
         timestamp: new Date().toISOString()
       });
+      return null;
     } finally {
       setIsLoading(false);
+      fetchInProgress.current = false;
     }
   };
 

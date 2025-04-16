@@ -34,7 +34,10 @@ export default function Home() {
   const fallbackPollingInterval = pollingDisabled ? 0 : 5000; // 5 second polling when streaming fails
   
   // Use the old hooks as fallback if streaming not working, but disable polling with 0ms interval if streaming works
-  const { data: sensorData, isLoading: sensorsLoading, error: sensorError, refresh: refreshSensors } = useSensorData(fallbackPollingInterval);
+  const { data: sensorData, isLoading: sensorsLoading, error: sensorError, refresh: refreshSensors } = useSensorData({
+    refreshInterval: fallbackPollingInterval,
+    disabled: pollingDisabled // Completely disable the hook when streaming is active
+  });
   const { data: pumpData, isLoading: pumpsLoading, error: pumpError, refresh: refreshPumps } = usePumpData(fallbackPollingInterval);
   const { activeProfile, isLoading: profileLoading } = useProfileData({ 
     refreshInterval: 0, // No need to constantly refresh all profiles
