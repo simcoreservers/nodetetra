@@ -886,11 +886,27 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
       return canDose;
     });
     
-    if (dosablePumps.length === 0) {
-      debug(MODULE, 'No pumps available for dosing (timing restrictions)');
+    // Check if all nutrients from the active profile can be dosed
+    const profilePumpNames = nutrientPumpDosages.map((p: any) => p.pumpName);
+    const missingPumps = profilePumpNames.filter((name: string) => !dosablePumps.includes(name));
+    
+    if (missingPumps.length > 0) {
+      // If any required nutrients cannot be dosed, wait until all are available
+      warn(MODULE, `Cannot dose all required nutrients. Missing pumps: ${missingPumps.join(', ')}`);
       return {
         action: 'waiting',
-        details: { reason: 'No nutrient pumps available for dosing due to minimum interval restrictions' }
+        details: { 
+          reason: 'Cannot dose all required nutrients due to timing restrictions',
+          missingPumps
+        }
+      };
+    }
+    
+    if (dosablePumps.length === 0 || dosablePumps.length < nutrientPumpDosages.length) {
+      debug(MODULE, `Not all pumps available for dosing (${dosablePumps.length}/${nutrientPumpDosages.length})`);
+      return {
+        action: 'waiting',
+        details: { reason: 'Not all nutrient pumps available for complete dosing due to minimum interval restrictions' }
       };
     }
     
@@ -906,8 +922,15 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
     const dispensed = [];
     let successfulDoses = 0;
     
+    // Sort pumps according to the order in the profile to maintain consistent dosing order
+    const sortedPumps = dosablePumps.sort((a, b) => {
+      const aIndex = profilePumpNames.indexOf(a);
+      const bIndex = profilePumpNames.indexOf(b);
+      return aIndex - bIndex;
+    });
+    
     // Dose each available pump
-    for (const pumpName of dosablePumps) {
+    for (const pumpName of sortedPumps) {
       try {
         // Skip if pump not in profile or has zero proportion
         if (!nutrientProportions[pumpName] || nutrientProportions[pumpName] <= 0) {
@@ -954,8 +977,8 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
       }
     }
     
-    if (successfulDoses > 0) {
-      info(MODULE, `Successfully dosed ${successfulDoses} nutrient pumps`);
+    if (successfulDoses > 0 && successfulDoses === nutrientPumpDosages.length) {
+      info(MODULE, `Successfully dosed all ${successfulDoses} nutrient pumps`);
       return {
         action: 'dosed',
         details: {
@@ -963,6 +986,15 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
           dispensed,
           sensorSimulation: isSimulation,
           reason: `EC ${sensorData.ec} below target range (${dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance})`
+        }
+      };
+    } else if (successfulDoses > 0) {
+      warn(MODULE, `Only dosed ${successfulDoses}/${nutrientPumpDosages.length} nutrient pumps`);
+      return {
+        action: 'warning',
+        details: { 
+          reason: `Only dosed ${successfulDoses}/${nutrientPumpDosages.length} nutrient pumps, which may affect NPK balance`,
+          dispensed
         }
       };
     } else {
