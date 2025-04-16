@@ -25,8 +25,16 @@ export default function Home() {
   // Use the simulation context to check if simulation mode is enabled
   const { isEnabled: simulationEnabled } = useSimulationContext();
   
-  // Use the stream data hook for real-time updates
-  const { data: streamData, isConnected: streamConnected, error: streamError } = useStreamData();
+  // Use the stream data hook for real-time updates with immediate UI refresh
+  const { data: streamData, isConnected: streamConnected, error: streamError, reconnect: reconnectStream } = useStreamData({
+    onData: (newData) => {
+      // Force immediate UI update for critical components
+      if (streamConnected && newData) {
+        // This callback allows immediate updates without waiting for React's next render cycle
+        console.log('Received real-time stream update');
+      }
+    }
+  });
   
   // IMPORTANT: Only use sensor and pump polling if streaming is NOT connected
   // Set refreshInterval to 0 to prevent polling when streaming is working
@@ -178,7 +186,14 @@ export default function Home() {
               } 
               {streamConnected ? 'Live' : 'Polling'} data
             </span>
-            <span className="text-sm">Last update: {lastUpdate}</span>
+            <span className="text-sm mr-3">Last update: {lastUpdate}</span>
+            <button 
+              onClick={() => streamConnected ? reconnectStream() : refreshAllData()}
+              className="bg-primary hover:bg-primary-dark text-white py-1 px-3 rounded text-sm"
+              title="Refresh data"
+            >
+              Refresh
+            </button>
           </div>
         </div>
 

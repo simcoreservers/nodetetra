@@ -4,11 +4,8 @@ import { getAllPumpStatus } from '@/app/lib/pumps';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
 import { getDosingConfig, performAutoDosing } from '@/app/lib/autoDosing';
 
-// Track active stream connections
-const CLIENTS = new Set<ReadableStreamController<Uint8Array>>();
-let streamInterval: NodeJS.Timeout | null = null;
-const STREAM_INTERVAL = 1000; // Send updates every 1 second instead of 500ms
-const SENSOR_FETCH_INTERVAL = 5000; // Fetch sensor data only every 5 seconds
+// A single interval for everything - sensor reads, dosing checks, and client updates
+const DATA_REFRESH_INTERVAL = 1000; // 1-second refresh rate for everything
 
 // Cache for the latest data - will be shared with the REST endpoint
 export interface StreamData {
@@ -45,60 +42,6 @@ export let latestData: StreamData = {
   lastSent: 0
 };
 
-// Start stream interval handler
-function startStreamInterval() {
-  if (streamInterval) {
-    return; // Interval already running
-  }
-  
-  streamInterval = setInterval(async () => {
-    try {
-      // Only fetch new data if we have active clients
-      if (CLIENTS.size === 0) {
-        if (streamInterval) {
-          clearInterval(streamInterval);
-          streamInterval = null;
-          console.log('No active clients, stopping stream interval');
-        }
-        return;
-      }
-      
-      // Get latest sensor data
-      const currentTimestamp = new Date().toISOString();
-      const dosingConfig = getDosingConfig();
-      const pumpStatus = await getAllPumpStatus();
-      
-      // Attempt auto-dosing if enabled
-      let dosingResult = null;
-      if (dosingConfig.enabled) {
-        try {
-          dosingResult = await performAutoDosing();
-        } catch (err) {
-          console.error('Error performing auto-dosing:', err);
-        }
-      }
-      
-      // Send message to all clients
-      const message = {
-        sensors: latestData.sensors,
-        timestamp: currentTimestamp,
-        autoDosing: {
-          enabled: dosingConfig.enabled,
-          timestamp: currentTimestamp,
-          pumps: pumpStatus,
-          lastResult: dosingResult
-        }
-      };
-      
-      CLIENTS.forEach(controller => {
-        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(message)}\n\n`));
-      });
-    } catch (error) {
-      console.error('Error in stream interval:', error);
-    }
-  }, STREAM_INTERVAL);
-}
-
 // Server-Sent Events (SSE) handler
 export async function GET(request: NextRequest) {
   console.log('Streaming API connection established');
@@ -116,70 +59,54 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
       pumps: pumpStatus
     };
+    
+    // Immediately check if dosing is needed
+    if (dosingConfig.enabled) {
+      const dosingResult = await performAutoDosing();
+      latestData.autoDosing.lastResult = dosingResult;
+    }
   } catch (error) {
-    console.error('Initial sensor data fetch failed:', error);
+    console.error('Initial data fetch failed:', error);
   }
 
   // Create a stream
   const stream = new ReadableStream({
     async start(controller) {
-      // Add new client
-      CLIENTS.add(controller);
-      console.log(`New client connected, active clients: ${CLIENTS.size}`);
-      
-      // Keep track of the last autoDosing check time
-      let lastDosingCheck = 0;
-      let lastSensorFetch = Date.now();
-      
-      // Stream loop
+      // An interval that handles everything: sensor reads, dosing checks, and client updates
       const intervalId = setInterval(async () => {
         try {
-          const now = Date.now();
+          // 1. Get fresh sensor data
+          const readings = await getSensorData();
           const dosingConfig = getDosingConfig();
-          
-          // Only fetch fresh sensor data every SENSOR_FETCH_INTERVAL
-          let readings;
-          if (now - lastSensorFetch >= SENSOR_FETCH_INTERVAL) {
-            readings = await getSensorData();
-            latestData.sensors = readings;
-            latestData.lastUpdated = now;
-            lastSensorFetch = now;
-          } else {
-            readings = latestData.sensors;
-          }
-          
-          // Don't send data if nothing has changed since last send
-          // and it's been less than 2 seconds (heartbeat interval)
-          if (latestData.lastSent > 0 && 
-              now - latestData.lastSent < 2000 && 
-              now - latestData.lastUpdated > SENSOR_FETCH_INTERVAL) {
-            return; // Skip this update cycle
-          }
-          
-          // Only check auto-dosing every 10 seconds to avoid excessive dosing attempts
-          let dosingResult = null;
-          if (dosingConfig.enabled && now - lastDosingCheck >= 10000) {
-            dosingResult = await performAutoDosing();
-            lastDosingCheck = now;
-          }
-          
           const pumpStatus = await getAllPumpStatus();
           
-          // Update auto-dosing status
+          // 2. Update cached data
+          latestData.sensors = readings;
+          latestData.lastUpdated = Date.now();
+          
+          // 3. Check if auto-dosing is needed immediately based on the new readings
+          let dosingResult = null;
+          if (dosingConfig.enabled) {
+            try {
+              dosingResult = await performAutoDosing();
+            } catch (error) {
+              console.error('Error performing auto-dosing:', error);
+            }
+          }
+          
+          // 4. Update auto-dosing status
           latestData.autoDosing = {
             enabled: dosingConfig.enabled,
             timestamp: new Date().toISOString(),
             pumps: pumpStatus,
-            lastCheck: lastDosingCheck > 0 ? new Date(lastDosingCheck).toISOString() : undefined,
+            lastCheck: new Date().toISOString(),
             lastResult: dosingResult
           };
           
-          // Update last sent timestamp
-          latestData.lastSent = now;
-          
-          // Send the data
+          // 5. Send the updated data to the client
+          latestData.lastSent = Date.now();
           const message = {
-            sensors: readings,
+            sensors: latestData.sensors,
             timestamp: new Date().toISOString(),
             autoDosing: latestData.autoDosing
           };
@@ -191,22 +118,18 @@ export async function GET(request: NextRequest) {
             new TextEncoder().encode(`data: ${JSON.stringify({ error: String(error) })}\n\n`)
           );
         }
-      }, STREAM_INTERVAL);
+      }, DATA_REFRESH_INTERVAL);
 
       // Add abort handler to properly clean up when the client disconnects
       request.signal.addEventListener('abort', () => {
-        console.log('Client connection aborted, removing from active clients');
-        CLIENTS.delete(controller);
+        console.log('Client connection aborted');
         clearInterval(intervalId);
-        console.log(`Remaining active clients: ${CLIENTS.size}`);
       });
       
       // Return cleanup function
       return () => {
         console.log('Client disconnected from streaming API');
-        CLIENTS.delete(controller);
         clearInterval(intervalId);
-        console.log(`Remaining active clients: ${CLIENTS.size}`);
       };
     }
   });
