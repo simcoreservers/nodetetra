@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAllSensorReadings } from '@/app/lib/sensors';
 import { getAllPumpStatus } from '@/app/lib/pumps';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
-import { getDosingConfig } from '@/app/lib/autoDosing';
+import { getDosingConfig, performAutoDosing } from '@/app/lib/autoDosing';
 
 // Track active stream connections
 const CLIENTS = new Set<ReadableStreamController<Uint8Array>>();
@@ -30,6 +30,10 @@ export let latestData: CachedData = {
   },
   lastUpdated: 0
 };
+
+// Track last auto-dosing check time to prevent too frequent checks
+let lastAutodosingCheck = 0;
+const AUTODOSING_CHECK_INTERVAL = 5000; // Check every 5 seconds during streaming
 
 function startStreamInterval() {
   if (streamInterval) return; // Only start if not already running
@@ -71,8 +75,28 @@ function startStreamInterval() {
         pumpData = { error: 'Failed to get pump status', status: 'error' };
       }
       
-      // Get auto-dosing status (no longer performing checks here as it's handled by background interval)
+      // Check if auto-dosing is needed (not on every streaming update, but periodically)
       const dosingConfig = getDosingConfig();
+      const now = Date.now();
+      
+      // Run auto-dosing check if enough time has passed since last check
+      if (dosingConfig.enabled && (now - lastAutodosingCheck > AUTODOSING_CHECK_INTERVAL)) {
+        lastAutodosingCheck = now;
+        console.log('Stream route: Triggering auto-dosing check...');
+        
+        // Perform dosing check in the background (don't wait for it)
+        performAutoDosing().then(result => {
+          if (result.action === 'dosed') {
+            console.log(`Auto-dosing triggered: ${result.details.type} (${result.details.amount}ml)`);
+          } else if (result.action === 'waiting') {
+            console.log(`Auto-dosing waiting: ${result.details.reason}`);
+          } else {
+            console.log(`Auto-dosing not needed: ${result.details.reason || 'pH and EC within target range'}`);
+          }
+        }).catch(err => {
+          console.error('Error in auto-dosing check:', err);
+        });
+      }
       
       // Format the data
       const currentTimestamp = new Date().toISOString();
