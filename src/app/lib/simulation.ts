@@ -279,21 +279,21 @@ export async function getSimulatedSensorReadings(): Promise<SensorData> {
         currentSimulatedValues.ph, 
         config.variation.ph, 
         config.drift.ph,
-        5.0, 7.0 // pH realistic range constraints
+        0.0, 14.0 // pH full range 0-14 instead of restricted 5-7 range
       ),
       
       ec: applyRealisticVariation(
         currentSimulatedValues.ec, 
         config.variation.ec, 
         config.drift.ec,
-        0.8, 2.5 // EC realistic range constraints
+        0.0, 5.0 // EC full range 0-5 instead of restricted 0.8-2.5 range
       ),
       
       waterTemp: applyRealisticVariation(
         currentSimulatedValues.waterTemp, 
         config.variation.waterTemp, 
         config.drift.waterTemp,
-        15.0, 30.0 // Temperature realistic range constraints
+        0.0, 40.0 // Temperature wider range 0-40 instead of restricted 15-30 range
       )
     };
     
