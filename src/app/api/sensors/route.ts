@@ -1,18 +1,34 @@
 import { NextResponse } from 'next/server';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
 import { getAllSensorReadings } from '@/app/lib/sensors';
-import { performAutoDosing, getDosingConfig } from '@/app/lib/autoDosing';
+import { getDosingConfig } from '@/app/lib/autoDosing';
+import { latestData } from '../stream/route';
+
+// Maximum age for cached data before we need fresh data (in milliseconds)
+const MAX_CACHE_AGE = 2000; // 2 seconds
 
 /**
  * GET API route for fetching sensor data
- * Returns simulated data when simulation mode is enabled
- * Also checks if auto-dosing is needed and performs dosing if required
+ * Uses cached data from the streaming route when available to avoid duplicate hardware access
  */
 export async function GET() {
   try {
-    // Check if simulation mode is enabled
+    // First check if we have recent cached data from the streaming route
+    const now = Date.now();
+    if (latestData.sensors && latestData.lastUpdated > 0 && (now - latestData.lastUpdated) < MAX_CACHE_AGE) {
+      // We have recent cached data, use it
+      return NextResponse.json({
+        ...latestData.sensors,
+        cachedData: true,
+        cacheAge: now - latestData.lastUpdated,
+        autoDosing: latestData.autoDosing
+      });
+    }
+    
+    // If no active stream or cache is too old, get fresh data
+    // This is a fallback for when the streaming service isn't active
     const config = await getSimulationConfig();
-    let sensorData;
+    let sensorData: any;
     
     if (config.enabled) {
       // Use the same simulation method as autoDosing for consistency
@@ -21,7 +37,8 @@ export async function GET() {
       // Create the response with status property
       sensorData = {
         ...simulatedData,
-        status: 'ok'
+        status: 'ok',
+        cachedData: false
       };
     } else {
       try {
@@ -30,7 +47,8 @@ export async function GET() {
         sensorData = {
           ...readings,
           timestamp: new Date().toISOString(),
-          status: 'ok'
+          status: 'ok',
+          cachedData: false
         };
       } catch (error) {
         return NextResponse.json({
@@ -42,30 +60,12 @@ export async function GET() {
       }
     }
 
-    // Check if auto-dosing is enabled (only happens during sensor polling)
-    try {
-      const dosingConfig = getDosingConfig();
-      if (dosingConfig.enabled) {
-        console.log('Auto-dosing enabled - checking if dosing is needed with latest sensor readings');
-        // Perform auto-dosing check asynchronously (don't wait for it to complete)
-        performAutoDosing().then(result => {
-          if (result.action === 'dosed') {
-            console.log(`Auto-dosing triggered successfully: ${result.details.type} (${result.details.amount}ml)`);
-          } else if (result.action === 'waiting') {
-            console.log(`Auto-dosing waiting: ${result.details.reason}`);
-          } else {
-            console.log(`Auto-dosing not needed: ${result.details.reason || 'pH and EC within target range'}`);
-          }
-        }).catch(error => {
-          console.error('Error performing auto-dosing check:', error);
-        });
-      }
-    } catch (error) {
-      console.error('Error checking auto-dosing status:', error);
-      // Continue to return sensor data even if auto-dosing check fails
-    }
+    // Add auto-dosing status
+    const dosingConfig = getDosingConfig();
+    sensorData.autoDosing = {
+      enabled: dosingConfig.enabled
+    };
     
-    // Return the sensor data regardless of auto-dosing status
     return NextResponse.json(sensorData);
     
   } catch (error) {

@@ -2,12 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAllSensorReadings } from '@/app/lib/sensors';
 import { getAllPumpStatus } from '@/app/lib/pumps';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
-import { performAutoDosing, getDosingConfig } from '@/app/lib/autoDosing';
+import { getDosingConfig } from '@/app/lib/autoDosing';
 
 // Track active stream connections
 const CLIENTS = new Set<ReadableStreamController<Uint8Array>>();
 let streamInterval: NodeJS.Timeout | null = null;
 const STREAM_INTERVAL_MS = 500; // .5 second update interval
+
+// Cache for the latest data - will be shared with the REST endpoint
+export interface CachedData {
+  sensors: any;
+  pumps: any;
+  autoDosing: {
+    enabled: boolean;
+    timestamp: string;
+  };
+  lastUpdated: number; // timestamp when data was last fetched from hardware
+}
+
+// Initialize with empty data
+export let latestData: CachedData = {
+  sensors: null,
+  pumps: null,
+  autoDosing: {
+    enabled: false,
+    timestamp: new Date().toISOString()
+  },
+  lastUpdated: 0
+};
 
 function startStreamInterval() {
   if (streamInterval) return; // Only start if not already running
@@ -49,85 +71,76 @@ function startStreamInterval() {
         pumpData = { error: 'Failed to get pump status', status: 'error' };
       }
       
-      // Check if auto-dosing is needed
+      // Get auto-dosing status (no longer performing checks here as it's handled by background interval)
       const dosingConfig = getDosingConfig();
-      if (dosingConfig.enabled) {
-        // Perform dosing check in the background (don't wait for it)
-        performAutoDosing().then(result => {
-          if (result.action === 'dosed') {
-            console.log(`Auto-dosing triggered: ${result.details.type} (${result.details.amount}ml)`);
-          }
-        }).catch(err => {
-          console.error('Error in auto-dosing check:', err);
-        });
-      }
       
-      // Format the data for SSE
-      const data = {
+      // Format the data
+      const currentTimestamp = new Date().toISOString();
+      
+      // Update the shared cache with latest data
+      latestData = {
         sensors: {
           ...sensorData,
-          timestamp: new Date().toISOString()
+          timestamp: currentTimestamp
         },
         pumps: pumpData,
         autoDosing: {
           enabled: dosingConfig.enabled,
-          timestamp: new Date().toISOString()
-        }
+          timestamp: currentTimestamp
+        },
+        lastUpdated: Date.now()
       };
       
       // Send to all connected clients
-      const event = `data: ${JSON.stringify(data)}\n\n`;
-      for (const controller of CLIENTS) {
+      const event = `data: ${JSON.stringify({
+        sensors: latestData.sensors,
+        pumps: latestData.pumps,
+        autoDosing: latestData.autoDosing
+      })}\n\n`;
+      
+      CLIENTS.forEach(controller => {
         try {
           controller.enqueue(new TextEncoder().encode(event));
         } catch (error) {
-          console.error('Error sending to client, removing from active clients:', error);
+          console.error('Error sending data to client:', error);
+          // Remove failed client
           CLIENTS.delete(controller);
         }
-      }
+      });
     } catch (error) {
       console.error('Error in stream interval:', error);
     }
   }, STREAM_INTERVAL_MS);
 }
 
+// Server-Sent Events (SSE) handler
 export async function GET(request: NextRequest) {
+  // Create stream for SSE
   const stream = new ReadableStream({
     start(controller) {
-      // Add this client to the set of active clients
+      // Add new client
       CLIENTS.add(controller);
-      
-      // Send initial headers for SSE
-      controller.enqueue(new TextEncoder().encode(': ping\n\n'));
       
       // Start the interval if it's not running
       startStreamInterval();
       
-      // When the connection is closed, remove this client
-      request.signal.addEventListener('abort', () => {
-        CLIENTS.delete(controller);
-        console.log(`Client disconnected, active clients: ${CLIENTS.size}`);
-      });
-      
-      console.log(`New client connected, active clients: ${CLIENTS.size}`);
+      // Initial connection message
+      controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ connected: true, clients: CLIENTS.size })}\n\n`));
     },
-    cancel() {
-      // If the client disconnects, remove them from the set
-      for (const controller of CLIENTS) {
-        if (controller.desiredSize === 0) {
-          CLIENTS.delete(controller);
-        }
+    cancel(controller) {
+      // Remove client on disconnect
+      if (controller) {
+        CLIENTS.delete(controller as ReadableStreamController<Uint8Array>);
       }
-      console.log(`Client manually disconnected, active clients: ${CLIENTS.size}`);
     }
   });
-
-  return new NextResponse(stream, {
+  
+  // Return the stream as SSE response
+  return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-      'Content-Encoding': 'none',
-    },
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    }
   });
 } 
