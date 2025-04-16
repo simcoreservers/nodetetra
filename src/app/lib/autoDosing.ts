@@ -1027,7 +1027,7 @@ export async function performAutoDosing(): Promise<{
       if (isSensorSimulation) {
         sensorData = await getSimulatedSensorReadings();
         debug(MODULE, `Using SIMULATED readings: pH=${sensorData.ph}, EC=${sensorData.ec}`);
-      } else {
+    } else {
         const readings = await getAllSensorReadings();
         sensorData = {
           ...readings,
@@ -1037,8 +1037,8 @@ export async function performAutoDosing(): Promise<{
       }
     } catch (err) {
       error(MODULE, 'Error getting sensor readings', err);
-      return { 
-        action: 'error', 
+    return { 
+      action: 'error', 
         details: { error: `Failed to get sensor readings: ${err}` } 
       };
     } finally {
@@ -1047,11 +1047,11 @@ export async function performAutoDosing(): Promise<{
         clearTimeout(dosingLockTimeout);
         dosingLockTimeout = null;
       }
-    }
-    
-    // Store the reading for reference
-    lastReading = sensorData;
-    
+  }
+  
+  // Store the reading for reference
+  lastReading = sensorData;
+  
     // Check for already active pumps (don't dose if pumps are already running)
     try {
       const pumpStatus = getAllPumpStatus();
@@ -1069,14 +1069,14 @@ export async function performAutoDosing(): Promise<{
     }
     
     // Handle pH adjustment first - pH is always prioritized over EC adjustment
-
-    // Check if pH is too low (need to add pH Up)
-    if (sensorData.ph < (dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance)) {
+  
+  // Check if pH is too low (need to add pH Up)
+  if (sensorData.ph < (dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance)) {
       info(MODULE, `pH too low: ${sensorData.ph.toFixed(2)}, target: ${dosingConfig.targets.ph.target.toFixed(2)}`);
       
       // Check if we can dose pH Up
-      if (canDose('phUp')) {
-        try {
+    if (canDose('phUp')) {
+      try {
           // Calculate dose amount based on how far from target
           const phDelta = dosingConfig.targets.ph.target - sensorData.ph;
           const baseDoseAmount = dosingConfig.dosing.phUp.doseAmount;
@@ -1084,57 +1084,57 @@ export async function performAutoDosing(): Promise<{
           const scaleFactor = Math.min(1 + (phDelta / dosingConfig.targets.ph.tolerance), 2);
           const amount = Math.round((baseDoseAmount * scaleFactor) * 10) / 10; // Round to 1 decimal place
           
-          const pumpName = dosingConfig.dosing.phUp.pumpName;
-          const flowRate = dosingConfig.dosing.phUp.flowRate;
-          
+        const pumpName = dosingConfig.dosing.phUp.pumpName;
+        const flowRate = dosingConfig.dosing.phUp.flowRate;
+        
           info(MODULE, `Dispensing ${amount}ml of pH Up from ${pumpName} at ${flowRate}ml/s`);
           
           // Always dispense regardless of sensor simulation mode
           await dispensePump(pumpName, amount, flowRate);
           info(MODULE, `Successfully dispensed ${amount}ml of pH Up`);
-          
+        
           // Record the dose
-          recordDose('phUp');
-          
-          return {
-            action: 'dosed',
-            details: {
-              type: 'pH Up',
-              amount,
-              pumpName,
-              sensorSimulation: isSensorSimulation,
-              reason: `pH ${sensorData.ph} below target range (${dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance})`
-            }
-          };
-        } catch (err) {
-          error(MODULE, 'Error dispensing pH Up', err);
-          return {
-            action: 'error',
-            details: {
-              type: 'pH Up',
-              error: `Failed to dispense pH Up: ${err}`
-            }
-          };
-        }
-      } else {
-        debug(MODULE, 'Cannot dose pH Up yet due to minimum interval');
+        recordDose('phUp');
+        
         return {
-          action: 'waiting',
+          action: 'dosed',
           details: {
             type: 'pH Up',
-            reason: 'Minimum interval between doses not reached'
+            amount,
+            pumpName,
+              sensorSimulation: isSensorSimulation,
+            reason: `pH ${sensorData.ph} below target range (${dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance})`
+          }
+        };
+        } catch (err) {
+          error(MODULE, 'Error dispensing pH Up', err);
+        return {
+          action: 'error',
+          details: {
+            type: 'pH Up',
+              error: `Failed to dispense pH Up: ${err}`
           }
         };
       }
+    } else {
+        debug(MODULE, 'Cannot dose pH Up yet due to minimum interval');
+      return {
+        action: 'waiting',
+        details: {
+          type: 'pH Up',
+          reason: 'Minimum interval between doses not reached'
+        }
+      };
     }
-    
-    // Check if pH is too high (need to add pH Down)
-    if (sensorData.ph > (dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance)) {
+  }
+  
+  // Check if pH is too high (need to add pH Down)
+  if (sensorData.ph > (dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance)) {
       info(MODULE, `pH too high: ${sensorData.ph.toFixed(2)}, target: ${dosingConfig.targets.ph.target.toFixed(2)}`);
       
       // Check if we can dose pH Down
-      if (canDose('phDown')) {
-        try {
+    if (canDose('phDown')) {
+      try {
           // Calculate dose amount based on how far from target
           const phDelta = sensorData.ph - dosingConfig.targets.ph.target;
           const baseDoseAmount = dosingConfig.dosing.phDown.doseAmount;
@@ -1142,52 +1142,52 @@ export async function performAutoDosing(): Promise<{
           const scaleFactor = Math.min(1 + (phDelta / dosingConfig.targets.ph.tolerance), 2);
           const amount = Math.round((baseDoseAmount * scaleFactor) * 10) / 10; // Round to 1 decimal place
           
-          const pumpName = dosingConfig.dosing.phDown.pumpName;
-          const flowRate = dosingConfig.dosing.phDown.flowRate;
-          
+        const pumpName = dosingConfig.dosing.phDown.pumpName;
+        const flowRate = dosingConfig.dosing.phDown.flowRate;
+        
           info(MODULE, `Dispensing ${amount}ml of pH Down from ${pumpName} at ${flowRate}ml/s`);
           
           // Always dispense regardless of sensor simulation mode
           await dispensePump(pumpName, amount, flowRate);
           info(MODULE, `Successfully dispensed ${amount}ml of pH Down`);
-          
+        
           // Record the dose
-          recordDose('phDown');
-          
-          return {
-            action: 'dosed',
-            details: {
-              type: 'pH Down',
-              amount,
-              pumpName,
-              sensorSimulation: isSensorSimulation,
-              reason: `pH ${sensorData.ph} above target range (${dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance})`
-            }
-          };
-        } catch (err) {
-          error(MODULE, 'Error dispensing pH Down', err);
-          return {
-            action: 'error',
-            details: {
-              type: 'pH Down',
-              error: `Failed to dispense pH Down: ${err}`
-            }
-          };
-        }
-      } else {
-        debug(MODULE, 'Cannot dose pH Down yet due to minimum interval');
+        recordDose('phDown');
+        
         return {
-          action: 'waiting',
+          action: 'dosed',
           details: {
             type: 'pH Down',
-            reason: 'Minimum interval between doses not reached'
+            amount,
+            pumpName,
+              sensorSimulation: isSensorSimulation,
+            reason: `pH ${sensorData.ph} above target range (${dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance})`
+          }
+        };
+        } catch (err) {
+          error(MODULE, 'Error dispensing pH Down', err);
+        return {
+          action: 'error',
+          details: {
+            type: 'pH Down',
+              error: `Failed to dispense pH Down: ${err}`
           }
         };
       }
+    } else {
+        debug(MODULE, 'Cannot dose pH Down yet due to minimum interval');
+      return {
+        action: 'waiting',
+        details: {
+          type: 'pH Down',
+          reason: 'Minimum interval between doses not reached'
+        }
+      };
     }
-    
-    // Check if EC is too low (need to add nutrients)
-    if (sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
+  }
+  
+  // Check if EC is too low (need to add nutrients)
+  if (sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
       info(MODULE, `EC too low: ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
       
       // Use dedicated function for nutrient dosing to ensure proper async handling
@@ -1198,29 +1198,29 @@ export async function performAutoDosing(): Promise<{
     // If EC is too high, we can't automatically reduce it (requires water change)
     if (sensorData.ec > (dosingConfig.targets.ec.target + dosingConfig.targets.ec.tolerance)) {
       info(MODULE, `EC too high: ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
-      return {
+        return {
         action: 'warning',
-        details: {
+          details: {
           type: 'EC High',
           reason: `EC ${sensorData.ec} above target range (${dosingConfig.targets.ec.target + dosingConfig.targets.ec.tolerance}). Consider adding fresh water to dilute solution.`
         }
       };
-    }
-    
-    // If we get here, everything is within target ranges
+  }
+  
+  // If we get here, everything is within target ranges
     info(MODULE, 'All parameters within target ranges');
-    return {
-      action: 'none',
-      details: {
-        reason: 'All parameters within target ranges',
-        currentValues: {
-          ph: sensorData.ph,
-          ec: sensorData.ec,
-          waterTemp: sensorData.waterTemp
-        },
-        targets: dosingConfig.targets
-      }
-    };
+  return {
+    action: 'none',
+    details: {
+      reason: 'All parameters within target ranges',
+      currentValues: {
+        ph: sensorData.ph,
+        ec: sensorData.ec,
+        waterTemp: sensorData.waterTemp
+      },
+      targets: dosingConfig.targets
+    }
+  };
   } catch (err) {
     error(MODULE, 'Unexpected error in auto-dosing', err);
     return {
