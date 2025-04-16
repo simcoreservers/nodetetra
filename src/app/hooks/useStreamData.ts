@@ -13,8 +13,17 @@ interface StreamData {
   pumps: Array<{
     name: string;
     active: boolean;
-    pinNumber: number;
+    pinNumber?: number;
     flowRate?: number;
+    nutrient?: {
+      productId: number;
+      brandId: number;
+      brandName: string;
+      productName: string;
+      npk: string;
+    } | null;
+    lastActivated?: Date;
+    error?: string;
   }>;
   autoDosing: {
     enabled: boolean;
