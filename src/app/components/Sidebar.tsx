@@ -55,7 +55,7 @@ export default function Sidebar({ activeSection, setActiveSection }: SidebarProp
         </button>
       </div>
       
-      <nav className={`flex flex-col space-y-1 ${collapsed ? 'px-2' : 'px-3'} transition-all duration-300`}>
+      <nav className={`flex flex-col space-y-1 ${collapsed ? 'px-2' : 'px-3'} transition-all duration-300 overflow-y-auto flex-grow`} style={{ maxHeight: 'calc(100vh - 100px)' }}>
         {!collapsed && (
           <div className="text-xs uppercase text-[var(--text-muted)] px-4 pb-2 mb-2">
             Controls
