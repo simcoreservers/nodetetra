@@ -6,6 +6,13 @@ import Link from "next/link";
 interface PumpStatus {
   name: string;
   active: boolean;
+  nutrient?: {
+    productId: number;
+    brandId: number;
+    brandName: string;
+    productName: string;
+    npk: string;
+  } | null;
 }
 
 interface PumpStatusCardProps {
@@ -41,7 +48,10 @@ const PumpStatusCard = memo(function PumpStatusCard({
             <div key={index} className="flex justify-between items-center border-b border-[#333333] pb-2 last:border-0">
               <div className="flex items-center">
                 <div className={`status-indicator ${pump.active ? 'status-good' : ''}`}></div>
-                <span className="text-white">{pump.name}</span>
+                <span className="text-white">
+                  {pump.nutrient ? pump.nutrient.productName : pump.name}
+                  {pump.nutrient && <span className="text-xs text-gray-400 ml-1">({pump.name})</span>}
+                </span>
               </div>
               <span className="text-gray-300">{pump.active ? 'Active' : 'Idle'}</span>
             </div>
