@@ -28,9 +28,14 @@ export default function Home() {
   // Use the stream data hook for real-time updates
   const { data: streamData, isConnected: streamConnected, error: streamError } = useStreamData();
   
-  // Use the old hooks as fallback if streaming not working
-  const { data: sensorData, isLoading: sensorsLoading, error: sensorError, refresh: refreshSensors } = useSensorData(0); // Only used as fallback
-  const { data: pumpData, isLoading: pumpsLoading, error: pumpError, refresh: refreshPumps } = usePumpData(0); // Only used as fallback
+  // IMPORTANT: Only use sensor and pump polling if streaming is NOT connected
+  // Set refreshInterval to 0 to prevent polling when streaming is working
+  const pollingDisabled = streamConnected || !!streamData;
+  const fallbackPollingInterval = pollingDisabled ? 0 : 5000; // 5 second polling when streaming fails
+  
+  // Use the old hooks as fallback if streaming not working, but disable polling with 0ms interval if streaming works
+  const { data: sensorData, isLoading: sensorsLoading, error: sensorError, refresh: refreshSensors } = useSensorData(fallbackPollingInterval);
+  const { data: pumpData, isLoading: pumpsLoading, error: pumpError, refresh: refreshPumps } = usePumpData(fallbackPollingInterval);
   const { activeProfile, isLoading: profileLoading } = useProfileData({ 
     refreshInterval: 0, // No need to constantly refresh all profiles
     activeProfileRefreshInterval: 30000 // Refresh active profile every 30 seconds
@@ -41,6 +46,12 @@ export default function Home() {
   const effectivePumpData = streamData?.pumps || pumpData;
   const effectiveSensorError = sensorError || (streamError ? { type: 'connection', message: streamError.message } : null);
   const effectiveStreamError = streamError || (!streamConnected && !streamData);
+  
+  // Log connection status change to help with debugging
+  useEffect(() => {
+    console.log(`Stream connection status changed: ${streamConnected ? 'CONNECTED' : 'DISCONNECTED'}`);
+    console.log(`Polling is ${pollingDisabled ? 'DISABLED' : 'ENABLED'} (${fallbackPollingInterval}ms)`);
+  }, [streamConnected, pollingDisabled, fallbackPollingInterval]);
   
   // Set initial load state once data is first loaded
   useEffect(() => {

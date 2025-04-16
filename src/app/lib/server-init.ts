@@ -14,6 +14,9 @@ let isServerInitialized = false;
 // Add timeout for task execution
 const TASK_TIMEOUT = 60000; // 60 seconds timeout for tasks
 
+// Auto-dosing check interval in milliseconds - matching the streaming route interval
+const AUTO_DOSING_CHECK_INTERVAL = 5000; // 5 seconds 
+
 /**
  * Execute function with timeout protection
  */
@@ -128,7 +131,7 @@ function setupScheduledTasks(): void {
       console.error('Error performing scheduled auto-dosing check:', error);
       // Log error but continue execution
     }
-  }, 60 * 1000); // Run every 60 seconds
+  }, AUTO_DOSING_CHECK_INTERVAL); // Run every 5 seconds to match streaming interval
   
   // Add auto-dosing interval to the tracking array
   intervals.push(autodosingInterval);
