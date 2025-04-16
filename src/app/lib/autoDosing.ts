@@ -317,16 +317,22 @@ export async function syncProfilePumps(): Promise<boolean> {
       console.log(`Set pH Down pump to "${phDownPump.pumpName}"`);
     }
     
-    // Get only nutrient pumps (filter out pH and water pumps)
+    // Get nutrient pumps (not pH pumps) from profile
     const nutrientPumps = pumpSettings.filter((p: PumpAssignment) => 
       p.pumpName && 
       !(p.pumpName.toLowerCase().includes('ph') || p.pumpName.toLowerCase() === 'water')
     );
     
+    if (nutrientPumps.length === 0) {
+      // Add more detailed logging to help diagnose the issue
+      console.error(`No nutrient pumps found after filtering. Total pumps before filter: ${pumpSettings.length}. Pump names: ${pumpSettings.map((p: PumpAssignment) => p.pumpName).join(', ')}`);
+      return false;
+    }
+    
     // Calculate total dosage for nutrient ratio calculations
     const totalDosage = nutrientPumps.reduce((sum: number, pump: PumpAssignment) => 
       sum + (Number(pump.dosage) || 0), 0);
-    
+      
     const hasNutrientDosages = totalDosage > 0;
     
     console.log(`Found ${nutrientPumps.length} nutrient pumps with total dosage ${totalDosage}`);
@@ -822,7 +828,7 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
     }
     
     // Verify we have pump assignments in the profile
-    const pumpDosages = profile.pumpDosages || [];
+    const pumpDosages = profile.pumpDosages || profile.pumpAssignments || [];
     if (pumpDosages.length === 0) {
       error(MODULE, 'No pump dosages defined in active profile');
       return {
@@ -838,7 +844,8 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
     );
     
     if (nutrientPumpDosages.length === 0) {
-      error(MODULE, 'No nutrient pumps defined in active profile');
+      // Add more detailed logging to help diagnose the issue
+      error(MODULE, `No nutrient pumps found after filtering. Total pumps before filter: ${pumpDosages.length}. Pump names: ${pumpDosages.map((p: any) => p.pumpName || 'unnamed').join(', ')}`);
       return {
         action: 'error',
         details: { reason: 'No nutrient pumps defined in active profile' }
