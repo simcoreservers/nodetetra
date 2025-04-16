@@ -98,15 +98,34 @@ function startStreamInterval() {
         autoDosing: latestData.autoDosing
       })}\n\n`;
       
+      // Create a clean-up list for controllers to remove
+      const controllersToRemove = new Set<ReadableStreamController<Uint8Array>>();
+      
+      // Attempt to send to each client
       CLIENTS.forEach(controller => {
         try {
-          controller.enqueue(new TextEncoder().encode(event));
+          // Check if controller is closed before trying to enqueue
+          if (controller.desiredSize === null) {
+            // Controller is closed, mark for removal
+            controllersToRemove.add(controller);
+          } else {
+            controller.enqueue(new TextEncoder().encode(event));
+          }
         } catch (error) {
           console.error('Error sending data to client:', error);
-          // Remove failed client
-          CLIENTS.delete(controller);
+          // Mark controller for removal
+          controllersToRemove.add(controller);
         }
       });
+      
+      // Clean up any closed or failed controllers
+      if (controllersToRemove.size > 0) {
+        console.log(`Removing ${controllersToRemove.size} closed controllers`);
+        controllersToRemove.forEach(controller => {
+          CLIENTS.delete(controller);
+        });
+        console.log(`Remaining active clients: ${CLIENTS.size}`);
+      }
     } catch (error) {
       console.error('Error in stream interval:', error);
     }
@@ -120,18 +139,31 @@ export async function GET(request: NextRequest) {
     start(controller) {
       // Add new client
       CLIENTS.add(controller);
+      console.log(`New client connected, active clients: ${CLIENTS.size}`);
       
       // Start the interval if it's not running
       startStreamInterval();
       
       // Initial connection message
       controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ connected: true, clients: CLIENTS.size })}\n\n`));
+      
+      // Add abort handler to properly clean up when the client disconnects
+      request.signal.addEventListener('abort', () => {
+        console.log('Client connection aborted, removing from active clients');
+        CLIENTS.delete(controller);
+        console.log(`Remaining active clients: ${CLIENTS.size}`);
+      });
     },
-    cancel(controller) {
-      // Remove client on disconnect
-      if (controller) {
-        CLIENTS.delete(controller as ReadableStreamController<Uint8Array>);
-      }
+    cancel() {
+      // This is called when the client disconnects normally
+      console.log('Client disconnected, removing from active clients');
+      CLIENTS.forEach(c => {
+        // Find the controller that matches this stream (can't access directly in this context)
+        if (c.desiredSize === null) {
+          CLIENTS.delete(c);
+        }
+      });
+      console.log(`Remaining active clients: ${CLIENTS.size}`);
     }
   });
   
