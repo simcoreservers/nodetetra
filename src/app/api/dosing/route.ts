@@ -1,11 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getUnifiedDosingConfig, 
-  saveUnifiedDosingConfig,
-  migrateDosing
-} from '@/app/lib/dosingMigration';
+// Updated to use local functions
+import fs from 'fs/promises';
+import path from 'path';
 import { error, info } from '@/app/lib/logger';
 
+const MODULE = 'api:dosing';
+
+// Path constants
+const DATA_PATH = path.join(process.cwd(), 'data');
+const UNIFIED_FILE = path.join(DATA_PATH, 'dosing-config.json');
+
+/**
+ * Get the unified dosing configuration
+ */
+async function getUnifiedDosingConfig() {
+  try {
+    // Read the unified config
+    const fileData = await fs.readFile(UNIFIED_FILE, 'utf8');
+    return JSON.parse(fileData);
+  } catch (err) {
+    error(MODULE, 'Failed to get unified config', err);
+    return null;
+  }
+}
+
+/**
+ * Save the unified dosing configuration
+ */
+async function saveUnifiedDosingConfig(config) {
+  try {
+    // Ensure data directory exists
+    try {
+      await fs.access(DATA_PATH);
+    } catch {
+      await fs.mkdir(DATA_PATH, { recursive: true });
+    }
+    
+    // Write the config
+    await fs.writeFile(UNIFIED_FILE, JSON.stringify(config, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    error(MODULE, 'Failed to save unified config', err);
+    return false;
+  }
+}
 const MODULE = 'api:dosing';
 
 /**
@@ -14,9 +52,6 @@ const MODULE = 'api:dosing';
  */
 export async function GET() {
   try {
-    // Ensure migration has run
-    await migrateDosing();
-    
     // Get the unified config
     const config = await getUnifiedDosingConfig();
     
@@ -50,9 +85,6 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Ensure migration has run
-    await migrateDosing();
-    
     const body = await request.json();
     const { action, config: configUpdates } = body;
     
