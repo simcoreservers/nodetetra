@@ -18,13 +18,17 @@
 # next.js
 /.next/
 /out/
+/.swc/
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
 *.pem
+Thumbs.db
+.env*.local
 
 # debug
 npm-debug.log*
@@ -34,6 +38,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -42,4 +47,28 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 data/alerts.json
+
+# IDE and editor files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.sublime-project
+*.sublime-workspace
+
+# PWA
+public/sw.js
+public/workbox-*.js
+public/worker-*.js
+public/fallback-*.js
+public/precache-*.js
+
+# Logs
+logs
+*.log
+
+# Turbo repo
+.turbo
 
