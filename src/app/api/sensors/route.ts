@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
 import { getAllSensorReadings } from '@/app/lib/sensors';
-import { performAutoDosing, getDosingConfig } from '@/app/lib/autoDosing';
+import { getUnifiedDosingConfig } from '@/app/lib/dosingMigration';
+import { error, info, debug } from '@/app/lib/logger';
+
+const MODULE = 'api:sensors';
 
 /**
  * GET API route for fetching sensor data
  * Returns simulated data when simulation mode is enabled
- * Also checks if auto-dosing is needed and performs dosing if required
+ * Triggers auto-dosing checks if enabled
  */
 export async function GET() {
   try {
@@ -15,7 +18,7 @@ export async function GET() {
     let sensorData;
     
     if (config.enabled) {
-      // Use the same simulation method as autoDosing for consistency
+      // Use simulated data
       const simulatedData = await getSimulatedSensorReadings();
       
       // Create the response with status property
@@ -42,33 +45,46 @@ export async function GET() {
       }
     }
 
-    // Check if auto-dosing is enabled (only happens during sensor polling)
+    // Check if auto-dosing is enabled
     try {
-      const dosingConfig = getDosingConfig();
-      if (dosingConfig.enabled) {
-        console.log('Auto-dosing enabled - scheduling check with latest sensor readings');
-        // Use setTimeout to avoid blocking the response and check lock status
-        setTimeout(() => {
-          const { isLocked } = require('@/app/lib/autoDosing');
-          if (!isLocked()) {
-            performAutoDosing().then(result => {
-              if (result.action === 'dosed') {
-                console.log(`Auto-dosing triggered successfully: ${result.details.type} (${result.details.amount}ml)`);
-              } else if (result.action === 'waiting') {
-                console.log(`Auto-dosing waiting: ${result.details.reason}`);
-              } else {
-                console.log(`Auto-dosing not needed: ${result.details.reason || 'pH and EC within target range'}`);
-              }
-            }).catch(error => {
-              console.error('Error performing auto-dosing check:', error);
+      const dosingConfig = await getUnifiedDosingConfig();
+      if (dosingConfig?.enabled) {
+        debug(MODULE, 'Auto-dosing enabled - scheduling check with latest sensor readings');
+        
+        // Use setTimeout to avoid blocking the response
+        setTimeout(async () => {
+          try {
+            // Trigger a dosing check using the API
+            const response = await fetch(`${process.env.HOST_URL || 'http://localhost:3000'}/api/dosing/auto`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ action: 'dose' }),
             });
-          } else {
-            console.log('Auto-dosing check skipped - operation already in progress');
+            
+            if (!response.ok) {
+              throw new Error(`Failed to trigger auto-dosing: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.status === 'success' && data.result) {
+              if (data.result.action === 'dosed') {
+                info(MODULE, `Auto-dosing triggered successfully: ${data.result.details.type}`);
+              } else if (data.result.action === 'waiting') {
+                debug(MODULE, `Auto-dosing waiting: ${data.result.details.reason}`);
+              } else {
+                debug(MODULE, `Auto-dosing not needed: ${data.result.details.reason || 'Parameters within target range'}`);
+              }
+            }
+          } catch (e) {
+            error(MODULE, 'Error performing auto-dosing check:', e);
           }
         }, 100);
       }
-    } catch (error) {
-      console.error('Error checking auto-dosing status:', error);
+    } catch (e) {
+      error(MODULE, 'Error checking auto-dosing status:', e);
       // Continue to return sensor data even if auto-dosing check fails
     }
     
@@ -83,4 +99,4 @@ export async function GET() {
       message: error instanceof Error ? error.message : String(error)
     }, { status: 500 }); // Internal Server Error
   }
-} 
+}

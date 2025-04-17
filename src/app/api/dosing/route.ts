@@ -1,134 +1,193 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
-import { DosingData } from '@/app/hooks/useDosingData';
+import { 
+  getUnifiedDosingConfig, 
+  saveUnifiedDosingConfig,
+  migrateDosing
+} from '@/app/lib/dosingMigration';
+import { error, info } from '@/app/lib/logger';
 
-// Path to the dosing JSON file
-const DATA_PATH = path.join(process.cwd(), 'data');
-const DOSING_FILE = path.join(DATA_PATH, 'dosing.json');
+const MODULE = 'api:dosing';
 
-// Helper to ensure data directory exists
-async function ensureDataDir() {
+/**
+ * GET handler for combined dosing API
+ * Returns the unified dosing configuration
+ */
+export async function GET() {
   try {
-    await fs.access(DATA_PATH);
-  } catch (error) {
-    await fs.mkdir(DATA_PATH, { recursive: true });
-  }
-}
-
-// Helper to read dosing data from file
-async function getDosingData(): Promise<DosingData> {
-  try {
-    await ensureDataDir();
-    try {
-      const fileData = await fs.readFile(DOSING_FILE, 'utf8');
-      return JSON.parse(fileData);
-    } catch (error) {
-      console.log(`Error reading dosing file: ${error instanceof Error ? error.message : String(error)}`);
-      
-      // Create default data
-      const defaultData: DosingData = {
-        settings: {
-          targetPh: {
-            min: 5.8,
-            max: 6.2,
-            current: 6.0
-          },
-          targetEc: {
-            min: 1.2,
-            max: 1.5,
-            current: 1.35
-          },
-          dosingLimits: {
-            "pH Up": 50,
-            "pH Down": 50,
-            "Nutrient A": 100,
-            "Nutrient B": 100
-            // Additional pumps can be added dynamically as needed
-          },
-          timestamp: new Date().toISOString()
-        },
-        history: []
-      };
-      
-      // Save the default data to file
-      try {
-        await saveDosingData(defaultData);
-        console.log('Created default dosing.json file');
-      } catch (saveError) {
-        console.error('Error creating default dosing file:', saveError);
-      }
-      
-      return defaultData;
+    // Ensure migration has run
+    await migrateDosing();
+    
+    // Get the unified config
+    const config = await getUnifiedDosingConfig();
+    
+    if (!config) {
+      return NextResponse.json(
+        { status: 'error', error: 'Failed to load dosing configuration' },
+        { status: 500 }
+      );
     }
-  } catch (error) {
-    console.error(`Error accessing data directory: ${error instanceof Error ? error.message : String(error)}`);
-    // Return default data on directory access error
-    return {
-      settings: {
-        targetPh: {
-          min: 5.8,
-          max: 6.2,
-          current: 6.0
-        },
-        targetEc: {
-          min: 1.2,
-          max: 1.5,
-          current: 1.35
-        },
-        dosingLimits: {
-          "pH Up": 50,
-          "pH Down": 50,
-          "Nutrient A": 100,
-          "Nutrient B": 100
-          // Additional pumps can be added dynamically as needed
-        },
-        timestamp: new Date().toISOString()
-      },
-      history: []
-    };
-  }
-}
-
-// Helper to write dosing data to file
-async function saveDosingData(data: DosingData): Promise<void> {
-  await ensureDataDir();
-  await fs.writeFile(DOSING_FILE, JSON.stringify(data, null, 2), 'utf8');
-}
-
-// GET handler - retrieve all dosing data
-export async function GET(request: NextRequest) {
-  try {
-    const dosingData = await getDosingData();
-    return NextResponse.json(dosingData);
-  } catch (error) {
-    console.error('Error fetching dosing data:', error);
-    // Return default data instead of an error
+    
     return NextResponse.json({
-      settings: {
-        targetPh: {
-          min: 5.8,
-          max: 6.2,
-          current: 6.0
-        },
-        targetEc: {
-          min: 1.2,
-          max: 1.5,
-          current: 1.35
-        },
-        dosingLimits: {
-          "pH Up": 50,
-          "pH Down": 50,
-          "Nutrient A": 100,
-          "Nutrient B": 100
-          // Additional pumps can be added dynamically as needed
-        },
-        timestamp: new Date().toISOString()
-      },
-      history: []
+      status: 'success',
+      config,
     });
+  } catch (err) {
+    error(MODULE, 'Error getting dosing config:', err);
+    return NextResponse.json(
+      { 
+        status: 'error', 
+        error: 'Failed to get dosing configuration',
+        message: err instanceof Error ? err.message : String(err)
+      },
+      { status: 500 }
+    );
   }
 }
 
-// Placeholder for future PUT/POST methods that will update specific dosing settings
-// For a complete implementation, add more route handlers here 
+/**
+ * POST handler for unified dosing API
+ * Supports multiple actions: update, enable, disable, reset
+ */
+export async function POST(request: NextRequest) {
+  try {
+    // Ensure migration has run
+    await migrateDosing();
+    
+    const body = await request.json();
+    const { action, config: configUpdates } = body;
+    
+    if (!action) {
+      return NextResponse.json(
+        { status: 'error', error: 'Missing action parameter' },
+        { status: 400 }
+      );
+    }
+    
+    // Get current config
+    const currentConfig = await getUnifiedDosingConfig();
+    if (!currentConfig) {
+      return NextResponse.json(
+        { status: 'error', error: 'Failed to load current configuration' },
+        { status: 500 }
+      );
+    }
+    
+    // Handle different actions
+    switch (action) {
+      case 'update':
+        if (!configUpdates) {
+          return NextResponse.json(
+            { status: 'error', error: 'Missing config parameter for update action' },
+            { status: 400 }
+          );
+        }
+        
+        // Deep merge updates with current config
+        const updatedConfig = {
+          ...currentConfig,
+          ...configUpdates,
+          targets: {
+            ...currentConfig.targets,
+            ...(configUpdates.targets || {})
+          },
+          pumps: {
+            ...currentConfig.pumps,
+            ...(configUpdates.pumps || {})
+          },
+          schedule: {
+            ...currentConfig.schedule,
+            ...(configUpdates.schedule || {})
+          },
+          lastDose: {
+            ...currentConfig.lastDose,
+            ...(configUpdates.lastDose || {})
+          }
+        };
+        
+        // Save updated config
+        const saveResult = await saveUnifiedDosingConfig(updatedConfig);
+        
+        if (!saveResult) {
+          return NextResponse.json(
+            { status: 'error', error: 'Failed to save updated configuration' },
+            { status: 500 }
+          );
+        }
+        
+        return NextResponse.json({
+          status: 'success',
+          config: updatedConfig
+        });
+        
+      case 'enable':
+        currentConfig.enabled = true;
+        await saveUnifiedDosingConfig(currentConfig);
+        
+        return NextResponse.json({
+          status: 'success',
+          config: currentConfig
+        });
+        
+      case 'disable':
+        currentConfig.enabled = false;
+        await saveUnifiedDosingConfig(currentConfig);
+        
+        return NextResponse.json({
+          status: 'success',
+          config: currentConfig
+        });
+        
+      case 'reset':
+        // Create a basic reset config preserving some settings
+        const resetConfig = {
+          ...currentConfig,
+          version: currentConfig.version,
+          migratedAt: currentConfig.migratedAt,
+          enabled: false,
+          targets: {
+            ph: {
+              min: 5.8,
+              max: 6.2,
+              target: 6.0,
+              tolerance: 0.2
+            },
+            ec: {
+              min: 1.2,
+              max: 1.6,
+              target: 1.4,
+              tolerance: 0.1
+            }
+          },
+          // Preserve pump configurations but reset timestamps
+          lastDose: {
+            phUp: null,
+            phDown: null,
+            nutrientPumps: {}
+          }
+        };
+        
+        await saveUnifiedDosingConfig(resetConfig);
+        
+        return NextResponse.json({
+          status: 'success',
+          config: resetConfig
+        });
+        
+      default:
+        return NextResponse.json(
+          { status: 'error', error: `Unknown action: ${action}` },
+          { status: 400 }
+        );
+    }
+  } catch (err) {
+    error(MODULE, 'Error in dosing API:', err);
+    return NextResponse.json(
+      { 
+        status: 'error', 
+        error: 'Failed to process dosing request',
+        message: err instanceof Error ? err.message : String(err)
+      },
+      { status: 500 }
+    );
+  }
+}

@@ -1,34 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getDosingConfig, 
-  updateDosingConfig, 
-  resetDosingConfig, 
-  performAutoDosing, 
-  isLocked,
-  forceNextDosing 
-} from '@/app/lib/autoDosing';
+import { info, warn } from '@/app/lib/logger';
+
+const MODULE = 'api:autodosing-deprecated';
 
 /**
  * GET handler for auto-dosing API
- * Returns the current auto-dosing configuration
+ * DEPRECATED: Redirects to the new unified dosing API
  */
 export async function GET() {
   try {
-    const config = getDosingConfig();
-    const isDosingInProgress = isLocked();
+    warn(MODULE, 'Deprecated API endpoint called - redirecting to unified API');
     
+    // Get data from the new API
+    const response = await fetch(`${process.env.HOST_URL || 'http://localhost:3000'}/api/dosing/auto`, {
+      method: 'GET',
+      headers: {
+        'Cache-Control': 'no-cache'
+      }
+    });
+    
+    const data = await response.json();
+    
+    // Transform response to match old format
     return NextResponse.json({
       status: 'success',
-      config,
-      isDosingInProgress
+      config: data.config,
+      isDosingInProgress: data.autodosing?.inProgress || false,
+      _deprecated: true
     });
   } catch (error) {
-    console.error('Error getting auto-dosing config:', error);
     return NextResponse.json(
       { 
         status: 'error', 
         error: 'Failed to get auto-dosing configuration',
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
+        _deprecated: true
       },
       { status: 500 }
     );
@@ -37,97 +43,69 @@ export async function GET() {
 
 /**
  * POST handler for auto-dosing API
- * Supports multiple actions: update, enable, disable, reset, dose, forceNext
+ * DEPRECATED: Redirects to the new unified dosing API
  */
 export async function POST(request: NextRequest) {
   try {
+    warn(MODULE, 'Deprecated API endpoint called - redirecting to unified API');
+    
     const body = await request.json();
     const { action, config } = body;
     
-    if (!action) {
-      return NextResponse.json(
-        { status: 'error', error: 'Missing action parameter' },
-        { status: 400 }
-      );
-    }
+    let url;
+    let transformedBody;
     
-    // Handle different actions
+    // Map old actions to new API endpoints
     switch (action) {
       case 'update':
-        if (!config) {
-          return NextResponse.json(
-            { status: 'error', error: 'Missing config parameter for update action' },
-            { status: 400 }
-          );
-        }
-        const updatedConfig = updateDosingConfig(config);
-        return NextResponse.json({
-          status: 'success',
-          config: updatedConfig
-        });
-        
       case 'enable':
-        const enabledConfig = updateDosingConfig({ enabled: true });
-        return NextResponse.json({
-          status: 'success',
-          config: enabledConfig
-        });
-        
       case 'disable':
-        const disabledConfig = updateDosingConfig({ enabled: false });
-        return NextResponse.json({
-          status: 'success',
-          config: disabledConfig
-        });
-        
       case 'reset':
-        const resetedConfig = resetDosingConfig();
-        return NextResponse.json({
-          status: 'success',
-          config: resetedConfig
-        });
+        url = '/api/dosing';
+        transformedBody = body;
+        break;
         
       case 'dose':
-        // Check if dosing is already in progress
-        if (isLocked()) {
-          return NextResponse.json({
-            status: 'success',
-            result: {
-              action: 'waiting',
-              details: { reason: 'A dosing operation is already in progress' }
-            }
-          });
-        }
-        
-        // Perform auto-dosing
-        const result = await performAutoDosing();
-        return NextResponse.json({
-          status: 'success',
-          result
-        });
-        
       case 'forceNext':
-        forceNextDosing();
-        return NextResponse.json({
-          status: 'success',
-          message: 'Force next dosing triggered successfully'
-        });
+        url = '/api/dosing/auto';
+        transformedBody = body;
+        break;
         
       default:
         return NextResponse.json(
-          { status: 'error', error: `Unknown action: ${action}` },
+          { 
+            status: 'error', 
+            error: `Unknown action: ${action}`,
+            _deprecated: true
+          },
           { status: 400 }
         );
     }
+    
+    // Forward the request to the new API
+    const response = await fetch(`${process.env.HOST_URL || 'http://localhost:3000'}${url}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(transformedBody),
+    });
+    
+    const data = await response.json();
+    
+    // Add deprecated flag
+    data._deprecated = true;
+    
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error in auto-dosing API:', error);
     return NextResponse.json(
       { 
         status: 'error', 
         error: 'Failed to process auto-dosing request',
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
+        _deprecated: true
       },
       { status: 500 }
     );
   }
-} 
+}
