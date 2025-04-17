@@ -127,10 +127,23 @@ export function useDosingData({ refreshInterval = 30000 }: UseDosingDataProps = 
 
         // If we have an active profile, update the pH and EC target ranges from it
         if (profile) {
-          responseData.settings.targetPh.min = profile.targetPh.min;
-          responseData.settings.targetPh.max = profile.targetPh.max;
-          responseData.settings.targetEc.min = profile.targetEc.min;
-          responseData.settings.targetEc.max = profile.targetEc.max;
+          // Check if data is in legacy format or unified format
+          if (responseData.settings && responseData.settings.targetPh && responseData.settings.targetEc) {
+            // Legacy format
+            responseData.settings.targetPh.min = profile.targetPh.min;
+            responseData.settings.targetPh.max = profile.targetPh.max;
+            responseData.settings.targetEc.min = profile.targetEc.min;
+            responseData.settings.targetEc.max = profile.targetEc.max;
+          } else if (responseData.config && responseData.config.targets) {
+            // Unified format
+            if (!responseData.config.targets.ph) responseData.config.targets.ph = {};
+            if (!responseData.config.targets.ec) responseData.config.targets.ec = {};
+            
+            responseData.config.targets.ph.min = profile.targetPh.min;
+            responseData.config.targets.ph.max = profile.targetPh.max;
+            responseData.config.targets.ec.min = profile.targetEc.min;
+            responseData.config.targets.ec.max = profile.targetEc.max;
+          }
         }
         
         setData(responseData);
