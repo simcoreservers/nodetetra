@@ -14,6 +14,7 @@ import SensorCard from "./components/SensorCard";
 import PumpStatusCard from "./components/PumpStatusCard";
 import RecentActivityCard from "./components/RecentActivityCard";
 import ActiveProfileCard from "./components/ActiveProfileCard";
+import SystemMonitorCard from "./components/SystemMonitorCard";
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -229,71 +230,63 @@ export default function Home() {
           </div>
         )}
 
-        {/* Sensor Readings */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* pH Sensor Card */}
           <SensorCard
             title="pH Level"
             value={phValue}
-            target={activeProfile ? 
-              `${activeProfile.targetPh.min?.toFixed(1) || (activeProfile.targetPh.target - activeProfile.targetPh.buffer).toFixed(1)} - ${activeProfile.targetPh.max?.toFixed(1) || (activeProfile.targetPh.target + activeProfile.targetPh.buffer).toFixed(1)}` 
-              : "5.8 - 6.2"}
+            target={activeProfile ? `${activeProfile.targetPh.target} (±${activeProfile.targetPh.buffer})` : "6.0 (±0.2)"}
             status={phStatus}
             isLoading={showLoadingState}
-            hasError={!!sensorError && !simulationEnabled}
+            hasError={shouldShowSensorError}
             calibrationPath="/calibration/ph"
           />
-
+          
+          {/* EC Sensor Card */}
           <SensorCard
-            title="EC Level"
+            title="EC / PPM"
             value={ecValue}
-            target={activeProfile ? 
-              `${activeProfile.targetEc.min?.toFixed(1) || (activeProfile.targetEc.target - activeProfile.targetEc.buffer).toFixed(1)} - ${activeProfile.targetEc.max?.toFixed(1) || (activeProfile.targetEc.target + activeProfile.targetEc.buffer).toFixed(1)} mS/cm` 
-              : "1.2 - 1.5 mS/cm"}
+            target={activeProfile ? `${activeProfile.targetEc.target} mS/cm (±${activeProfile.targetEc.buffer})` : "1.4 mS/cm (±0.2)"}
             status={ecStatus}
             isLoading={showLoadingState}
-            hasError={!!sensorError && !simulationEnabled}
+            hasError={shouldShowSensorError}
             calibrationPath="/calibration/ec"
           />
-
+          
+          {/* Temperature Sensor Card */}
           <SensorCard
             title="Water Temperature"
             value={tempValue}
-            target="20 - 24°C"
+            target="22°C (±2°C)"
             status={tempStatus}
             isLoading={showLoadingState}
-            hasError={!!sensorError && !simulationEnabled}
-            calibrationPath="/calibration/temp"
+            hasError={shouldShowSensorError}
+            calibrationPath="/calibration/temperature"
           />
         </div>
 
-        {/* Pump Status, Auto-Dosing and Recent Activity */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Pump Status Card */}
           <PumpStatusCard
             pumpStatus={Array.isArray(effectivePumpData) ? effectivePumpData : effectivePumpData?.pumpStatus || null}
-            isLoading={!initialLoaded && pumpsLoading}
+            isLoading={showLoadingState}
             hasError={!!pumpError}
+            errorMessage={pumpError?.message}
           />
+          
+          {/* System Monitor Card */}
+          <SystemMonitorCard refreshInterval={5000} />
+        </div>
 
-          <RecentActivityCard
+        {/* Recent Activity Log */}
+        <div className="mb-8">
+          <RecentActivityCard 
             events={Array.isArray(effectivePumpData) ? [] : effectivePumpData?.recentEvents || null}
-            isLoading={!initialLoaded && pumpsLoading}
+            isLoading={showLoadingState}
             hasError={!!pumpError}
             hasSensorError={shouldShowSensorError}
             errorMessage={pumpError?.message}
           />
-        </div>
-
-        {/* Quick Actions */}
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title">Quick Actions</h2>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Link href="/profiles" className="btn">Plant Profiles</Link>
-            <Link href="/dosing" className="btn">Adjust pH</Link>
-            <Link href="/dosing?tab=autodosing" className="btn">Auto-Dosing</Link>
-            <Link href="/pumps" className="btn">Calibrate Sensors</Link>
-          </div>
         </div>
       </div>
     </div>

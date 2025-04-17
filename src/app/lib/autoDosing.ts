@@ -118,13 +118,19 @@ let dosingConfig: DosingConfig = { ...DEFAULT_DOSING_CONFIG };
 // Add at the top of the file, near the other variable declarations
 let isInitialized = false;
 
-// Dosing lock to prevent concurrent dosing operations
-let dosingInProgress = false;
-let dosingLockTimeout: NodeJS.Timeout | null = null;
-const MAX_DOSING_LOCK_TIME = 60000; // 60 seconds max lock time as safety measure
+// Unified dosing lock to prevent concurrent operations and rate limit calls
+const dosingLock = {
+  inProgress: false,
+  lastAttempt: 0,
+  timeout: null as NodeJS.Timeout | null
+};
+const MAX_DOSING_LOCK_TIME = 30000; // 30 seconds max lock time as safety measure
+const MIN_DOSING_ATTEMPT_INTERVAL = 2000; // 2s minimum between attempts
 
-// Export the dosing status for API and UI
-export { dosingInProgress };
+// Export lock status check for external components
+export function isLocked(): boolean {
+  return dosingLock.inProgress;
+}
 
 // Try to load the saved configuration from disk
 try {
@@ -556,10 +562,22 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
     
     // Dynamically import server-init to avoid circular dependencies
     if (typeof window === 'undefined') {
-      import('./server-init').then(({ initializeServer }) => {
+      import('./server-init').then(({ initializeServer, startContinuousMonitoring }) => {
         initializeServer().catch(err => {
           console.error('Failed to initialize server after enabling auto-dosing:', err);
         });
+        
+        // Start continuous monitoring when auto-dosing is enabled
+        startContinuousMonitoring();
+      }).catch(err => {
+        console.error('Failed to import server-init module:', err);
+      });
+    }
+  } else if (oldEnabled && !newEnabled) {
+    // Stop continuous monitoring when auto-dosing is disabled
+    if (typeof window === 'undefined') {
+      import('./server-init').then(({ stopContinuousMonitoring }) => {
+        stopContinuousMonitoring();
       }).catch(err => {
         console.error('Failed to import server-init module:', err);
       });
@@ -787,10 +805,26 @@ function saveDosingConfig(): void {
         fs.mkdirSync(dataPath, { recursive: true });
       }
       
-      // Save dosing config
+      // Main config path and temp file path for atomic write
       const configPath = path.join(dataPath, 'autodosing.json');
-      fs.writeFileSync(configPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
-      trace(MODULE, 'Auto-dosing config saved with updated dose timestamps');
+      const tempPath = `${configPath}.tmp`;
+      
+      // Write to temp file first
+      fs.writeFileSync(tempPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
+      
+      // Atomic rename operation
+      fs.renameSync(tempPath, configPath);
+      
+      // Force sync the directory for extra safety
+      try {
+        const dirFd = fs.openSync(dataPath, 'r');
+        fs.fsyncSync(dirFd);
+        fs.closeSync(dirFd);
+      } catch (syncError) {
+        console.warn('Could not fsync directory:', syncError);
+      }
+      
+      trace(MODULE, 'Auto-dosing config saved with atomic file operations');
     }
   } catch (err) {
     error(MODULE, 'Failed to save auto-dosing config', err);
@@ -1015,11 +1049,23 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
 
 /**
  * Perform the dosing based on the current sensor readings
+ * This function can be called both from manual triggers and automatic monitoring
  */
 export async function performAutoDosing(): Promise<{
   action: string;
   details: any;
 }> {
+  // Add rate limiting to prevent rapid successive calls
+  const now = Date.now();
+  if (now - dosingLock.lastAttempt < MIN_DOSING_ATTEMPT_INTERVAL) {
+    warn(MODULE, `Dosing attempted too frequently (${now - dosingLock.lastAttempt}ms since last attempt)`);
+    return {
+      action: 'waiting',
+      details: { reason: 'Dosing attempted too frequently, please wait' }
+    };
+  }
+  dosingLock.lastAttempt = now;
+  
   // Check if auto-dosing is enabled
   if (!dosingConfig.enabled) {
     debug(MODULE, 'Auto-dosing is disabled, skipping cycle');
@@ -1029,8 +1075,8 @@ export async function performAutoDosing(): Promise<{
     };
   }
   
-  // Check if a dosing operation is already in progress
-  if (dosingInProgress) {
+  // Synchronous check to prevent concurrent operations
+  if (dosingLock.inProgress) {
     warn(MODULE, 'Dosing already in progress, cannot start another operation');
     return {
       action: 'waiting',
@@ -1040,16 +1086,16 @@ export async function performAutoDosing(): Promise<{
   
   try {
     // Acquire dosing lock
-    dosingInProgress = true;
+    dosingLock.inProgress = true;
     
     // Set safety timeout to release lock in case of unhandled errors
-    if (dosingLockTimeout) {
-      clearTimeout(dosingLockTimeout);
+    if (dosingLock.timeout) {
+      clearTimeout(dosingLock.timeout);
     }
-    dosingLockTimeout = setTimeout(() => {
+    dosingLock.timeout = setTimeout(() => {
       warn(MODULE, 'Safety timeout reached, releasing dosing lock');
-      dosingInProgress = false;
-      dosingLockTimeout = null;
+      dosingLock.inProgress = false;
+      dosingLock.timeout = null;
     }, MAX_DOSING_LOCK_TIME);
     
     info(MODULE, 'Starting auto-dosing cycle (LOCK ACQUIRED)');
@@ -1076,6 +1122,12 @@ export async function performAutoDosing(): Promise<{
       }
     } catch (err) {
       error(MODULE, 'Error getting sensor readings', err);
+      // Always release lock on error
+      dosingInProgress = false;
+      if (dosingLockTimeout) {
+        clearTimeout(dosingLockTimeout);
+        dosingLockTimeout = null;
+      }
     return { 
       action: 'error', 
         details: { error: `Failed to get sensor readings: ${err}` } 
@@ -1268,11 +1320,11 @@ export async function performAutoDosing(): Promise<{
     };
   } finally {
     // Always release the lock when we're done, regardless of outcome
-    if (dosingLockTimeout) {
-      clearTimeout(dosingLockTimeout);
-      dosingLockTimeout = null;
+    if (dosingLock.timeout) {
+      clearTimeout(dosingLock.timeout);
+      dosingLock.timeout = null;
     }
-    dosingInProgress = false;
+    dosingLock.inProgress = false;
     debug(MODULE, 'Dosing cycle completed, lock released');
   }
 }
