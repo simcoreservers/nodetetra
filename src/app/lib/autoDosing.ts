@@ -19,6 +19,22 @@ const DATA_PATH = path.join(process.cwd(), 'data');
 const ACTIVE_PROFILE_FILE = path.join(DATA_PATH, 'active_profile.json');
 const PROFILES_FILE = path.join(DATA_PATH, 'profiles.json');
 
+// PID Controller interface for improved dosing accuracy
+interface PIDController {
+  kp: number;  // Proportional gain
+  ki: number;  // Integral gain
+  kd: number;  // Derivative gain
+  integral: number;
+  lastError: number;
+  lastTime: number;
+}
+
+// Default PID controller settings
+const PID_DEFAULTS = {
+  ph: { kp: 0.5, ki: 0.1, kd: 0.2, integral: 0, lastError: 0, lastTime: 0 },
+  ec: { kp: 0.3, ki: 0.05, kd: 0.1, integral: 0, lastError: 0, lastTime: 0 }
+};
+
 // Interface for profile pump assignments
 interface PumpAssignment {
   pumpName: string;
@@ -75,6 +91,38 @@ export interface DosingConfig {
       [pumpName: string]: Date | null;
     };
   };
+  // PID controllers for adaptive dosing
+  pidControllers?: {
+    ph: PIDController;
+    ec: PIDController;
+  };
+  // Error handling settings for improved resilience
+  errorHandling?: {
+    maxRetries: number;
+    backoffFactor: number;
+    baseBackoffMs: number;
+    currentFailCount: number;
+    lastFailure: number | null;
+    circuitBreakerThreshold: number;
+    circuitBreakerResetTime: number;
+    circuitOpen: boolean;
+  };
+  // Telemetry for dose effectiveness
+  telemetry?: {
+    doseHistory: DoseEffectiveness[];
+    maxHistoryLength: number;
+  };
+}
+
+// Track dose effectiveness for ML-based improvements
+interface DoseEffectiveness {
+  timestamp: string;
+  pumpName: string;
+  doseAmount: number;
+  beforeValue: number; // pH or EC
+  afterValue: number;  // pH or EC after stabilization
+  effectivenessRatio: number; // Change per ml
+  targetType: 'ph' | 'ec';
 }
 
 // Default dosing configuration
@@ -109,6 +157,27 @@ const DEFAULT_DOSING_CONFIG: DosingConfig = {
     phUp: null,
     phDown: null,
     nutrientPumps: {}
+  },
+  // Add PID controllers for adaptive dosing
+  pidControllers: {
+    ph: { ...PID_DEFAULTS.ph },
+    ec: { ...PID_DEFAULTS.ec }
+  },
+  // Error handling settings
+  errorHandling: {
+    maxRetries: 5,
+    backoffFactor: 1.5,
+    baseBackoffMs: 1000,
+    currentFailCount: 0,
+    lastFailure: null,
+    circuitBreakerThreshold: 10,
+    circuitBreakerResetTime: 300000, // 5 minutes
+    circuitOpen: false
+  },
+  // Telemetry data storage
+  telemetry: {
+    doseHistory: [],
+    maxHistoryLength: 100 // Store last 100 dose events
   }
 };
 
@@ -126,6 +195,11 @@ const dosingLock = {
 };
 const MAX_DOSING_LOCK_TIME = 30000; // 30 seconds max lock time as safety measure
 const MIN_DOSING_ATTEMPT_INTERVAL = 2000; // 2s minimum between attempts
+
+// Cache for active profile to reduce disk I/O
+let activeProfileCache: any = null;
+let profileCacheTime: number = 0;
+const PROFILE_CACHE_TTL = 60000; // 1 minute cache TTL
 
 // Export lock status check for external components
 export function isLocked(): boolean {
@@ -183,6 +257,198 @@ try {
 
 // Store the last reading to avoid duplicate dosing
 let lastReading: SensorData | null = null;
+
+/**
+ * Calculate dose amount using PID controller for better accuracy
+ * @param current Current value (pH or EC)
+ * @param target Target value
+ * @param controller PID controller to use
+ * @param baseDoseAmount Base dose amount to scale
+ * @returns Calculated dose amount in mL
+ */
+function calculatePIDDose(
+  current: number, 
+  target: number, 
+  controller: PIDController,
+  baseDoseAmount: number
+): number {
+  const now = Date.now();
+  const dt = controller.lastTime === 0 ? 1 : Math.min((now - controller.lastTime) / 1000, 10);
+  
+  // Skip integral if first run
+  if (controller.lastTime === 0) {
+    controller.lastTime = now;
+    controller.lastError = target - current;
+    return baseDoseAmount; // Default dose on first run
+  }
+  
+  const error = target - current;
+  
+  // Anti-windup: Limit integral term
+  const maxIntegral = 5.0;
+  controller.integral = Math.max(
+    Math.min(controller.integral + error * dt, maxIntegral), 
+    -maxIntegral
+  );
+  
+  const derivative = dt > 0 ? (error - controller.lastError) / dt : 0;
+  
+  // Calculate PID output
+  const output = (
+    controller.kp * error + 
+    controller.ki * controller.integral + 
+    controller.kd * derivative
+  );
+  
+  // Update controller state
+  controller.lastError = error;
+  controller.lastTime = now;
+  
+  // Scale base dose by PID output (minimum 0.1mL, maximum 3x base)
+  const scaledDose = baseDoseAmount * Math.min(Math.max(Math.abs(output), 0.2), 3.0);
+  
+  // Round to one decimal place
+  return Math.round(scaledDose * 10) / 10;
+}
+
+/**
+ * Reset a PID controller to initial state
+ */
+function resetPIDController(controller: PIDController): void {
+  controller.integral = 0;
+  controller.lastError = 0;
+  controller.lastTime = 0;
+}
+
+/**
+ * Record dose effectiveness for analysis and adaptive dosing
+ */
+function recordDoseEffectiveness(data: DoseEffectiveness): void {
+  if (!dosingConfig.telemetry) {
+    dosingConfig.telemetry = {
+      doseHistory: [],
+      maxHistoryLength: 100
+    };
+  }
+  
+  // Calculate effectiveness ratio if afterValue exists
+  if (data.afterValue !== undefined && data.doseAmount > 0) {
+    const change = Math.abs(data.afterValue - data.beforeValue);
+    data.effectivenessRatio = change / data.doseAmount;
+  }
+  
+  // Add to history
+  dosingConfig.telemetry.doseHistory.unshift(data);
+  
+  // Trim history if needed
+  if (dosingConfig.telemetry.doseHistory.length > dosingConfig.telemetry.maxHistoryLength) {
+    dosingConfig.telemetry.doseHistory = dosingConfig.telemetry.doseHistory.slice(
+      0, dosingConfig.telemetry.maxHistoryLength
+    );
+  }
+  
+  // Save to disk
+  saveDosingConfig();
+  
+  debug(MODULE, `Recorded dose effectiveness for ${data.pumpName}: ${data.effectivenessRatio.toFixed(4)} units/mL`);
+}
+
+/**
+ * Check if we're in circuit breaker open state
+ */
+function isCircuitOpen(): boolean {
+  if (!dosingConfig.errorHandling) return false;
+  
+  // If circuit is open, check if reset time has passed
+  if (dosingConfig.errorHandling.circuitOpen && dosingConfig.errorHandling.lastFailure) {
+    const now = Date.now();
+    const resetTime = dosingConfig.errorHandling.lastFailure + 
+                     dosingConfig.errorHandling.circuitBreakerResetTime;
+    
+    // Reset circuit if time has elapsed
+    if (now > resetTime) {
+      dosingConfig.errorHandling.circuitOpen = false;
+      dosingConfig.errorHandling.currentFailCount = 0;
+      info(MODULE, 'Circuit breaker reset after timeout period');
+      return false;
+    }
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Record a failure and potentially open the circuit breaker
+ */
+function recordFailure(): void {
+  if (!dosingConfig.errorHandling) return;
+  
+  dosingConfig.errorHandling.currentFailCount++;
+  dosingConfig.errorHandling.lastFailure = Date.now();
+  
+  // Open circuit if threshold reached
+  if (dosingConfig.errorHandling.currentFailCount >= dosingConfig.errorHandling.circuitBreakerThreshold) {
+    dosingConfig.errorHandling.circuitOpen = true;
+    warn(MODULE, `Circuit breaker opened after ${dosingConfig.errorHandling.currentFailCount} failures`);
+  }
+}
+
+/**
+ * Record a success and reset failure count
+ */
+function recordSuccess(): void {
+  if (!dosingConfig.errorHandling) return;
+  
+  // Only reset if we had failures
+  if (dosingConfig.errorHandling.currentFailCount > 0) {
+    dosingConfig.errorHandling.currentFailCount = 0;
+    debug(MODULE, 'Reset failure count after successful operation');
+  }
+}
+
+/**
+ * Calculate backoff time based on current failure count
+ */
+function calculateBackoffTime(): number {
+  if (!dosingConfig.errorHandling) return 0;
+  
+  return Math.min(
+    dosingConfig.errorHandling.baseBackoffMs * 
+    Math.pow(dosingConfig.errorHandling.backoffFactor, dosingConfig.errorHandling.currentFailCount),
+    60000 // Maximum backoff of 1 minute
+  );
+}
+
+/**
+ * Helper function to get the active profile with caching
+ */
+async function getActiveProfileOptimized() {
+  try {
+    const now = Date.now();
+    
+    // Return cached profile if still valid
+    if (activeProfileCache && (now - profileCacheTime) < PROFILE_CACHE_TTL) {
+      trace(MODULE, 'Using cached active profile');
+      return activeProfileCache;
+    }
+    
+    // Get fresh profile using existing function
+    const profile = await getActiveProfile();
+    
+    // Cache the result if valid
+    if (profile) {
+      activeProfileCache = profile;
+      profileCacheTime = now;
+    }
+    
+    return profile;
+  } catch (error) {
+    console.error("Error in optimized profile getter:", error);
+    // Fall back to original implementation on error
+    return getActiveProfile();
+  }
+}
 
 /**
  * Helper function to get the active profile
@@ -265,8 +531,8 @@ export async function syncProfilePumps(): Promise<boolean> {
     
     console.log("Current interval settings that will be preserved:", JSON.stringify(currentSettings, null, 2));
     
-    // Get active profile
-    const profile = await getActiveProfile();
+    // Get active profile - use optimized version with caching
+    const profile = await getActiveProfileOptimized();
     if (!profile) {
       console.error("Failed to get active profile for auto-dosing sync");
       return false;
@@ -424,12 +690,13 @@ export async function syncProfilePumps(): Promise<boolean> {
     }
     
     // Always save config after syncing
-    saveDosingConfig();
+    await saveDosingConfigAsync();
     
     console.log("=== PROFILE PUMP SYNC COMPLETED SUCCESSFULLY ===");
     return true;
   } catch (error) {
     console.error("Error syncing profile pumps to auto-dosing:", error);
+    recordFailure();
     return false;
   }
 }
@@ -449,142 +716,56 @@ async function loadDosingConfigFromDisk(): Promise<void> {
     }
   } catch (error) {
     console.error('Failed to load auto-dosing configuration from disk:', error);
+    recordFailure();
   }
 }
 
 /**
- * Initialize the auto-dosing system with configuration
+ * Save the dosing configuration to disk asynchronously
+ * This is the preferred method to save configuration
  */
-export async function initializeAutoDosing(): Promise<boolean> {
+async function saveDosingConfigAsync(): Promise<void> {
   try {
-    // If not already initialized, load from disk first
-    if (!isInitialized) {
-      console.log("== AUTO-DOSING: INITIALIZING ==");
-      await loadDosingConfigFromDisk(); // Must happen first to load saved settings
-
-      // Only sync with profile if we have an active profile
-      const profile = await getActiveProfile();
-      if (profile) {
-        // We'll only sync pumps on first initialization, but we won't
-        // change any intervals that were already loaded from disk
-        await syncProfilePumps();
-      } else {
-        console.log("No active profile found, skipping profile pump sync");
+    if (typeof window === 'undefined') {
+      // Only save on the server side
+      const fs = require('fs/promises');
+      const path = require('path');
+      
+      // Create data directory if it doesn't exist
+      const dataPath = path.join(process.cwd(), 'data');
+      try {
+        await fs.mkdir(dataPath, { recursive: true });
+      } catch (err) {
+        // Ignore if directory already exists
       }
       
-      isInitialized = true;
-      console.log("== AUTO-DOSING: INITIALIZATION COMPLETE ==");
+      // Main config path and temp file path for atomic write
+      const configPath = path.join(dataPath, 'autodosing.json');
+      const tempPath = `${configPath}.tmp`;
       
-      // Debug output to verify final initialized config
-      console.log("Final initialized dosing config:", {
-        enabled: dosingConfig.enabled,
-        phTarget: dosingConfig.targets.ph.target,
-        ecTarget: dosingConfig.targets.ec.target,
-        phUp: { 
-          pump: dosingConfig.dosing.phUp.pumpName, 
-          interval: dosingConfig.dosing.phUp.minInterval 
-        },
-        phDown: { 
-          pump: dosingConfig.dosing.phDown.pumpName, 
-          interval: dosingConfig.dosing.phDown.minInterval 
-        },
-        nutrientPumps: Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
-          name,
-          interval: dosingConfig.dosing.nutrientPumps[name].minInterval
-        }))
-      });
+      // Write to temp file first
+      await fs.writeFile(tempPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
       
-      return true;
+      // Atomic rename operation
+      await fs.rename(tempPath, configPath);
+      
+      trace(MODULE, 'Auto-dosing config saved with atomic file operations (async)');
+      recordSuccess(); // Record success for circuit breaker
     }
-    return true;
-  } catch (error) {
-    console.error("Failed to initialize auto-dosing:", error);
-    return false;
+  } catch (err) {
+    error(MODULE, 'Failed to save auto-dosing config asynchronously', err);
+    recordFailure(); // Record failure for circuit breaker
+    
+    // Fall back to sync method as a backup
+    saveDosingConfig();
   }
 }
 
 /**
- * Update the auto-dosing configuration
+ * Save the current dosing configuration to disk
+ * This is a utility function to ensure config is saved after recording doses
  */
-export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig {
-  const oldEnabled = dosingConfig.enabled;
-  const newEnabled = updates.enabled !== undefined ? updates.enabled : oldEnabled;
-  
-  console.log('Received updates:', JSON.stringify(updates, null, 2));
-  
-  // Check if any minInterval values have changed
-  const hasIntervalChanges = checkForIntervalChanges(updates);
-  
-  // Log the before state of dosing config
-  console.log('Updating dosing config, before:', JSON.stringify({
-    'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
-    'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
-    'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
-      name,
-      minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval,
-      doseAmount: dosingConfig.dosing.nutrientPumps[name].doseAmount,
-      flowRate: dosingConfig.dosing.nutrientPumps[name].flowRate
-    }))
-  }, null, 2));
-  
-  // Deep merge changes
-  dosingConfig = deepMerge(dosingConfig, updates);
-  
-  // If intervals changed, reset lastDose timestamps to allow immediate dosing
-  if (hasIntervalChanges) {
-    console.log('Interval settings changed, resetting lastDose timestamps');
-    resetDoseTimestamps();
-  }
-  
-  // Log the after state of dosing config
-  console.log('Updated dosing config, after:', JSON.stringify({
-    'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
-    'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
-    'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
-      name,
-      minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval,
-      doseAmount: dosingConfig.dosing.nutrientPumps[name].doseAmount,
-      flowRate: dosingConfig.dosing.nutrientPumps[name].flowRate
-    }))
-  }, null, 2));
-  
-  // If auto-dosing was just enabled, log this important event
-  if (!oldEnabled && newEnabled) {
-    console.log('Auto-dosing has been enabled with configuration:', dosingConfig);
-    
-    // Reset lastDose timestamps when enabling to allow immediate dosing
-    resetDoseTimestamps();
-    
-    // Sync with pump assignments from active profile
-    syncProfilePumps().catch(err => {
-      console.error("Failed to sync profile pumps when enabling auto-dosing:", err);
-    });
-    
-    // Dynamically import server-init to avoid circular dependencies
-    if (typeof window === 'undefined') {
-      import('./server-init').then(({ initializeServer, startContinuousMonitoring }) => {
-        initializeServer().catch(err => {
-          console.error('Failed to initialize server after enabling auto-dosing:', err);
-        });
-        
-        // Start continuous monitoring when auto-dosing is enabled
-        startContinuousMonitoring();
-      }).catch(err => {
-        console.error('Failed to import server-init module:', err);
-      });
-    }
-  } else if (oldEnabled && !newEnabled) {
-    // Stop continuous monitoring when auto-dosing is disabled
-    if (typeof window === 'undefined') {
-      import('./server-init').then(({ stopContinuousMonitoring }) => {
-        stopContinuousMonitoring();
-      }).catch(err => {
-        console.error('Failed to import server-init module:', err);
-      });
-    }
-  }
-  
-  // Save the config to disk
+function saveDosingConfig(): void {
   try {
     if (typeof window === 'undefined') {
       // Only save on the server side
@@ -597,16 +778,32 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
         fs.mkdirSync(dataPath, { recursive: true });
       }
       
-      // Save dosing config
+      // Main config path and temp file path for atomic write
       const configPath = path.join(dataPath, 'autodosing.json');
-      fs.writeFileSync(configPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
-      trace(MODULE, 'Auto-dosing config saved with updated dose timestamps');
+      const tempPath = `${configPath}.tmp`;
+      
+      // Write to temp file first
+      fs.writeFileSync(tempPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
+      
+      // Atomic rename operation
+      fs.renameSync(tempPath, configPath);
+      
+      // Force sync the directory for extra safety
+      try {
+        const dirFd = fs.openSync(dataPath, 'r');
+        fs.fsyncSync(dirFd);
+        fs.closeSync(dirFd);
+      } catch (syncError) {
+        console.warn('Could not fsync directory:', syncError);
+      }
+      
+      trace(MODULE, 'Auto-dosing config saved with atomic file operations');
+      recordSuccess(); // Record success for circuit breaker
     }
-  } catch (error) {
-    console.error('Failed to save auto-dosing config:', error);
+  } catch (err) {
+    error(MODULE, 'Failed to save auto-dosing config', err);
+    recordFailure(); // Record failure for circuit breaker
   }
-  
-  return dosingConfig;
 }
 
 /**
@@ -651,20 +848,24 @@ async function getServerJSON<T>(filePath: string): Promise<T | null> {
       throw new Error('This function can only be called from server-side code');
     }
     
-    const fs = require('fs');
+    const fs = require('fs/promises');
     const path = require('path');
     
     const fullPath = path.join(process.cwd(), filePath);
     
-    if (!fs.existsSync(fullPath)) {
-      console.log(`File not found: ${fullPath}`);
-      return null;
+    try {
+      const rawData = await fs.readFile(fullPath, 'utf8');
+      return JSON.parse(rawData) as T;
+    } catch (err: any) {
+      if (err.code === 'ENOENT') {
+        console.log(`File not found: ${fullPath}`);
+        return null;
+      }
+      throw err;
     }
-    
-    const rawData = fs.readFileSync(fullPath, 'utf8');
-    return JSON.parse(rawData) as T;
   } catch (error) {
     console.error(`Error reading JSON from ${filePath}:`, error);
+    recordFailure(); // Record failure for circuit breaker
     throw error; // Re-throw to let the caller handle it
   }
 }
@@ -786,49 +987,6 @@ function recordNutrientDose(pumpName: string): void {
   
   // Immediately save to disk to ensure timestamps are preserved across restarts
   saveDosingConfig();
-}
-
-/**
- * Save the current dosing configuration to disk
- * This is a utility function to ensure config is saved after recording doses
- */
-function saveDosingConfig(): void {
-  try {
-    if (typeof window === 'undefined') {
-      // Only save on the server side
-      const fs = require('fs');
-      const path = require('path');
-      
-      // Create data directory if it doesn't exist
-      const dataPath = path.join(process.cwd(), 'data');
-      if (!fs.existsSync(dataPath)) {
-        fs.mkdirSync(dataPath, { recursive: true });
-      }
-      
-      // Main config path and temp file path for atomic write
-      const configPath = path.join(dataPath, 'autodosing.json');
-      const tempPath = `${configPath}.tmp`;
-      
-      // Write to temp file first
-      fs.writeFileSync(tempPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
-      
-      // Atomic rename operation
-      fs.renameSync(tempPath, configPath);
-      
-      // Force sync the directory for extra safety
-      try {
-        const dirFd = fs.openSync(dataPath, 'r');
-        fs.fsyncSync(dirFd);
-        fs.closeSync(dirFd);
-      } catch (syncError) {
-        console.warn('Could not fsync directory:', syncError);
-      }
-      
-      trace(MODULE, 'Auto-dosing config saved with atomic file operations');
-    }
-  } catch (err) {
-    error(MODULE, 'Failed to save auto-dosing config', err);
-  }
 }
 
 /**
@@ -1075,6 +1233,21 @@ export async function performAutoDosing(): Promise<{
     };
   }
   
+  // Check if circuit breaker is open
+  if (isCircuitOpen()) {
+    warn(MODULE, 'Circuit breaker is open, skipping dosing cycle');
+    return {
+      action: 'circuitOpen',
+      details: { 
+        reason: 'Too many failures detected, system paused for safety', 
+        resetTime: dosingConfig.errorHandling?.lastFailure ? 
+          new Date(dosingConfig.errorHandling.lastFailure + 
+                  (dosingConfig.errorHandling.circuitBreakerResetTime || 300000)).toISOString() : 
+          'unknown'
+      }
+    };
+  }
+  
   // Synchronous check to prevent concurrent operations
   if (dosingLock.inProgress) {
     warn(MODULE, 'Dosing already in progress, cannot start another operation');
@@ -1122,14 +1295,16 @@ export async function performAutoDosing(): Promise<{
       }
     } catch (err) {
       error(MODULE, 'Error getting sensor readings', err);
+      recordFailure(); // Record failure for circuit breaker
+      
       // Always release lock on error
       dosingLock.inProgress = false;
       if (dosingLock.timeout) {
         clearTimeout(dosingLock.timeout);
         dosingLock.timeout = null;
       }
-    return { 
-      action: 'error', 
+      return { 
+        action: 'error', 
         details: { error: `Failed to get sensor readings: ${err}` } 
       };
     } finally {
@@ -1138,10 +1313,23 @@ export async function performAutoDosing(): Promise<{
         clearTimeout(dosingLock.timeout);
         dosingLock.timeout = null;
       }
-  }
+    }
   
-  // Store the reading for reference
-  lastReading = sensorData;
+    // Validate sensor readings to improve error resilience
+    if (!validateSensorReadings(sensorData)) {
+      warn(MODULE, `Invalid sensor readings detected: pH=${sensorData.ph}, EC=${sensorData.ec}`);
+      recordFailure(); // Record failure for circuit breaker
+      
+      // Release lock
+      dosingLock.inProgress = false;
+      return {
+        action: 'error',
+        details: { reason: 'Invalid sensor readings detected' }
+      };
+    }
+  
+    // Store the reading for reference
+    lastReading = sensorData;
   
     // Check for already active pumps (don't dose if pumps are already running)
     try {
@@ -1157,163 +1345,212 @@ export async function performAutoDosing(): Promise<{
       }
     } catch (err) {
       error(MODULE, 'Error checking pump status', err);
+      recordFailure(); // Record failure for circuit breaker
     }
     
     // Handle pH adjustment first - pH is always prioritized over EC adjustment
   
-  // Check if pH is too low (need to add pH Up)
-  if (sensorData.ph < (dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance)) {
+    // Check if pH is too low (need to add pH Up)
+    if (sensorData.ph < (dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance)) {
       info(MODULE, `pH too low: ${sensorData.ph.toFixed(2)}, target: ${dosingConfig.targets.ph.target.toFixed(2)}`);
       
       // Check if we can dose pH Up
-    if (canDose('phUp')) {
-      try {
-          // Calculate dose amount based on how far from target
-          const phDelta = dosingConfig.targets.ph.target - sensorData.ph;
+      if (canDose('phUp')) {
+        try {
+          // Use PID controller to calculate optimal dose amount
+          const controller = dosingConfig.pidControllers?.ph || PID_DEFAULTS.ph;
           const baseDoseAmount = dosingConfig.dosing.phUp.doseAmount;
-          // Scale the dose amount based on how far pH is from target (max 2x base dose)
-          const scaleFactor = Math.min(1 + (phDelta / dosingConfig.targets.ph.tolerance), 2);
-          const amount = Math.round((baseDoseAmount * scaleFactor) * 10) / 10; // Round to 1 decimal place
           
-        const pumpName = dosingConfig.dosing.phUp.pumpName;
-        const flowRate = dosingConfig.dosing.phUp.flowRate;
-        
-          info(MODULE, `Dispensing ${amount}ml of pH Up from ${pumpName} at ${flowRate}ml/s`);
+          // Calculate dose amount using PID controller for better accuracy
+          const amount = calculatePIDDose(
+            sensorData.ph,
+            dosingConfig.targets.ph.target,
+            controller,
+            baseDoseAmount
+          );
+          
+          const pumpName = dosingConfig.dosing.phUp.pumpName;
+          const flowRate = dosingConfig.dosing.phUp.flowRate;
+          
+          info(MODULE, `PID controller calculated ${amount}ml dose of pH Up from ${pumpName} at ${flowRate}ml/s`);
           
           // Always dispense regardless of sensor simulation mode
           await dispensePump(pumpName, amount, flowRate);
           info(MODULE, `Successfully dispensed ${amount}ml of pH Up`);
-        
+          
+          // Record success for circuit breaker
+          recordSuccess();
+          
           // Record the dose
-        recordDose('phUp');
-        
-        return {
-          action: 'dosed',
-          details: {
-            type: 'pH Up',
-            amount,
-            pumpName,
+          recordDose('phUp');
+          
+          // Record effectiveness for adaptive learning - create a timeout to check after 5 minutes
+          const beforeValue = sensorData.ph;
+          scheduleEffectivenessCheck(pumpName, amount, beforeValue, 'ph');
+          
+          return {
+            action: 'dosed',
+            details: {
+              type: 'pH Up',
+              amount,
+              pumpName,
               sensorSimulation: isSensorSimulation,
-            reason: `pH ${sensorData.ph} below target range (${dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance})`
-          }
-        };
+              reason: `pH ${sensorData.ph} below target range (${dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance})`
+            }
+          };
         } catch (err) {
           error(MODULE, 'Error dispensing pH Up', err);
+          recordFailure(); // Record failure for circuit breaker
+          
+          return {
+            action: 'error',
+            details: {
+              type: 'pH Up',
+              error: `Failed to dispense pH Up: ${err}`
+            }
+          };
+        }
+      } else {
+        debug(MODULE, 'Cannot dose pH Up yet due to minimum interval');
         return {
-          action: 'error',
+          action: 'waiting',
           details: {
             type: 'pH Up',
-              error: `Failed to dispense pH Up: ${err}`
+            reason: 'Minimum interval between doses not reached'
           }
         };
       }
-    } else {
-        debug(MODULE, 'Cannot dose pH Up yet due to minimum interval');
-      return {
-        action: 'waiting',
-        details: {
-          type: 'pH Up',
-          reason: 'Minimum interval between doses not reached'
-        }
-      };
     }
-  }
   
-  // Check if pH is too high (need to add pH Down)
-  if (sensorData.ph > (dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance)) {
+    // Check if pH is too high (need to add pH Down)
+    if (sensorData.ph > (dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance)) {
       info(MODULE, `pH too high: ${sensorData.ph.toFixed(2)}, target: ${dosingConfig.targets.ph.target.toFixed(2)}`);
       
       // Check if we can dose pH Down
-    if (canDose('phDown')) {
-      try {
-          // Calculate dose amount based on how far from target
-          const phDelta = sensorData.ph - dosingConfig.targets.ph.target;
+      if (canDose('phDown')) {
+        try {
+          // Use PID controller to calculate optimal dose amount
+          const controller = dosingConfig.pidControllers?.ph || PID_DEFAULTS.ph;
           const baseDoseAmount = dosingConfig.dosing.phDown.doseAmount;
-          // Scale the dose amount based on how far pH is from target (max 2x base dose)
-          const scaleFactor = Math.min(1 + (phDelta / dosingConfig.targets.ph.tolerance), 2);
-          const amount = Math.round((baseDoseAmount * scaleFactor) * 10) / 10; // Round to 1 decimal place
           
-        const pumpName = dosingConfig.dosing.phDown.pumpName;
-        const flowRate = dosingConfig.dosing.phDown.flowRate;
-        
-          info(MODULE, `Dispensing ${amount}ml of pH Down from ${pumpName} at ${flowRate}ml/s`);
+          // For pH Down, we need to invert the target/current values since we're trying to decrease
+          const amount = calculatePIDDose(
+            dosingConfig.targets.ph.target, // Invert target and current for pH Down
+            sensorData.ph,
+            controller,
+            baseDoseAmount
+          );
+          
+          const pumpName = dosingConfig.dosing.phDown.pumpName;
+          const flowRate = dosingConfig.dosing.phDown.flowRate;
+          
+          info(MODULE, `PID controller calculated ${amount}ml dose of pH Down from ${pumpName} at ${flowRate}ml/s`);
           
           // Always dispense regardless of sensor simulation mode
           await dispensePump(pumpName, amount, flowRate);
           info(MODULE, `Successfully dispensed ${amount}ml of pH Down`);
-        
+          
+          // Record success for circuit breaker
+          recordSuccess();
+          
           // Record the dose
-        recordDose('phDown');
-        
-        return {
-          action: 'dosed',
-          details: {
-            type: 'pH Down',
-            amount,
-            pumpName,
+          recordDose('phDown');
+          
+          // Record effectiveness for adaptive learning - create a timeout to check after 5 minutes
+          const beforeValue = sensorData.ph;
+          scheduleEffectivenessCheck(pumpName, amount, beforeValue, 'ph');
+          
+          return {
+            action: 'dosed',
+            details: {
+              type: 'pH Down',
+              amount,
+              pumpName,
               sensorSimulation: isSensorSimulation,
-            reason: `pH ${sensorData.ph} above target range (${dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance})`
-          }
-        };
+              reason: `pH ${sensorData.ph} above target range (${dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance})`
+            }
+          };
         } catch (err) {
           error(MODULE, 'Error dispensing pH Down', err);
+          recordFailure(); // Record failure for circuit breaker
+          
+          return {
+            action: 'error',
+            details: {
+              type: 'pH Down',
+              error: `Failed to dispense pH Down: ${err}`
+            }
+          };
+        }
+      } else {
+        debug(MODULE, 'Cannot dose pH Down yet due to minimum interval');
         return {
-          action: 'error',
+          action: 'waiting',
           details: {
             type: 'pH Down',
-              error: `Failed to dispense pH Down: ${err}`
+            reason: 'Minimum interval between doses not reached'
           }
         };
       }
-    } else {
-        debug(MODULE, 'Cannot dose pH Down yet due to minimum interval');
-      return {
-        action: 'waiting',
-        details: {
-          type: 'pH Down',
-          reason: 'Minimum interval between doses not reached'
-        }
-      };
     }
-  }
   
-  // Check if EC is too low (need to add nutrients)
-  if (sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
+    // Check if EC is too low (need to add nutrients)
+    if (sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
       info(MODULE, `EC too low: ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
       
       // Use dedicated function for nutrient dosing to ensure proper async handling
       // Pass sensorSimulation flag but true dispenseMode flag to force actual dispensing
-      return await doNutrientDosing(sensorData, isSensorSimulation, true);
+      const result = await doNutrientDosing(sensorData, isSensorSimulation, true);
+      
+      // If successful, record the effectiveness check
+      if (result.action === 'dosed' && result.details.dispensed) {
+        for (const dispensed of result.details.dispensed) {
+          scheduleEffectivenessCheck(
+            dispensed.pumpName, 
+            dispensed.amount, 
+            sensorData.ec,
+            'ec'
+          );
+        }
+      }
+      
+      return result;
     }
     
     // If EC is too high, we can't automatically reduce it (requires water change)
     if (sensorData.ec > (dosingConfig.targets.ec.target + dosingConfig.targets.ec.tolerance)) {
       info(MODULE, `EC too high: ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
-        return {
+      return {
         action: 'warning',
-          details: {
+        details: {
           type: 'EC High',
           reason: `EC ${sensorData.ec} above target range (${dosingConfig.targets.ec.target + dosingConfig.targets.ec.tolerance}). Consider adding fresh water to dilute solution.`
         }
       };
-  }
-  
-  // If we get here, everything is within target ranges
-    info(MODULE, 'All parameters within target ranges');
-  return {
-    action: 'none',
-    details: {
-      reason: 'All parameters within target ranges',
-      currentValues: {
-        ph: sensorData.ph,
-        ec: sensorData.ec,
-        waterTemp: sensorData.waterTemp
-      },
-      targets: dosingConfig.targets
     }
-  };
+  
+    // If we get here, everything is within target ranges
+    info(MODULE, 'All parameters within target ranges');
+    
+    // Record a success for the circuit breaker
+    recordSuccess();
+    
+    return {
+      action: 'none',
+      details: {
+        reason: 'All parameters within target ranges',
+        currentValues: {
+          ph: sensorData.ph,
+          ec: sensorData.ec,
+          waterTemp: sensorData.waterTemp
+        },
+        targets: dosingConfig.targets
+      }
+    };
   } catch (err) {
     error(MODULE, 'Unexpected error in auto-dosing', err);
+    recordFailure(); // Record failure for circuit breaker
+    
     return {
       action: 'error',
       details: { error: `Unexpected error in auto-dosing: ${err}` }
@@ -1327,6 +1564,70 @@ export async function performAutoDosing(): Promise<{
     dosingLock.inProgress = false;
     debug(MODULE, 'Dosing cycle completed, lock released');
   }
+}
+
+/**
+ * Schedule a check to measure the effectiveness of a dose after stabilization
+ */
+function scheduleEffectivenessCheck(
+  pumpName: string,
+  doseAmount: number,
+  beforeValue: number,
+  targetType: 'ph' | 'ec'
+): void {
+  setTimeout(async () => {
+    try {
+      // Get current reading after stabilization
+      let currentReadings;
+      
+      if (await isSimulationEnabled()) {
+        currentReadings = await getSimulatedSensorReadings();
+      } else {
+        currentReadings = await getAllSensorReadings();
+      }
+      
+      // Record effectiveness
+      recordDoseEffectiveness({
+        timestamp: new Date().toISOString(),
+        pumpName,
+        doseAmount,
+        beforeValue,
+        afterValue: targetType === 'ph' ? currentReadings.ph : currentReadings.ec,
+        effectivenessRatio: 0, // Will be calculated in recordDoseEffectiveness
+        targetType
+      });
+      
+      debug(MODULE, `Recorded effectiveness data for ${pumpName} ${doseAmount}ml dose`);
+    } catch (err) {
+      error(MODULE, 'Error recording dose effectiveness', err);
+    }
+  }, 300000); // Check after 5 minutes for stabilization
+}
+
+/**
+ * Validate sensor readings to prevent acting on bad data
+ */
+function validateSensorReadings(readings: SensorData): boolean {
+  // pH should be between 0 and 14
+  if (readings.ph === undefined || readings.ph < 0 || readings.ph > 14) {
+    warn(MODULE, `Invalid pH reading: ${readings.ph}`);
+    return false;
+  }
+  
+  // EC should be positive
+  if (readings.ec === undefined || readings.ec < 0 || readings.ec > 10) {
+    warn(MODULE, `Invalid EC reading: ${readings.ec}`);
+    return false;
+  }
+  
+  // Water temperature should be reasonable
+  if (readings.waterTemp !== undefined && 
+     (readings.waterTemp < 0 || readings.waterTemp > 40)) {
+    warn(MODULE, `Unusual water temperature: ${readings.waterTemp}°C`);
+    // Don't fail on temperature - it's not critical for dosing
+  }
+  
+  return true;
 }
 
 /**
@@ -1394,4 +1695,182 @@ export function forceNextDosing(): void {
   saveDosingConfig();
   
   console.log('Dose timestamps reset, next performAutoDosing call will attempt to dose if needed');
+}
+
+/**
+ * Initialize the auto-dosing system with configuration
+ * Enhanced with error handling and recovery
+ */
+export async function initializeAutoDosing(): Promise<boolean> {
+  try {
+    // If not already initialized, load from disk first
+    if (!isInitialized) {
+      info(MODULE, "== AUTO-DOSING: INITIALIZING ==");
+      
+      // Reset circuit breaker state on initialization
+      if (dosingConfig.errorHandling) {
+        dosingConfig.errorHandling.circuitOpen = false;
+        dosingConfig.errorHandling.currentFailCount = 0;
+        dosingConfig.errorHandling.lastFailure = null;
+      }
+      
+      await loadDosingConfigFromDisk(); // Must happen first to load saved settings
+
+      // Only sync with profile if we have an active profile
+      const profile = await getActiveProfileOptimized();
+      if (profile) {
+        // We'll only sync pumps on first initialization, but we won't
+        // change any intervals that were already loaded from disk
+        const syncSuccess = await syncProfilePumps();
+        if (!syncSuccess) {
+          warn(MODULE, "Profile pump sync failed, but continuing with initialization");
+        }
+      } else {
+        info(MODULE, "No active profile found, skipping profile pump sync");
+      }
+      
+      // Reset PID controllers on initialization
+      if (dosingConfig.pidControllers) {
+        resetPIDController(dosingConfig.pidControllers.ph);
+        resetPIDController(dosingConfig.pidControllers.ec);
+        debug(MODULE, "Reset PID controllers to initial state");
+      }
+      
+      isInitialized = true;
+      info(MODULE, "== AUTO-DOSING: INITIALIZATION COMPLETE ==");
+      
+      // Debug output to verify final initialized config
+      debug(MODULE, "Final initialized dosing config:", {
+        enabled: dosingConfig.enabled,
+        phTarget: dosingConfig.targets.ph.target,
+        ecTarget: dosingConfig.targets.ec.target,
+        phUp: { 
+          pump: dosingConfig.dosing.phUp.pumpName, 
+          interval: dosingConfig.dosing.phUp.minInterval 
+        },
+        phDown: { 
+          pump: dosingConfig.dosing.phDown.pumpName, 
+          interval: dosingConfig.dosing.phDown.minInterval 
+        },
+        nutrientPumps: Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
+          name,
+          interval: dosingConfig.dosing.nutrientPumps[name].minInterval
+        }))
+      });
+      
+      return true;
+    }
+    return true;
+  } catch (err: any) {
+    error(MODULE, "Failed to initialize auto-dosing:", err);
+    recordFailure();
+    return false;
+  }
+}
+
+/**
+ * Update the auto-dosing configuration
+ */
+export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig {
+  const oldEnabled = dosingConfig.enabled;
+  const newEnabled = updates.enabled !== undefined ? updates.enabled : oldEnabled;
+  
+  debug(MODULE, 'Received updates:', updates);
+  
+  // Check if any minInterval values have changed
+  const hasIntervalChanges = checkForIntervalChanges(updates);
+  
+  // Log the before state of dosing config
+  debug(MODULE, 'Updating dosing config, before:', {
+    'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
+    'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
+    'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
+      name,
+      minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval,
+      doseAmount: dosingConfig.dosing.nutrientPumps[name].doseAmount,
+      flowRate: dosingConfig.dosing.nutrientPumps[name].flowRate
+    }))
+  });
+  
+  // Deep merge changes
+  dosingConfig = deepMerge(dosingConfig, updates);
+  
+  // If intervals changed, reset lastDose timestamps to allow immediate dosing
+  if (hasIntervalChanges) {
+    info(MODULE, 'Interval settings changed, resetting lastDose timestamps');
+    resetDoseTimestamps();
+  }
+  
+  // If PID parameters were updated, reset the controllers
+  if (updates.pidControllers) {
+    info(MODULE, 'PID controller parameters updated, resetting controllers');
+    if (dosingConfig.pidControllers) {
+      resetPIDController(dosingConfig.pidControllers.ph);
+      resetPIDController(dosingConfig.pidControllers.ec);
+    }
+  }
+  
+  // Log the after state of dosing config
+  debug(MODULE, 'Updated dosing config, after:', {
+    'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
+    'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
+    'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
+      name,
+      minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval,
+      doseAmount: dosingConfig.dosing.nutrientPumps[name].doseAmount,
+      flowRate: dosingConfig.dosing.nutrientPumps[name].flowRate
+    }))
+  });
+  
+  // If auto-dosing was just enabled, log this important event
+  if (!oldEnabled && newEnabled) {
+    info(MODULE, 'Auto-dosing has been enabled with configuration:', dosingConfig);
+    
+    // Reset lastDose timestamps when enabling to allow immediate dosing
+    resetDoseTimestamps();
+    
+    // Also reset the circuit breaker
+    if (dosingConfig.errorHandling) {
+      dosingConfig.errorHandling.circuitOpen = false;
+      dosingConfig.errorHandling.currentFailCount = 0;
+      info(MODULE, 'Reset circuit breaker on auto-dosing enable');
+    }
+    
+    // Sync with pump assignments from active profile
+    syncProfilePumps().catch(err => {
+      error(MODULE, "Failed to sync profile pumps when enabling auto-dosing:", err);
+    });
+    
+    // Dynamically import server-init to avoid circular dependencies
+    if (typeof window === 'undefined') {
+      import('./server-init').then(({ initializeServer, startContinuousMonitoring }) => {
+        initializeServer().catch(err => {
+          error(MODULE, 'Failed to initialize server after enabling auto-dosing:', err);
+        });
+        
+        // Start continuous monitoring when auto-dosing is enabled
+        startContinuousMonitoring();
+      }).catch(err => {
+        error(MODULE, 'Failed to import server-init module:', err);
+      });
+    }
+  } else if (oldEnabled && !newEnabled) {
+    // Stop continuous monitoring when auto-dosing is disabled
+    if (typeof window === 'undefined') {
+      import('./server-init').then(({ stopContinuousMonitoring }) => {
+        stopContinuousMonitoring();
+      }).catch(err => {
+        error(MODULE, 'Failed to import server-init module:', err);
+      });
+    }
+  }
+  
+  // Save the config to disk asynchronously
+  saveDosingConfigAsync().catch((err: any) => {
+    error(MODULE, 'Failed to save auto-dosing config asynchronously:', err);
+    // Fall back to sync save
+    saveDosingConfig();
+  });
+  
+  return dosingConfig;
 } 

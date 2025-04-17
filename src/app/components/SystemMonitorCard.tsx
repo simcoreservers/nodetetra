@@ -95,14 +95,6 @@ const SystemMonitorCard = memo(function SystemMonitorCard({
               <span className="text-gray-400">Uptime:</span>
               <span>{data.system.uptime}</span>
             </div>
-            <div className="flex justify-between mb-1">
-              <span className="text-gray-400">Platform:</span>
-              <span>{`${data.system.type} (${data.system.platform}/${data.system.architecture})`}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Hostname:</span>
-              <span>{data.system.hostname}</span>
-            </div>
           </div>
           
           <div className="text-xs text-gray-500 mt-4 text-right">
