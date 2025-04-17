@@ -1,17 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { DosingConfig } from '@/app/lib/autoDosing';
 
 interface UseAutoDosingProps {
   refreshInterval?: number;
 }
 
-export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = {}) {
+export function useAutoDosing({ refreshInterval = 5000 }: UseAutoDosingProps = {}) {
   const [config, setConfig] = useState<DosingConfig | null>(null);
   const [lastDosingResult, setLastDosingResult] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   const [isDosingInProgress, setIsDosingInProgress] = useState<boolean>(false);
   const [lastDosingAttemptTime, setLastDosingAttemptTime] = useState<number>(0);
+  
+  // Use ref for the active polling interval
+  const currentIntervalRef = useRef<number>(refreshInterval);
+  const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -43,6 +47,19 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
     try {
       setIsLoading(true);
       
+      // Optimistic update
+      if (config) {
+        const optimisticConfig = {
+          ...config,
+          ...updates,
+          dosing: {
+            ...config.dosing,
+            ...(updates.dosing || {})
+          }
+        };
+        setConfig(optimisticConfig);
+      }
+      
       const response = await fetch('/api/autodosing', {
         method: 'POST',
         headers: {
@@ -70,6 +87,8 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
     } catch (err) {
       console.error('Error updating auto-dosing config:', err);
       setError(err instanceof Error ? err : new Error(String(err)));
+      // Roll back the optimistic update
+      fetchConfig();
       return false;
     } finally {
       setIsLoading(false);
@@ -83,6 +102,9 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
     
     try {
       setIsLoading(true);
+      
+      // Optimistic update
+      setConfig({ ...config, enabled: !config.enabled });
       
       const response = await fetch('/api/autodosing', {
         method: 'POST',
@@ -108,6 +130,8 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
     } catch (err) {
       console.error(`Error toggling auto-dosing (${action}):`, err);
       setError(err instanceof Error ? err : new Error(String(err)));
+      // Roll back optimistic update
+      fetchConfig();
       return false;
     } finally {
       setIsLoading(false);
@@ -161,8 +185,6 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
       }
       setLastDosingAttemptTime(now);
       
-      setIsLoading(true);
-      
       // Check if dosing is already in progress to prevent sending duplicate requests
       if (isDosingInProgress) {
         console.log('Dosing already in progress, not sending another request');
@@ -171,6 +193,10 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
           details: { reason: 'A dosing operation is already in progress' }
         };
       }
+      
+      // Optimistic update - set in progress before API call
+      setIsDosingInProgress(true);
+      setIsLoading(true);
       
       const response = await fetch('/api/autodosing', {
         method: 'POST',
@@ -206,7 +232,12 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
     } catch (err) {
       console.error('Error triggering dosing:', err);
       setError(err instanceof Error ? err : new Error(String(err)));
-      return null;
+      // Reset the in-progress state
+      setIsDosingInProgress(false);
+      return {
+        action: 'error',
+        details: { reason: `Failed to trigger dosing: ${err}` }
+      };
     } finally {
       setIsLoading(false);
     }
@@ -217,15 +248,54 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
     fetchConfig();
   }, [fetchConfig]);
 
-  // Set up interval for refreshing data if refreshInterval > 0
+  // Setup visibility change handler
   useEffect(() => {
-    if (refreshInterval <= 0) return;
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab is not visible, slow down polling
+        currentIntervalRef.current = 30000;
+        
+        // Restart interval with new timing
+        if (intervalIdRef.current) {
+          clearInterval(intervalIdRef.current);
+          intervalIdRef.current = setInterval(fetchConfig, currentIntervalRef.current);
+        }
+      } else {
+        // Tab is visible, speed up polling
+        currentIntervalRef.current = refreshInterval;
+        
+        // Restart interval with original timing and fetch immediately
+        if (intervalIdRef.current) {
+          clearInterval(intervalIdRef.current);
+          intervalIdRef.current = setInterval(fetchConfig, currentIntervalRef.current);
+          fetchConfig();
+        }
+      }
+    };
     
-    const intervalId = setInterval(() => {
-      fetchConfig();
-    }, refreshInterval);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
-    return () => clearInterval(intervalId);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshInterval, fetchConfig]);
+
+  // Set up interval for refreshing data
+  useEffect(() => {
+    currentIntervalRef.current = document.hidden ? 30000 : refreshInterval;
+    
+    if (intervalIdRef.current) {
+      clearInterval(intervalIdRef.current);
+    }
+    
+    intervalIdRef.current = setInterval(fetchConfig, currentIntervalRef.current);
+    
+    return () => {
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current);
+        intervalIdRef.current = null;
+      }
+    };
   }, [refreshInterval, fetchConfig]);
 
   return {

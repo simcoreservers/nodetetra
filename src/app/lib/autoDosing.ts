@@ -14,6 +14,13 @@ import { info, error, debug, trace, warn } from './logger';
 // Module name for logging
 const MODULE = 'autoDosing';
 
+// Profile cache system
+const profileCache = {
+  data: null,
+  timestamp: 0,
+  TTL: 15000 // 15 second TTL
+};
+
 // Path to the active profile file
 const DATA_PATH = path.join(process.cwd(), 'data');
 const ACTIVE_PROFILE_FILE = path.join(DATA_PATH, 'active_profile.json');
@@ -455,6 +462,14 @@ async function getActiveProfileOptimized() {
  */
 async function getActiveProfile() {
   try {
+    const now = Date.now();
+    
+    // Return cached data if valid
+    if (profileCache.data && (now - profileCache.timestamp) < profileCache.TTL) {
+      trace(MODULE, 'Using cached profile data');
+      return profileCache.data;
+    }
+    
     // Check if data directory exists
     if (!fs.existsSync(DATA_PATH)) {
       console.error("Data directory doesn't exist: ", DATA_PATH);
@@ -502,6 +517,10 @@ async function getActiveProfile() {
     
     // Log profile info for debugging
     console.log(`Found active profile: "${profile.name}", has pump assignments: ${!!profile.pumpAssignments}`);
+    
+    // Cache the profile
+    profileCache.data = profile;
+    profileCache.timestamp = now;
     
     return profile;
   } catch (error) {
