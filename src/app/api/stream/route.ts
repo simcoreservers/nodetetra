@@ -7,7 +7,7 @@ import { performAutoDosing, getDosingConfig } from '@/app/lib/autoDosing';
 // Track active stream connections
 const CLIENTS = new Set<ReadableStreamController<Uint8Array>>();
 let streamInterval: NodeJS.Timeout | null = null;
-const STREAM_INTERVAL_MS = 500; // .5 second update interval
+const STREAM_INTERVAL_MS = 1000; // 1 second update interval
 
 function startStreamInterval() {
   if (streamInterval) return; // Only start if not already running
