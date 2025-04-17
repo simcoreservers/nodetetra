@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import os from 'os';
+import { getTemperatureReading } from '../../lib/sensors';
 
 // Function to get CPU usage - will be called periodically
 const getCpuUsage = async (): Promise<number> => {
@@ -51,6 +52,14 @@ export async function GET() {
     const cpuModel = os.cpus()[0].model;
     const cpuCores = os.cpus().length;
     
+    // Get CPU temperature
+    let cpuTemperature = null;
+    try {
+      cpuTemperature = await getTemperatureReading();
+    } catch (error) {
+      console.error('Error getting CPU temperature:', error);
+    }
+    
     // Get memory information
     const totalMemory = os.totalmem();
     const freeMemory = os.freemem();
@@ -68,6 +77,7 @@ export async function GET() {
         model: cpuModel,
         cores: cpuCores,
         usage: cpuUsage,
+        temperature: cpuTemperature,
       },
       memory: {
         total: formatBytes(totalMemory),

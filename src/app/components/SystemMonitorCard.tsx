@@ -62,7 +62,12 @@ const SystemMonitorCard = memo(function SystemMonitorCard({
                 style={{ width: `${data.cpu.usage}%` }}
               ></div>
             </div>
-            <div className="text-xs text-gray-400 mt-1">{data.cpu.model} ({data.cpu.cores} cores)</div>
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <div>{data.cpu.model} ({data.cpu.cores} cores)</div>
+              {data.cpu.temperature !== null && data.cpu.temperature !== undefined && (
+                <div className="text-xs text-gray-400">Temp: {data.cpu.temperature.toFixed(1)}°C</div>
+              )}
+            </div>
           </div>
 
           {/* Memory Usage */}

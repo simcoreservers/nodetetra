@@ -7,6 +7,7 @@ export interface SystemMonitorData {
     model: string;
     cores: number;
     usage: number;
+    temperature?: number;
   };
   memory: {
     total: string;
