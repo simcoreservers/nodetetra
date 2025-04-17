@@ -85,7 +85,7 @@ export default function DosingPage() {
 
   // Auto-sync the auto-dosing config with active profile when data changes
   useEffect(() => {
-    if (data?.settings.targetPh && data?.settings.targetEc && autoDoseConfig && !autoDoseLoading) {
+    if (data?.settings?.targetPh && data?.settings?.targetEc && autoDoseConfig && !autoDoseLoading) {
       const phTarget = (data.settings.targetPh.min + data.settings.targetPh.max) / 2;
       const phTolerance = (data.settings.targetPh.max - data.settings.targetPh.min) / 2;
       const ecTarget = (data.settings.targetEc.min + data.settings.targetEc.max) / 2;
@@ -355,15 +355,15 @@ export default function DosingPage() {
               <div className="space-y-4 mt-4">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Min pH:</span>
-                  <span className="text-xl font-medium">{data?.settings.targetPh.min}</span>
+                  <span className="text-xl font-medium">{data?.settings?.targetPh?.min || 'N/A'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Max pH:</span>
-                  <span className="text-xl font-medium">{data?.settings.targetPh.max}</span>
+                  <span className="text-xl font-medium">{data?.settings?.targetPh?.max || 'N/A'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Current pH:</span>
-                  <span className="text-xl font-medium">{data?.settings.targetPh.current}</span>
+                  <span className="text-xl font-medium">{data?.settings?.targetPh?.current || 'N/A'}</span>
                 </div>
                 <div className="mt-4 p-3 bg-[#1e1e1e] rounded-lg">
                   <p className="text-sm text-gray-400">
@@ -384,15 +384,15 @@ export default function DosingPage() {
               <div className="space-y-4 mt-4">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Min EC:</span>
-                  <span className="text-xl font-medium">{data?.settings.targetEc.min} mS/cm</span>
+                  <span className="text-xl font-medium">{data?.settings?.targetEc?.min || 'N/A'} mS/cm</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Max EC:</span>
-                  <span className="text-xl font-medium">{data?.settings.targetEc.max} mS/cm</span>
+                  <span className="text-xl font-medium">{data?.settings?.targetEc?.max || 'N/A'} mS/cm</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">Current EC:</span>
-                  <span className="text-xl font-medium">{data?.settings.targetEc.current} mS/cm</span>
+                  <span className="text-xl font-medium">{data?.settings?.targetEc?.current || 'N/A'} mS/cm</span>
                 </div>
                 <div className="mt-4 p-3 bg-[#1e1e1e] rounded-lg">
                   <p className="text-sm text-gray-400">
@@ -632,7 +632,7 @@ export default function DosingPage() {
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-gray-400">pH Target:</span>
                               <span className="text-xl font-medium">
-                                {data?.settings.targetPh ? 
+                                {data?.settings?.targetPh ? 
                                   ((data.settings.targetPh.min + data.settings.targetPh.max) / 2).toFixed(2) : 
                                   autoDoseConfig.targets.ph.target.toFixed(2)}
                               </span>
@@ -640,7 +640,7 @@ export default function DosingPage() {
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-gray-400">pH Tolerance (±):</span>
                               <span className="text-xl font-medium">
-                                {data?.settings.targetPh ? 
+                                {data?.settings?.targetPh ? 
                                   ((data.settings.targetPh.max - data.settings.targetPh.min) / 2).toFixed(2) : 
                                   autoDoseConfig.targets.ph.tolerance.toFixed(2)}
                               </span>
@@ -660,7 +660,7 @@ export default function DosingPage() {
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-gray-400">EC Target:</span>
                               <span className="text-xl font-medium">
-                                {data?.settings.targetEc ? 
+                                {data?.settings?.targetEc ? 
                                   ((data.settings.targetEc.min + data.settings.targetEc.max) / 2).toFixed(2) : 
                                   autoDoseConfig.targets.ec.target.toFixed(2)} mS/cm
                               </span>
@@ -668,7 +668,7 @@ export default function DosingPage() {
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-gray-400">EC Tolerance (±):</span>
                               <span className="text-xl font-medium">
-                                {data?.settings.targetEc ? 
+                                {data?.settings?.targetEc ? 
                                   ((data.settings.targetEc.max - data.settings.targetEc.min) / 2).toFixed(2) : 
                                   autoDoseConfig.targets.ec.tolerance.toFixed(2)} mS/cm
                               </span>
