@@ -48,7 +48,8 @@ import { initializeAutoDosing, performAutoDosing } from './autoDosing';
 
 // Track interval IDs for cleanup
 const intervals: NodeJS.Timeout[] = [];
-let isServerInitialized = false;
+// Global initialization flag to prevent duplicate initialization
+let isSystemInitialized = false;
 
 // Add timeout for task execution
 const TASK_TIMEOUT = 60000; // 60 seconds timeout for tasks
@@ -82,7 +83,7 @@ async function executeWithTimeout<T>(
  * Initialize all server-side systems
  */
 export async function initializeServer(): Promise<void> {
-  if (isServerInitialized) {
+  if (isSystemInitialized) {
     console.log('Server already initialized. Skipping initialization.');
     return;
   }
@@ -132,7 +133,7 @@ export async function initializeServer(): Promise<void> {
     // Set up scheduled tasks
     setupScheduledTasks();
     
-    isServerInitialized = true;
+    isSystemInitialized = true;
     console.log('Server initialization completed successfully');
   } catch (error) {
     console.error('Error during server initialization:', error);
@@ -201,7 +202,7 @@ export async function cleanupServer(): Promise<void> {
   }
   
   // Set initialized flag to false
-  isServerInitialized = false;
+  isSystemInitialized = false;
   console.log('Server cleanup completed');
 }
 

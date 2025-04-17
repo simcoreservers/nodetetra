@@ -46,19 +46,26 @@ export async function GET() {
     try {
       const dosingConfig = getDosingConfig();
       if (dosingConfig.enabled) {
-        console.log('Auto-dosing enabled - checking if dosing is needed with latest sensor readings');
-        // Perform auto-dosing check asynchronously (don't wait for it to complete)
-        performAutoDosing().then(result => {
-          if (result.action === 'dosed') {
-            console.log(`Auto-dosing triggered successfully: ${result.details.type} (${result.details.amount}ml)`);
-          } else if (result.action === 'waiting') {
-            console.log(`Auto-dosing waiting: ${result.details.reason}`);
+        console.log('Auto-dosing enabled - scheduling check with latest sensor readings');
+        // Use setTimeout to avoid blocking the response and check lock status
+        setTimeout(() => {
+          const { isLocked } = require('@/app/lib/autoDosing');
+          if (!isLocked()) {
+            performAutoDosing().then(result => {
+              if (result.action === 'dosed') {
+                console.log(`Auto-dosing triggered successfully: ${result.details.type} (${result.details.amount}ml)`);
+              } else if (result.action === 'waiting') {
+                console.log(`Auto-dosing waiting: ${result.details.reason}`);
+              } else {
+                console.log(`Auto-dosing not needed: ${result.details.reason || 'pH and EC within target range'}`);
+              }
+            }).catch(error => {
+              console.error('Error performing auto-dosing check:', error);
+            });
           } else {
-            console.log(`Auto-dosing not needed: ${result.details.reason || 'pH and EC within target range'}`);
+            console.log('Auto-dosing check skipped - operation already in progress');
           }
-        }).catch(error => {
-          console.error('Error performing auto-dosing check:', error);
-        });
+        }, 100);
       }
     } catch (error) {
       console.error('Error checking auto-dosing status:', error);
