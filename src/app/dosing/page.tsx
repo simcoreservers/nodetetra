@@ -401,11 +401,26 @@ export default function DosingPage() {
   }
 
   // Ensure data is available
-  if (!data || !data.settings) {
+  if (!data) {
     return (
       <div className="flex h-screen bg-[#121212] items-center justify-center">
         <div className="text-center">
           <p>Invalid or incomplete dosing data</p>
+          <button className="btn mt-4" onClick={refresh}>
+            Refresh
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  // Initialize settings if using unified format
+  const settings = data.config ? data.config : data.settings;
+  if (!settings) {
+    return (
+      <div className="flex h-screen bg-[#121212] items-center justify-center">
+        <div className="text-center">
+          <p>No dosing settings found in data</p>
           <button className="btn mt-4" onClick={refresh}>
             Refresh
           </button>
