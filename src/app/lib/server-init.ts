@@ -1,3 +1,42 @@
+// Continuous monitoring for auto-dosing
+let monitoringInterval: NodeJS.Timeout | null = null;
+const MONITORING_FREQUENCY = 1000; // Check every second
+
+export function startContinuousMonitoring() {
+  if (monitoringInterval) {
+    console.log('Continuous monitoring already active, skipping start');
+    return;
+  }
+  
+  console.log('Starting continuous monitoring for auto-dosing');
+  monitoringInterval = setInterval(async () => {
+    try {
+      const { getDosingConfig, performAutoDosing } = await import('./autoDosing');
+      const config = getDosingConfig();
+      
+      if (config.enabled) {
+        console.log('Auto-dosing scheduled check - running performAutoDosing()');
+        await performAutoDosing();
+      } else {
+        console.log('Auto-dosing disabled, skipping scheduled check');
+      }
+    } catch (err) {
+      console.error('Auto-dosing monitoring error:', err);
+    }
+  }, MONITORING_FREQUENCY);
+  
+  console.log(`Continuous monitoring started with interval of ${MONITORING_FREQUENCY/1000}s`);
+}
+
+export function stopContinuousMonitoring() {
+  if (monitoringInterval) {
+    clearInterval(monitoringInterval);
+    monitoringInterval = null;
+    console.log('Continuous monitoring for auto-dosing stopped');
+  } else {
+    console.log('No active monitoring to stop');
+  }
+}
 /**
  * NuTetra Server Initialization
  * This file handles all server-side initialization tasks and scheduled jobs
@@ -146,6 +185,9 @@ export async function cleanupServer(): Promise<void> {
   intervals.length = 0; // Clear the array
   console.log('Cleared all scheduled tasks');
   
+  // Stop continuous monitoring if running
+  stopContinuousMonitoring();
+  
   // Clean up hardware resources
   try {
     await executeWithTimeout(
@@ -167,7 +209,17 @@ export async function cleanupServer(): Promise<void> {
 if (typeof window === 'undefined') {
   // Note: Actual initialization now triggered from middleware.ts
   
-  // Auto-dosing check now happens with each sensor poll, not on startup
+  // Start continuous monitoring on server init if not already started
+  import('./autoDosing').then(({ getDosingConfig }) => {
+    const config = getDosingConfig();
+    if (config.enabled) {
+      startContinuousMonitoring();
+    }
+  }).catch(err => {
+    console.error('Failed to check auto-dosing status on startup:', err);
+  });
+  
+  // Auto-dosing check now happens on schedule, not just with sensor polls
   
   // Set up cleanup on process termination
   process.on('SIGINT', async () => {

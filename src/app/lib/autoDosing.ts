@@ -560,10 +560,22 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
     
     // Dynamically import server-init to avoid circular dependencies
     if (typeof window === 'undefined') {
-      import('./server-init').then(({ initializeServer }) => {
+      import('./server-init').then(({ initializeServer, startContinuousMonitoring }) => {
         initializeServer().catch(err => {
           console.error('Failed to initialize server after enabling auto-dosing:', err);
         });
+        
+        // Start continuous monitoring when auto-dosing is enabled
+        startContinuousMonitoring();
+      }).catch(err => {
+        console.error('Failed to import server-init module:', err);
+      });
+    }
+  } else if (oldEnabled && !newEnabled) {
+    // Stop continuous monitoring when auto-dosing is disabled
+    if (typeof window === 'undefined') {
+      import('./server-init').then(({ stopContinuousMonitoring }) => {
+        stopContinuousMonitoring();
       }).catch(err => {
         console.error('Failed to import server-init module:', err);
       });
@@ -1019,6 +1031,7 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
 
 /**
  * Perform the dosing based on the current sensor readings
+ * This function can be called both from manual triggers and automatic monitoring
  */
 export async function performAutoDosing(): Promise<{
   action: string;
