@@ -1123,10 +1123,10 @@ export async function performAutoDosing(): Promise<{
     } catch (err) {
       error(MODULE, 'Error getting sensor readings', err);
       // Always release lock on error
-      dosingInProgress = false;
-      if (dosingLockTimeout) {
-        clearTimeout(dosingLockTimeout);
-        dosingLockTimeout = null;
+      dosingLock.inProgress = false;
+      if (dosingLock.timeout) {
+        clearTimeout(dosingLock.timeout);
+        dosingLock.timeout = null;
       }
     return { 
       action: 'error', 
@@ -1134,9 +1134,9 @@ export async function performAutoDosing(): Promise<{
       };
     } finally {
       // Make sure we unlock if the function exits here
-      if (dosingLockTimeout) {
-        clearTimeout(dosingLockTimeout);
-        dosingLockTimeout = null;
+      if (dosingLock.timeout) {
+        clearTimeout(dosingLock.timeout);
+        dosingLock.timeout = null;
       }
   }
   
