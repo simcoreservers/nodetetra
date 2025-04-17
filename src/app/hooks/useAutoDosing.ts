@@ -11,6 +11,7 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   const [isDosingInProgress, setIsDosingInProgress] = useState<boolean>(false);
+  const [lastDosingAttemptTime, setLastDosingAttemptTime] = useState<number>(0);
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -149,6 +150,17 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
 
   const triggerDosing = useCallback(async () => {
     try {
+      // Add local rate limiting
+      const now = Date.now();
+      if (now - lastDosingAttemptTime < 2000) { // 2s minimum between attempts
+        console.warn(`Dosing attempted too frequently (${now - lastDosingAttemptTime}ms since last attempt)`);
+        return {
+          action: 'waiting',
+          details: { reason: 'Please wait before attempting another dosing operation' }
+        };
+      }
+      setLastDosingAttemptTime(now);
+      
       setIsLoading(true);
       
       // Check if dosing is already in progress to prevent sending duplicate requests
@@ -198,7 +210,7 @@ export function useAutoDosing({ refreshInterval = 30000 }: UseAutoDosingProps = 
     } finally {
       setIsLoading(false);
     }
-  }, [isDosingInProgress, fetchConfig]);
+  }, [isDosingInProgress, fetchConfig, lastDosingAttemptTime]);
 
   // Initial data fetch
   useEffect(() => {

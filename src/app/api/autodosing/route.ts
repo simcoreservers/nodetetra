@@ -284,7 +284,7 @@ export async function POST(request: NextRequest) {
           // Sync with profile to ensure we have the latest pump assignments
           await syncProfilePumps();
           
-          // Perform the auto-dosing
+          // Perform the auto-dosing with rate limiting
           info(MODULE, 'Executing auto-dosing...');
           const result = await performAutoDosing();
           info(MODULE, 'Auto-dosing completed', { action: result.action });

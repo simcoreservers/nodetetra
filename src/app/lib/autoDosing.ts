@@ -121,7 +121,11 @@ let isInitialized = false;
 // Dosing lock to prevent concurrent dosing operations
 let dosingInProgress = false;
 let dosingLockTimeout: NodeJS.Timeout | null = null;
-const MAX_DOSING_LOCK_TIME = 60000; // 60 seconds max lock time as safety measure
+const MAX_DOSING_LOCK_TIME = 30000; // 30 seconds max lock time as safety measure
+
+// Rate limiting to prevent rapid successive calls
+let lastDosingAttempt = 0;
+const MIN_DOSING_ATTEMPT_INTERVAL = 2000; // 2s minimum between attempts
 
 // Export the dosing status for API and UI
 export { dosingInProgress };
@@ -1020,6 +1024,17 @@ export async function performAutoDosing(): Promise<{
   action: string;
   details: any;
 }> {
+  // Add rate limiting to prevent rapid successive calls
+  const now = Date.now();
+  if (now - lastDosingAttempt < MIN_DOSING_ATTEMPT_INTERVAL) {
+    warn(MODULE, `Dosing attempted too frequently (${now - lastDosingAttempt}ms since last attempt)`);
+    return {
+      action: 'waiting',
+      details: { reason: 'Dosing attempted too frequently, please wait' }
+    };
+  }
+  lastDosingAttempt = now;
+  
   // Check if auto-dosing is enabled
   if (!dosingConfig.enabled) {
     debug(MODULE, 'Auto-dosing is disabled, skipping cycle');
@@ -1029,7 +1044,7 @@ export async function performAutoDosing(): Promise<{
     };
   }
   
-  // Check if a dosing operation is already in progress
+  // Synchronous check to prevent concurrent operations
   if (dosingInProgress) {
     warn(MODULE, 'Dosing already in progress, cannot start another operation');
     return {
@@ -1076,6 +1091,12 @@ export async function performAutoDosing(): Promise<{
       }
     } catch (err) {
       error(MODULE, 'Error getting sensor readings', err);
+      // Always release lock on error
+      dosingInProgress = false;
+      if (dosingLockTimeout) {
+        clearTimeout(dosingLockTimeout);
+        dosingLockTimeout = null;
+      }
     return { 
       action: 'error', 
         details: { error: `Failed to get sensor readings: ${err}` } 
