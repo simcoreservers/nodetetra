@@ -460,9 +460,6 @@ export async function initializeAutoDosing(): Promise<boolean> {
       console.log("== AUTO-DOSING: INITIALIZING ==");
       await loadDosingConfigFromDisk(); // Must happen first to load saved settings
 
-      // Force auto-dosing to be disabled on system startup
-      dosingConfig.enabled = false;
-
       // Only sync with profile if we have an active profile
       const profile = await getActiveProfile();
       if (profile) {
@@ -494,9 +491,6 @@ export async function initializeAutoDosing(): Promise<boolean> {
           interval: dosingConfig.dosing.nutrientPumps[name].minInterval
         }))
       });
-      
-      // Save configuration with disabled state
-      saveDosingConfig();
       
       return true;
     }

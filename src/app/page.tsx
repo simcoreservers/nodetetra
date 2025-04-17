@@ -15,7 +15,6 @@ import PumpStatusCard from "./components/PumpStatusCard";
 import RecentActivityCard from "./components/RecentActivityCard";
 import ActiveProfileCard from "./components/ActiveProfileCard";
 import SystemMonitorCard from "./components/SystemMonitorCard";
-import AutoDosingToggle from "./components/AutoDosingToggle";
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -266,7 +265,7 @@ export default function Home() {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Pump Status Card */}
           <PumpStatusCard
             pumpStatus={Array.isArray(effectivePumpData) ? effectivePumpData : effectivePumpData?.pumpStatus || null}
@@ -277,9 +276,6 @@ export default function Home() {
           
           {/* System Monitor Card */}
           <SystemMonitorCard refreshInterval={5000} />
-          
-          {/* Auto Dosing Toggle Card */}
-          <AutoDosingToggle />
         </div>
 
         {/* Recent Activity Log */}
