@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import os from 'os';
-import { getTemperatureReading } from '../../lib/sensors';
+import fs from 'fs/promises';
 
 // Function to get CPU usage - will be called periodically
 const getCpuUsage = async (): Promise<number> => {
@@ -24,6 +24,23 @@ const getCpuUsage = async (): Promise<number> => {
       resolve(parseFloat(cpuUsage.toFixed(1)));
     }, 100);
   });
+};
+
+// Function to get CPU temperature from Raspberry Pi
+const getCpuTemperature = async (): Promise<number | null> => {
+  try {
+    // Read temperature from the Raspberry Pi thermal zone
+    const tempFile = '/sys/class/thermal/thermal_zone0/temp';
+    const data = await fs.readFile(tempFile, 'utf8');
+    
+    // Convert from millidegrees Celsius to degrees Celsius
+    const tempCelsius = parseInt(data.trim()) / 1000;
+    
+    return parseFloat(tempCelsius.toFixed(1));
+  } catch (error) {
+    console.error('Error reading CPU temperature:', error);
+    return null;
+  }
 };
 
 // Convert bytes to human-readable format
@@ -53,12 +70,7 @@ export async function GET() {
     const cpuCores = os.cpus().length;
     
     // Get CPU temperature
-    let cpuTemperature = null;
-    try {
-      cpuTemperature = await getTemperatureReading();
-    } catch (error) {
-      console.error('Error getting CPU temperature:', error);
-    }
+    const cpuTemperature = await getCpuTemperature();
     
     // Get memory information
     const totalMemory = os.totalmem();
