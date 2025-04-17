@@ -9,6 +9,38 @@ import { useSidebar } from "../components/SidebarContext";
 import { useDosingData, DosingHistoryEntry } from "../hooks/useDosingData";
 import { useAutoDosing } from "../hooks/useAutoDosing";
 
+// Define an interface for the unified config structure
+interface UnifiedDosingConfig {
+  targets?: {
+    ph?: {
+      min: number;
+      max: number;
+      target: number;
+      tolerance: number;
+    };
+    ec?: {
+      min: number;
+      max: number;
+      target: number;
+      tolerance: number;
+    };
+  };
+  pumps?: Record<string, {
+    limits: number;
+    flowRate: number;
+    doseAmount: number;
+    minInterval: number;
+  }>;
+  // Include any other properties you need
+}
+
+// Extend the DosingData interface to include config
+interface ExtendedDosingData {
+  settings?: any;
+  history?: DosingHistoryEntry[];
+  config?: UnifiedDosingConfig;
+}
+
 export default function DosingPage() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -32,7 +64,7 @@ export default function DosingPage() {
   const [simulationEnabled, setSimulationEnabled] = useState<boolean>(true);
 
   const { 
-    data, 
+    data: rawData, 
     activeProfile,
     isLoading, 
     error, 
@@ -40,6 +72,9 @@ export default function DosingPage() {
     updateDosingSchedule,
     updateDosingLimits
   } = useDosingData();
+
+  // Cast the data to our extended interface
+  const data = rawData as unknown as ExtendedDosingData;
 
   // Add auto-dosing hook
   const {
@@ -55,41 +90,91 @@ export default function DosingPage() {
 
   // Update local state when API data is loaded
   useEffect(() => {
-    if (data && data.settings && data.settings.dosingLimits) {
-      setPhUpLimit(data.settings.dosingLimits["pH Up"] || 50);
-      setPhDownLimit(data.settings.dosingLimits["pH Down"] || 50);
-      setNutrientALimit(data.settings.dosingLimits["Nutrient A"] || 100);
-      setNutrientBLimit(data.settings.dosingLimits["Nutrient B"] || 100);
+    if (data) {
+      // Check if data uses the new unified format or the legacy format
+      // The new format would contain a 'config' key instead of a 'settings' key
+      const settings = data.config ? data.config : data.settings;
+      
+      if (settings && settings.dosingLimits) {
+        setPhUpLimit(settings.dosingLimits["pH Up"] || 50);
+        setPhDownLimit(settings.dosingLimits["pH Down"] || 50);
+        setNutrientALimit(settings.dosingLimits["Nutrient A"] || 100);
+        setNutrientBLimit(settings.dosingLimits["Nutrient B"] || 100);
+      } else if (data.config && data.config.pumps) {
+        // Handle new unified format with pumps object
+        const pumps = data.config.pumps;
+        setPhUpLimit(pumps["pH Up"]?.limits || 50);
+        setPhDownLimit(pumps["pH Down"]?.limits || 50);
+        setNutrientALimit(pumps["Nutrient A"]?.limits || 100);
+        setNutrientBLimit(pumps["Nutrient B"]?.limits || 100);
+      }
     }
   }, [data]);
 
-  // Update minInterval state from autodosing config
-  useEffect(() => {
-    if (autoDoseConfig && autoDoseConfig.dosing && autoDoseConfig.dosing.phUp) {
-      setPhUpInterval(autoDoseConfig.dosing.phUp.minInterval);
-      
-      if (autoDoseConfig.dosing.phDown) {
-        setPhDownInterval(autoDoseConfig.dosing.phDown.minInterval);
-      }
-      
-      // Set a default value for nutrient pumps (assuming all have the same interval)
-      const nutrientPumpKeys = Object.keys(autoDoseConfig.dosing.nutrientPumps || {});
-      if (nutrientPumpKeys.length > 0) {
-        const firstPump = nutrientPumpKeys[0];
-        setNutrientInterval(autoDoseConfig.dosing.nutrientPumps[firstPump].minInterval);
-      } else {
-        setNutrientInterval(180); // Default value
-      }
+  // Define a helper function to access data in either format
+  const getDataValue = (key: string) => {
+    if (!data) return null;
+    
+    // Handle unified structure (data.config)
+    if (data.config) {
+      return data.config;
     }
-  }, [autoDoseConfig]);
+    
+    // Handle legacy structure (data.settings)
+    return data.settings;
+  };
+
+  // Create helper function for accessing pH and EC data
+  const getPhData = () => {
+    if (!data) return null;
+    
+    // Check unified format
+    if (data.config && data.config.targets && data.config.targets.ph) {
+      return {
+        min: data.config.targets.ph.min,
+        max: data.config.targets.ph.max,
+        current: data.config.targets.ph.target
+      };
+    }
+    
+    // Check legacy format
+    if (data.settings && data.settings.targetPh) {
+      return data.settings.targetPh;
+    }
+    
+    return null;
+  };
+  
+  const getEcData = () => {
+    if (!data) return null;
+    
+    // Check unified format
+    if (data.config && data.config.targets && data.config.targets.ec) {
+      return {
+        min: data.config.targets.ec.min,
+        max: data.config.targets.ec.max,
+        current: data.config.targets.ec.target
+      };
+    }
+    
+    // Check legacy format
+    if (data.settings && data.settings.targetEc) {
+      return data.settings.targetEc;
+    }
+    
+    return null;
+  };
 
   // Auto-sync the auto-dosing config with active profile when data changes
   useEffect(() => {
-    if (data?.settings?.targetPh && data?.settings?.targetEc && autoDoseConfig && !autoDoseLoading) {
-      const phTarget = (data.settings.targetPh.min + data.settings.targetPh.max) / 2;
-      const phTolerance = (data.settings.targetPh.max - data.settings.targetPh.min) / 2;
-      const ecTarget = (data.settings.targetEc.min + data.settings.targetEc.max) / 2;
-      const ecTolerance = (data.settings.targetEc.max - data.settings.targetEc.min) / 2;
+    const phData = getPhData();
+    const ecData = getEcData();
+    
+    if (phData && ecData && autoDoseConfig && !autoDoseLoading) {
+      const phTarget = (phData.min + phData.max) / 2;
+      const phTolerance = (phData.max - phData.min) / 2;
+      const ecTarget = (ecData.min + ecData.max) / 2;
+      const ecTolerance = (ecData.max - ecData.min) / 2;
       
       // Only update if values are different to avoid unnecessary API calls
       if (phTarget !== autoDoseConfig.targets.ph.target ||
@@ -112,6 +197,26 @@ export default function DosingPage() {
       }
     }
   }, [data, autoDoseConfig, autoDoseLoading, updateAutoDoseConfig]);
+
+  // Update minInterval state from autodosing config
+  useEffect(() => {
+    if (autoDoseConfig && autoDoseConfig.dosing && autoDoseConfig.dosing.phUp) {
+      setPhUpInterval(autoDoseConfig.dosing.phUp.minInterval);
+      
+      if (autoDoseConfig.dosing.phDown) {
+        setPhDownInterval(autoDoseConfig.dosing.phDown.minInterval);
+      }
+      
+      // Set a default value for nutrient pumps (assuming all have the same interval)
+      const nutrientPumpKeys = Object.keys(autoDoseConfig.dosing.nutrientPumps || {});
+      if (nutrientPumpKeys.length > 0) {
+        const firstPump = nutrientPumpKeys[0];
+        setNutrientInterval(autoDoseConfig.dosing.nutrientPumps[firstPump].minInterval);
+      } else {
+        setNutrientInterval(180); // Default value
+      }
+    }
+  }, [autoDoseConfig]);
 
   // Fetch simulation status on page load
   useEffect(() => {
@@ -353,26 +458,33 @@ export default function DosingPage() {
                 <h2 className="card-title">pH Target Range</h2>
               </div>
               <div className="space-y-4 mt-4">
-                {data.settings.targetPh ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Min pH:</span>
-                      <span className="text-xl font-medium">{data.settings.targetPh.min || 'N/A'}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Max pH:</span>
-                      <span className="text-xl font-medium">{data.settings.targetPh.max || 'N/A'}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Current pH:</span>
-                      <span className="text-xl font-medium">{data.settings.targetPh.current || 'N/A'}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-yellow-500">pH target data not available</p>
-                  </div>
-                )}
+                {(() => {
+                  const phData = getPhData();
+                  if (!phData) {
+                    return (
+                      <div className="text-center py-4">
+                        <p className="text-yellow-500">pH target data not available</p>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">Min pH:</span>
+                        <span className="text-xl font-medium">{phData.min}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">Max pH:</span>
+                        <span className="text-xl font-medium">{phData.max}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">Current pH:</span>
+                        <span className="text-xl font-medium">{phData.current}</span>
+                      </div>
+                    </>
+                  );
+                })()}
                 <div className="mt-4 p-3 bg-[#1e1e1e] rounded-lg">
                   <p className="text-sm text-gray-400">
                     <span className="text-[#00a3e0]">Note:</span> pH target range is controlled by the active plant profile. 
@@ -390,26 +502,33 @@ export default function DosingPage() {
                 <h2 className="card-title">EC Target Range</h2>
               </div>
               <div className="space-y-4 mt-4">
-                {data.settings.targetEc ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Min EC:</span>
-                      <span className="text-xl font-medium">{data.settings.targetEc.min || 'N/A'} mS/cm</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Max EC:</span>
-                      <span className="text-xl font-medium">{data.settings.targetEc.max || 'N/A'} mS/cm</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">Current EC:</span>
-                      <span className="text-xl font-medium">{data.settings.targetEc.current || 'N/A'} mS/cm</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-yellow-500">EC target data not available</p>
-                  </div>
-                )}
+                {(() => {
+                  const ecData = getEcData();
+                  if (!ecData) {
+                    return (
+                      <div className="text-center py-4">
+                        <p className="text-yellow-500">EC target data not available</p>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">Min EC:</span>
+                        <span className="text-xl font-medium">{ecData.min} mS/cm</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">Max EC:</span>
+                        <span className="text-xl font-medium">{ecData.max} mS/cm</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">Current EC:</span>
+                        <span className="text-xl font-medium">{ecData.current} mS/cm</span>
+                      </div>
+                    </>
+                  );
+                })()}
                 <div className="mt-4 p-3 bg-[#1e1e1e] rounded-lg">
                   <p className="text-sm text-gray-400">
                     <span className="text-[#00a3e0]">Note:</span> EC target range is controlled by the active plant profile. 
@@ -648,17 +767,25 @@ export default function DosingPage() {
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-gray-400">pH Target:</span>
                               <span className="text-xl font-medium">
-                                {data.settings.targetPh ? 
-                                  ((data.settings.targetPh.min + data.settings.targetPh.max) / 2).toFixed(2) : 
-                                  (autoDoseConfig?.targets?.ph?.target || 0).toFixed(2)}
+                                {(() => {
+                                  const phData = getPhData();
+                                  if (phData) {
+                                    return ((phData.min + phData.max) / 2).toFixed(2);
+                                  } 
+                                  return autoDoseConfig?.targets?.ph?.target.toFixed(2) || '0.00';
+                                })()}
                               </span>
                             </div>
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-gray-400">pH Tolerance (±):</span>
                               <span className="text-xl font-medium">
-                                {data.settings.targetPh ? 
-                                  ((data.settings.targetPh.max - data.settings.targetPh.min) / 2).toFixed(2) : 
-                                  (autoDoseConfig?.targets?.ph?.tolerance || 0).toFixed(2)}
+                                {(() => {
+                                  const phData = getPhData();
+                                  if (phData) {
+                                    return ((phData.max - phData.min) / 2).toFixed(2);
+                                  }
+                                  return autoDoseConfig?.targets?.ph?.tolerance.toFixed(2) || '0.00';
+                                })()}
                               </span>
                             </div>
                             <div className="mt-3 text-sm text-gray-400">
@@ -676,17 +803,25 @@ export default function DosingPage() {
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-gray-400">EC Target:</span>
                               <span className="text-xl font-medium">
-                                {data.settings.targetEc ? 
-                                  ((data.settings.targetEc.min + data.settings.targetEc.max) / 2).toFixed(2) : 
-                                  (autoDoseConfig?.targets?.ec?.target || 0).toFixed(2)} mS/cm
+                                {(() => {
+                                  const ecData = getEcData();
+                                  if (ecData) {
+                                    return ((ecData.min + ecData.max) / 2).toFixed(2);
+                                  }
+                                  return autoDoseConfig?.targets?.ec?.target.toFixed(2) || '0.00';
+                                })()} mS/cm
                               </span>
                             </div>
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-gray-400">EC Tolerance (±):</span>
                               <span className="text-xl font-medium">
-                                {data.settings.targetEc ? 
-                                  ((data.settings.targetEc.max - data.settings.targetEc.min) / 2).toFixed(2) : 
-                                  (autoDoseConfig?.targets?.ec?.tolerance || 0).toFixed(2)} mS/cm
+                                {(() => {
+                                  const ecData = getEcData();
+                                  if (ecData) {
+                                    return ((ecData.max - ecData.min) / 2).toFixed(2);
+                                  }
+                                  return autoDoseConfig?.targets?.ec?.tolerance.toFixed(2) || '0.00';
+                                })()} mS/cm
                               </span>
                             </div>
                             <div className="mt-3 text-sm text-gray-400">
