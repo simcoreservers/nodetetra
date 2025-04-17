@@ -115,7 +115,7 @@ export async function migrateDosing(): Promise<boolean> {
     const unifiedConfig: UnifiedDosingConfig = {
       version: 1,
       migratedAt: new Date().toISOString(),
-      enabled: false,
+      enabled: false, // Always disabled by default
       targets: {
         ph: {
           min: 5.8,
@@ -211,8 +211,8 @@ export async function migrateDosing(): Promise<boolean> {
     
     // Merge auto-dosing data if available
     if (autoDosingData) {
-      // Enable based on auto-dosing setting
-      unifiedConfig.enabled = autoDosingData.enabled;
+      // Always start disabled regardless of previous setting
+      unifiedConfig.enabled = false;
       
       // Update pH target and tolerance
       unifiedConfig.targets.ph.target = autoDosingData.targets.ph.target;
