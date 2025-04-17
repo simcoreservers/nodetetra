@@ -7,7 +7,7 @@ import Link from "next/link";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../components/SidebarContext";
 import { useDosingData, DosingHistoryEntry } from "../hooks/useDosingData";
-import { useAutoDosing } from "../hooks/useAutoDosing";
+import { useUnifiedDosing } from "../hooks/useUnifiedDosing";
 
 // Define an interface for the unified config structure
 interface UnifiedDosingConfig {
@@ -76,7 +76,7 @@ export default function DosingPage() {
   // Cast the data to our extended interface
   const data = rawData as unknown as ExtendedDosingData;
 
-  // Add auto-dosing hook
+  // Add unified dosing hook
   const {
     config: autoDoseConfig,
     isLoading: autoDoseLoading,
@@ -85,8 +85,8 @@ export default function DosingPage() {
     toggleEnabled: toggleAutoDosing,
     updateConfig: updateAutoDoseConfig,
     resetConfig: resetAutoDoseConfig,
-    triggerDosing: triggerAutoDosing
-  } = useAutoDosing();
+    triggerAutoDosing
+  } = useUnifiedDosing();
 
   // Update local state when API data is loaded
   useEffect(() => {
@@ -432,7 +432,7 @@ export default function DosingPage() {
   // Define tabs for the Dosing section
   const tabs = [
     { id: 'settings', label: 'Settings' },
-    { id: 'autodosing', label: 'Auto-Dosing' },
+    { id: 'autodosing', label: 'Automated Dosing' },
     { id: 'history', label: 'History' }
   ];
 
@@ -684,7 +684,7 @@ export default function DosingPage() {
           <div className="space-y-6">
             <div className="card">
               <div className="card-header flex justify-between items-center">
-                <h2 className="card-title">Auto-Dosing System</h2>
+                <h2 className="card-title">Automated Dosing System</h2>
                 <div className="flex items-center">
                   <span className="mr-3 text-sm text-gray-400">
                     {autoDoseConfig?.enabled ? 'Enabled' : 'Disabled'}
@@ -706,7 +706,7 @@ export default function DosingPage() {
               </div>
               <div className="mt-4">
                 <p className="text-sm text-gray-400 mb-4">
-                  Auto-dosing continuously monitors your pH and EC levels using live sensor readings and dispenses nutrients or pH adjusters as needed to maintain optimal conditions. No scheduled checks are used - the system responds directly to current water conditions.
+                The dosing system continuously monitors your pH and EC levels using live sensor readings and dispenses nutrients or pH adjusters as needed to maintain optimal conditions. No scheduled checks are used - the system responds directly to current water conditions.
                 </p>
                 {autoDoseLoading ? (
                   <div className="flex justify-center p-4">
