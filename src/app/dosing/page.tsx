@@ -55,7 +55,7 @@ export default function DosingPage() {
 
   // Update local state when API data is loaded
   useEffect(() => {
-    if (data) {
+    if (data && data.settings && data.settings.dosingLimits) {
       setPhUpLimit(data.settings.dosingLimits["pH Up"] || 50);
       setPhDownLimit(data.settings.dosingLimits["pH Down"] || 50);
       setNutrientALimit(data.settings.dosingLimits["Nutrient A"] || 100);
@@ -296,11 +296,11 @@ export default function DosingPage() {
   }
 
   // Ensure data is available
-  if (!data) {
+  if (!data || !data.settings) {
     return (
       <div className="flex h-screen bg-[#121212] items-center justify-center">
         <div className="text-center">
-          <p>No dosing data available</p>
+          <p>Invalid or incomplete dosing data</p>
           <button className="btn mt-4" onClick={refresh}>
             Refresh
           </button>
@@ -353,18 +353,26 @@ export default function DosingPage() {
                 <h2 className="card-title">pH Target Range</h2>
               </div>
               <div className="space-y-4 mt-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Min pH:</span>
-                  <span className="text-xl font-medium">{data?.settings?.targetPh?.min || 'N/A'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Max pH:</span>
-                  <span className="text-xl font-medium">{data?.settings?.targetPh?.max || 'N/A'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Current pH:</span>
-                  <span className="text-xl font-medium">{data?.settings?.targetPh?.current || 'N/A'}</span>
-                </div>
+                {data.settings.targetPh ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Min pH:</span>
+                      <span className="text-xl font-medium">{data.settings.targetPh.min || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Max pH:</span>
+                      <span className="text-xl font-medium">{data.settings.targetPh.max || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Current pH:</span>
+                      <span className="text-xl font-medium">{data.settings.targetPh.current || 'N/A'}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-yellow-500">pH target data not available</p>
+                  </div>
+                )}
                 <div className="mt-4 p-3 bg-[#1e1e1e] rounded-lg">
                   <p className="text-sm text-gray-400">
                     <span className="text-[#00a3e0]">Note:</span> pH target range is controlled by the active plant profile. 
@@ -382,18 +390,26 @@ export default function DosingPage() {
                 <h2 className="card-title">EC Target Range</h2>
               </div>
               <div className="space-y-4 mt-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Min EC:</span>
-                  <span className="text-xl font-medium">{data?.settings?.targetEc?.min || 'N/A'} mS/cm</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Max EC:</span>
-                  <span className="text-xl font-medium">{data?.settings?.targetEc?.max || 'N/A'} mS/cm</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Current EC:</span>
-                  <span className="text-xl font-medium">{data?.settings?.targetEc?.current || 'N/A'} mS/cm</span>
-                </div>
+                {data.settings.targetEc ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Min EC:</span>
+                      <span className="text-xl font-medium">{data.settings.targetEc.min || 'N/A'} mS/cm</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Max EC:</span>
+                      <span className="text-xl font-medium">{data.settings.targetEc.max || 'N/A'} mS/cm</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Current EC:</span>
+                      <span className="text-xl font-medium">{data.settings.targetEc.current || 'N/A'} mS/cm</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-yellow-500">EC target data not available</p>
+                  </div>
+                )}
                 <div className="mt-4 p-3 bg-[#1e1e1e] rounded-lg">
                   <p className="text-sm text-gray-400">
                     <span className="text-[#00a3e0]">Note:</span> EC target range is controlled by the active plant profile. 
@@ -632,17 +648,17 @@ export default function DosingPage() {
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-gray-400">pH Target:</span>
                               <span className="text-xl font-medium">
-                                {data?.settings?.targetPh ? 
+                                {data.settings.targetPh ? 
                                   ((data.settings.targetPh.min + data.settings.targetPh.max) / 2).toFixed(2) : 
-                                  autoDoseConfig.targets.ph.target.toFixed(2)}
+                                  (autoDoseConfig?.targets?.ph?.target || 0).toFixed(2)}
                               </span>
                             </div>
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-gray-400">pH Tolerance (±):</span>
                               <span className="text-xl font-medium">
-                                {data?.settings?.targetPh ? 
+                                {data.settings.targetPh ? 
                                   ((data.settings.targetPh.max - data.settings.targetPh.min) / 2).toFixed(2) : 
-                                  autoDoseConfig.targets.ph.tolerance.toFixed(2)}
+                                  (autoDoseConfig?.targets?.ph?.tolerance || 0).toFixed(2)}
                               </span>
                             </div>
                             <div className="mt-3 text-sm text-gray-400">
@@ -660,17 +676,17 @@ export default function DosingPage() {
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-gray-400">EC Target:</span>
                               <span className="text-xl font-medium">
-                                {data?.settings?.targetEc ? 
+                                {data.settings.targetEc ? 
                                   ((data.settings.targetEc.min + data.settings.targetEc.max) / 2).toFixed(2) : 
-                                  autoDoseConfig.targets.ec.target.toFixed(2)} mS/cm
+                                  (autoDoseConfig?.targets?.ec?.target || 0).toFixed(2)} mS/cm
                               </span>
                             </div>
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-gray-400">EC Tolerance (±):</span>
                               <span className="text-xl font-medium">
-                                {data?.settings?.targetEc ? 
+                                {data.settings.targetEc ? 
                                   ((data.settings.targetEc.max - data.settings.targetEc.min) / 2).toFixed(2) : 
-                                  autoDoseConfig.targets.ec.tolerance.toFixed(2)} mS/cm
+                                  (autoDoseConfig?.targets?.ec?.tolerance || 0).toFixed(2)} mS/cm
                               </span>
                             </div>
                             <div className="mt-3 text-sm text-gray-400">
@@ -856,13 +872,19 @@ export default function DosingPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.history.map((event, index) => (
-                    <tr key={index} className="border-b border-[#333333]">
-                      <td className="py-3 text-sm text-gray-400">{event.timestamp}</td>
-                      <td className="py-3">{event.details?.split(' ')[0] || 'Unknown'}</td>
-                      <td className="py-3">{event.action}</td>
+                  {data.history && data.history.length > 0 ? (
+                    data.history.map((event, index) => (
+                      <tr key={index} className="border-b border-[#333333]">
+                        <td className="py-3 text-sm text-gray-400">{event.timestamp}</td>
+                        <td className="py-3">{event.details?.split(' ')[0] || 'Unknown'}</td>
+                        <td className="py-3">{event.action}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} className="py-3 text-center text-gray-400">No history available</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
