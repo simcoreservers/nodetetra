@@ -9,6 +9,10 @@ import { info, error, debug } from './logger';
 
 const MODULE = 'dosingMigration';
 
+// Singleton control
+let migrationInProgress = false;
+let migrationCompleted = false;
+
 // Path constants
 const DATA_PATH = path.join(process.cwd(), 'data');
 const DOSING_FILE = path.join(DATA_PATH, 'dosing.json');
@@ -83,6 +87,11 @@ interface UnifiedDosingConfig {
  * Migrate dosing data from legacy formats to unified format
  */
 export async function migrateDosing(): Promise<boolean> {
+  // Skip if already completed or in progress
+  if (migrationCompleted) return true;
+  if (migrationInProgress) return true;
+  
+  migrationInProgress = true;
   try {
     info(MODULE, 'Starting dosing system migration');
     
@@ -287,9 +296,11 @@ export async function migrateDosing(): Promise<boolean> {
     await fs.writeFile(UNIFIED_FILE, JSON.stringify(unifiedConfig, null, 2), 'utf8');
     info(MODULE, 'Unified dosing configuration saved successfully');
     
+    migrationCompleted = true;
     return true;
   } catch (err) {
     error(MODULE, 'Migration failed', err);
+    migrationInProgress = false;
     return false;
   }
 }

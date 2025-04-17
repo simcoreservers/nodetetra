@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
 import { getAllSensorReadings } from '@/app/lib/sensors';
 import { getUnifiedDosingConfig } from '@/app/lib/dosingMigration';
-import { error, info, debug } from '@/app/lib/logger';
+import { error, info, debug, warn } from '@/app/lib/logger';
 
 const MODULE = 'api:sensors';
 
@@ -51,37 +51,36 @@ export async function GET() {
       if (dosingConfig?.enabled) {
         debug(MODULE, 'Auto-dosing enabled - scheduling check with latest sensor readings');
         
-        // Use setTimeout to avoid blocking the response
-        setTimeout(async () => {
+        // Create a task that runs after response is sent (important: use high delay)
+        const taskId = setTimeout(async () => {
+          // Don't make too many requests
+          const now = Date.now();
+          const requestKey = 'last_autodose_request';
+          const lastRequest = global[requestKey] || 0;
+          
+          if (now - lastRequest < 5000) { // 5 second minimum between triggers
+            warn(MODULE, `Auto-dosing attempted too frequently, skipping (${now - lastRequest}ms since last request)`);
+            return;
+          }
+          
+          global[requestKey] = now;
+          
           try {
-            // Trigger a dosing check using the API
-            const response = await fetch(`${process.env.HOST_URL || 'http://localhost:3000'}/api/dosing/auto`, {
+            debug(MODULE, 'Scheduling auto-dosing check');
+            
+            // Direct request with absolute URL
+            await fetch('http://localhost:3000/api/dosing/auto', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
               },
               body: JSON.stringify({ action: 'dose' }),
             });
-            
-            if (!response.ok) {
-              throw new Error(`Failed to trigger auto-dosing: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.status === 'success' && data.result) {
-              if (data.result.action === 'dosed') {
-                info(MODULE, `Auto-dosing triggered successfully: ${data.result.details.type}`);
-              } else if (data.result.action === 'waiting') {
-                debug(MODULE, `Auto-dosing waiting: ${data.result.details.reason}`);
-              } else {
-                debug(MODULE, `Auto-dosing not needed: ${data.result.details.reason || 'Parameters within target range'}`);
-              }
-            }
           } catch (e) {
-            error(MODULE, 'Error performing auto-dosing check:', e);
+            error(MODULE, 'Auto-dosing trigger failed:', e);
           }
-        }, 100);
+        }, 500); // 500ms delay to ensure response is sent first
       }
     } catch (e) {
       error(MODULE, 'Error checking auto-dosing status:', e);
