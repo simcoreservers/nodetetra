@@ -65,12 +65,15 @@ export default function DosingPage() {
 
   // Update minInterval state from autodosing config
   useEffect(() => {
-    if (autoDoseConfig) {
+    if (autoDoseConfig && autoDoseConfig.dosing && autoDoseConfig.dosing.phUp) {
       setPhUpInterval(autoDoseConfig.dosing.phUp.minInterval);
-      setPhDownInterval(autoDoseConfig.dosing.phDown.minInterval);
+      
+      if (autoDoseConfig.dosing.phDown) {
+        setPhDownInterval(autoDoseConfig.dosing.phDown.minInterval);
+      }
       
       // Set a default value for nutrient pumps (assuming all have the same interval)
-      const nutrientPumpKeys = Object.keys(autoDoseConfig.dosing.nutrientPumps);
+      const nutrientPumpKeys = Object.keys(autoDoseConfig.dosing.nutrientPumps || {});
       if (nutrientPumpKeys.length > 0) {
         const firstPump = nutrientPumpKeys[0];
         setNutrientInterval(autoDoseConfig.dosing.nutrientPumps[firstPump].minInterval);
