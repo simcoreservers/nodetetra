@@ -9,6 +9,10 @@ const CLIENTS = new Set<ReadableStreamController<Uint8Array>>();
 let streamInterval: NodeJS.Timeout | null = null;
 const STREAM_INTERVAL_MS = 1000; // 1 second update interval
 
+// Auto-dosing rate limiting
+let lastAutoDosingCheck = 0;
+const AUTO_DOSING_CHECK_INTERVAL = 1000; // 1 second minimum between checks
+
 function startStreamInterval() {
   if (streamInterval) return; // Only start if not already running
   
@@ -51,7 +55,10 @@ function startStreamInterval() {
       
       // Check if auto-dosing is needed
       const dosingConfig = getDosingConfig();
-      if (dosingConfig.enabled) {
+      const now = Date.now();
+      if (dosingConfig.enabled && now - lastAutoDosingCheck > AUTO_DOSING_CHECK_INTERVAL) {
+        lastAutoDosingCheck = now;
+        console.log("Stream checking auto-dosing");
         // Perform dosing check in the background (don't wait for it)
         performAutoDosing().then(result => {
           if (result.action === 'dosed') {
