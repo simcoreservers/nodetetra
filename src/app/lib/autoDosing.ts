@@ -2207,14 +2207,10 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
         enableMonitoring();
         info(MODULE, 'Explicitly enabled monitoring on auto-dosing enable');
         
-        import('./server-init').then(({ initializeServer, startContinuousMonitoring, stopContinuousMonitoring }) => {
+        import('./server-init').then(({ startContinuousMonitoring, stopContinuousMonitoring }) => {
           // First stop any existing monitoring
           stopContinuousMonitoring();
           info(MODULE, 'Stopped any existing monitoring before restart');
-          
-          initializeServer().catch(err => {
-            error(MODULE, 'Failed to initialize server after enabling auto-dosing:', err);
-          });
           
           // Start continuous monitoring when auto-dosing is enabled
           startContinuousMonitoring();
