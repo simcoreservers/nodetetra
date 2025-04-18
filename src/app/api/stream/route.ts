@@ -2,16 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAllSensorReadings } from '@/app/lib/sensors';
 import { getAllPumpStatus } from '@/app/lib/pumps';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
-import { performAutoDosing, getDosingConfig } from '@/app/lib/autoDosing';
+import { getDosingConfig } from '@/app/lib/autoDosing';
 
 // Track active stream connections
 const CLIENTS = new Set<ReadableStreamController<Uint8Array>>();
 let streamInterval: NodeJS.Timeout | null = null;
 const STREAM_INTERVAL_MS = 1000; // 1 second update interval
 
-// Auto-dosing rate limiting
-let lastAutoDosingCheck = 0;
-const AUTO_DOSING_CHECK_INTERVAL = 1000; // 1 second minimum between checks
+// Auto-dosing related code removed to rely solely on monitorControl
 
 function startStreamInterval() {
   if (streamInterval) return; // Only start if not already running
@@ -53,21 +51,8 @@ function startStreamInterval() {
         pumpData = { error: 'Failed to get pump status', status: 'error' };
       }
       
-      // Check if auto-dosing is needed
+      // Auto-dosing check removed - relying solely on monitorControl
       const dosingConfig = getDosingConfig();
-      const now = Date.now();
-      if (dosingConfig.enabled && now - lastAutoDosingCheck > AUTO_DOSING_CHECK_INTERVAL) {
-        lastAutoDosingCheck = now;
-        console.log("Stream checking auto-dosing");
-        // Perform dosing check in the background (don't wait for it)
-        performAutoDosing().then(result => {
-          if (result.action === 'dosed') {
-            console.log(`Auto-dosing triggered: ${result.details.type} (${result.details.amount}ml)`);
-          }
-        }).catch(err => {
-          console.error('Error in auto-dosing check:', err);
-        });
-      }
       
       // Format the data for SSE
       const data = {
