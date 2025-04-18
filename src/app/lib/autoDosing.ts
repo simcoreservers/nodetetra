@@ -220,6 +220,57 @@ export function isLocked(): boolean {
   return dosingLock.inProgress;
 }
 
+/**
+ * Reset all safety flags and allow dosing to restart cleanly
+ * This function resets all safety-related flags that might prevent auto-dosing from working
+ */
+export function resetSafetyFlags(): void {
+  info(MODULE, '== RESETTING ALL AUTO-DOSING SAFETY FLAGS ==');
+  
+  // Reset the explicitly disabled flag
+  autoDosingExplicitlyDisabled = false;
+  info(MODULE, 'Reset autoDosingExplicitlyDisabled flag: ' + autoDosingExplicitlyDisabled);
+  
+  // Reset the dosing lock
+  if (dosingLock.inProgress) {
+    info(MODULE, 'Clearing dosing lock that was in progress');
+    dosingLock.inProgress = false;
+  }
+  
+  // Clear any pending timeout
+  if (dosingLock.timeout) {
+    info(MODULE, 'Clearing pending dosing timeout');
+    clearTimeout(dosingLock.timeout);
+    dosingLock.timeout = null;
+  }
+  
+  dosingLock.lastAttempt = 0;
+  
+  // Reset all dose timestamps to allow immediate dosing
+  resetDoseTimestamps();
+  
+  // Reset circuit breaker if it's open
+  if (dosingConfig.errorHandling?.circuitOpen) {
+    info(MODULE, 'Reset circuit breaker from open state');
+    dosingConfig.errorHandling.circuitOpen = false;
+    dosingConfig.errorHandling.currentFailCount = 0;
+    dosingConfig.errorHandling.lastFailure = null;
+  }
+  
+  // Reset PID controllers
+  if (dosingConfig.pidControllers) {
+    resetPIDController(dosingConfig.pidControllers.ph);
+    resetPIDController(dosingConfig.pidControllers.ec);
+    info(MODULE, 'Reset PID controllers to initial state');
+  }
+  
+  // Reset server start time to bypass startup safety delay
+  serverStartTime = Date.now() - STARTUP_SAFETY_DELAY - 1000;
+  info(MODULE, 'Reset startup safety delay');
+  
+  info(MODULE, '== ALL SAFETY FLAGS RESET SUCCESSFULLY ==');
+}
+
 // Try to load the saved configuration from disk
 try {
   if (typeof window === 'undefined') {

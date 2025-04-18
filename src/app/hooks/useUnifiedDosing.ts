@@ -102,7 +102,11 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ 
+          action,
+          // Add a force flag when enabling to make API force a clean restart
+          ...(action === 'enable' ? { forceReset: true } : {})
+        }),
       });
       
       if (!response.ok) {
@@ -126,6 +130,11 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
             'Content-Type': 'application/json',
           }
         }).catch(err => console.error('Error forcing monitoring stop:', err));
+      } else if (action === 'enable') {
+        // When enabling, double-check status after a short delay
+        setTimeout(() => {
+          fetchConfig();
+        }, 1000);
       }
       
       setError(null);
