@@ -9,8 +9,15 @@ export function startContinuousMonitoring() {
   }
   
   console.log('Starting continuous monitoring for auto-dosing');
+  enableMonitoring();
+  
   monitoringInterval = setInterval(async () => {
     try {
+      // Skip processing if monitoring disabled via control flag
+      if (!isMonitoringEnabled()) {
+        return;
+      }
+      
       const { getDosingConfig, performAutoDosing } = await import('./autoDosing');
       const config = getDosingConfig();
       
@@ -33,6 +40,8 @@ export function stopContinuousMonitoring() {
   if (monitoringInterval) {
     clearInterval(monitoringInterval);
     monitoringInterval = null;
+    // Disable the monitoring flag
+    disableMonitoring();
     console.log('Continuous monitoring for auto-dosing stopped');
   } else {
     console.log('No active monitoring to stop');
@@ -46,6 +55,7 @@ export function stopContinuousMonitoring() {
 import { initializePumps, loadPumpConfig, cleanupGpio } from './pumps';
 import { initializeSimulation } from './simulation';
 import { initializeAutoDosing, performAutoDosing } from './autoDosing';
+import { enableMonitoring, disableMonitoring, isMonitoringEnabled } from './monitorControl';
 
 // Track interval IDs for cleanup
 const intervals: NodeJS.Timeout[] = [];

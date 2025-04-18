@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { stopContinuousMonitoring } from '@/app/lib/server-init'; // Import monitoring control
 
 // Temporarily suppress certain logs by patching console
 const originalConsoleLog = console.log;

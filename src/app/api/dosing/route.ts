@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDosingConfig, updateDosingConfig } from '@/app/lib/autoDosing';
 import { error, info } from '@/app/lib/logger';
+import { disableMonitoring } from '@/app/lib/monitorControl';
 
 
 const MODULE = 'api:dosing';
@@ -93,6 +94,17 @@ export async function POST(request: NextRequest) {
         
       case 'disable':
         const disabledConfig = updateDosingConfig({ enabled: false });
+        
+        // Force stop monitoring when disabled by setting global flag
+        disableMonitoring();
+        
+        // Also shutdown the monitoring service completely
+        if (typeof window === 'undefined') {
+          import('../../lib/server-init').then(({ stopContinuousMonitoring }) => {
+            stopContinuousMonitoring();
+            console.log('FORCE STOPPING AUTO-DOSING');
+          });
+        }
         
         return NextResponse.json({
           status: 'success',

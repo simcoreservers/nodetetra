@@ -7,6 +7,7 @@ import { PumpName, dispensePump, getAllPumpStatus } from './pumps';
 import { SensorData } from './sensors';
 import { getAllSensorReadings } from './sensors';
 import { getSimulatedSensorReadings, isSimulationEnabled } from './simulation';
+import { disableMonitoring } from './monitorControl';
 import fs from 'fs';
 import path from 'path';
 import { info, error, debug, trace, warn } from './logger';
@@ -1245,6 +1246,7 @@ export async function performAutoDosing(): Promise<{
   
   // Check if auto-dosing is enabled using strict comparison
   if (dosingConfig.enabled !== true) {
+    disableMonitoring(); // Force monitoring off
     debug(MODULE, 'Auto-dosing is disabled, skipping cycle');
     return { 
       action: 'none', 
@@ -1875,6 +1877,11 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
     }
   } else if (oldEnabled && !newEnabled) {
     // Stop continuous monitoring when auto-dosing is disabled
+    info(MODULE, '### AUTO-DOSING DISABLED - STOPPING MONITORING ###');
+    
+    // Directly disable monitoring flag
+    disableMonitoring();
+    
     if (typeof window === 'undefined') {
       import('./server-init').then(({ stopContinuousMonitoring }) => {
         stopContinuousMonitoring();
