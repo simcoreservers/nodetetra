@@ -2059,6 +2059,12 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
   // Deep merge changes
   dosingConfig = deepMerge(dosingConfig, updates);
   
+  // Ensure the enabled state is explicitly set to prevent defaults from overriding
+  if (updates.enabled !== undefined) {
+    info(MODULE, `Explicitly setting enabled state to: ${updates.enabled}`);
+    dosingConfig.enabled = updates.enabled;
+  }
+  
   // If intervals changed, reset lastDose timestamps to allow immediate dosing
   if (hasIntervalChanges) {
     info(MODULE, 'Interval settings changed, resetting lastDose timestamps');

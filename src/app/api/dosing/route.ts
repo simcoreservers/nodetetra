@@ -81,10 +81,30 @@ export async function POST(req: Request) {
     } else if (action === 'disable') {
       console.log('[INFO] [dosing-api] User explicitly disabled auto-dosing');
       config.enabled = false;
+    } else if (action === 'update') {
+      // Handle configuration updates from UI
+      console.log('[INFO] [dosing-api] Updating auto-dosing configuration');
+      
+      if (body.config) {
+        // Apply the provided updates to the config
+        config = updateDosingConfig(body.config);
+      }
+    } else if (action === 'reset') {
+      console.log('[INFO] [dosing-api] Resetting auto-dosing configuration to defaults');
+      
+      // Import and use resetDosingConfig
+      try {
+        const { resetDosingConfig } = await import('../../lib/autoDosing');
+        config = resetDosingConfig();
+      } catch (err) {
+        console.error('[ERROR] [dosing-api] Failed to reset dosing config:', err);
+      }
     }
 
-    // Save config
-    await updateDosingConfig(config);
+    // Save config - only updateDosingConfig() is needed as it handles persistence
+    if (action === 'enable' || action === 'disable') {
+      await updateDosingConfig(config);
+    }
 
     return new Response(JSON.stringify({ status: 'success', config }), { status: 200 });
   } catch (error) {

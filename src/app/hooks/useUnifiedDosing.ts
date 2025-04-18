@@ -119,7 +119,10 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
         throw new Error(data.error || `Unknown error during ${action} dosing`);
       }
       
-      setConfig(data.config);
+      // Update config with the returned state to ensure UI reflects server state
+      if (data.config) {
+        setConfig(data.config);
+      }
       
       // Force monitoring to stop if disabling
       if (action === 'disable') {
@@ -135,6 +138,11 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
         setTimeout(() => {
           fetchConfig();
         }, 1000);
+        
+        // Add a second verification after slightly longer delay
+        setTimeout(() => {
+          fetchConfig();
+        }, 3000);
       }
       
       setError(null);
