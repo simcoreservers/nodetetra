@@ -23,8 +23,6 @@ import type { PumpStatus } from './pumps';
 
 // Import with timeout to prevent hanging
 async function importWithTimeout(modulePath: string, timeout: number): Promise<any> {
-  // Make sure to use full path for imports when needed
-  const fullPath = modulePath.startsWith('./') ? `@/app/lib${modulePath.substring(1)}` : modulePath;
   return new Promise(async (resolve, reject) => {
     // Set a timeout to reject if import takes too long
     const timeoutId = setTimeout(() => {
@@ -33,7 +31,7 @@ async function importWithTimeout(modulePath: string, timeout: number): Promise<a
     
     try {
       // Attempt to import the module
-      const module = await import(fullPath);
+      const module = await import(modulePath);
       clearTimeout(timeoutId);
       resolve(module);
     } catch (error) {
@@ -50,14 +48,14 @@ async function tryLoadGPIOCleanup(): Promise<void> {
   if (typeof window === 'undefined' && !cleanupGPIO) {
     try {
       // Try to dynamically import modules that might have GPIO cleanup
-      const pumpsModule = await importWithTimeout('@/app/lib/pumps', MODULE_IMPORT_TIMEOUT);
+      const pumpsModule = await importWithTimeout('./pumps', MODULE_IMPORT_TIMEOUT);
       if (typeof pumpsModule.cleanupGpio === 'function') {
         cleanupGPIO = pumpsModule.cleanupGpio;
         return;
       }
       
       // Try other possible modules if the first attempt fails
-      const hardwareModules = ['@/app/lib/hardware', '@/app/lib/gpio', '@/app/lib/rpi'];
+      const hardwareModules = ['./hardware', './gpio', './rpi'];
       for (const module of hardwareModules) {
         try {
           const mod = await importWithTimeout(module, MODULE_IMPORT_TIMEOUT / 2);
@@ -116,7 +114,7 @@ export function startContinuousMonitoring() {
   }, MODULE_IMPORT_TIMEOUT);
   
   // Import with error handling
-  importWithTimeout('@/app/lib/monitorControl', MODULE_IMPORT_TIMEOUT)
+  importWithTimeout('./monitorControl', MODULE_IMPORT_TIMEOUT)
     .then(({ enableMonitoring }) => {
       // Clear the timeout since import succeeded
       clearTimeout(importTimeoutId);
@@ -127,13 +125,13 @@ export function startContinuousMonitoring() {
       monitoringInterval = setInterval(async () => {
         try {
           // Skip processing if monitoring disabled via control flag
-          if (!(await importWithTimeout('@/app/lib/monitorControl', MODULE_IMPORT_TIMEOUT)).isMonitoringEnabled()) {
+          if (!(await importWithTimeout('./monitorControl', MODULE_IMPORT_TIMEOUT)).isMonitoringEnabled()) {
             return;
           }
           
           // Check for any pumps that might be stuck in "on" state
           try {
-            const { getAllPumpStatus, stopPump } = await importWithTimeout('@/app/lib/pumps', MODULE_IMPORT_TIMEOUT);
+            const { getAllPumpStatus, stopPump } = await importWithTimeout('./pumps', MODULE_IMPORT_TIMEOUT);
             const pumpStatus = getAllPumpStatus();
             
             for (const pump of pumpStatus) {
@@ -156,9 +154,9 @@ export function startContinuousMonitoring() {
       // Run performAutoDosing immediately at startup to check if dosing is needed now
       setTimeout(async () => {
         try {
-          const monitoringModule = await importWithTimeout('@/app/lib/monitorControl', MODULE_IMPORT_TIMEOUT);
+          const monitoringModule = await importWithTimeout('./monitorControl', MODULE_IMPORT_TIMEOUT);
           if (monitoringModule.isMonitoringEnabled()) {
-            const { getDosingConfig, performAutoDosing } = await importWithTimeout('@/app/lib/autoDosing', MODULE_IMPORT_TIMEOUT);
+            const { getDosingConfig, performAutoDosing } = await importWithTimeout('./autoDosing', MODULE_IMPORT_TIMEOUT);
             const config = getDosingConfig();
             
             if (config && config.enabled === true) {
@@ -175,13 +173,13 @@ export function startContinuousMonitoring() {
       dosingInterval = setInterval(async () => {
         try {
           // Skip processing if monitoring disabled via control flag
-          const monitoringModule = await importWithTimeout('@/app/lib/monitorControl', MODULE_IMPORT_TIMEOUT);
+          const monitoringModule = await importWithTimeout('./monitorControl', MODULE_IMPORT_TIMEOUT);
           if (!monitoringModule.isMonitoringEnabled()) {
             console.log('Monitoring disabled via control flag, skipping auto-dosing check');
             return;
           }
           
-          const { getDosingConfig, performAutoDosing } = await importWithTimeout('@/app/lib/autoDosing', MODULE_IMPORT_TIMEOUT);
+          const { getDosingConfig, performAutoDosing } = await importWithTimeout('./autoDosing', MODULE_IMPORT_TIMEOUT);
           const config = getDosingConfig();
           
           if (config && config.enabled === true) {
@@ -246,7 +244,7 @@ export function stopContinuousMonitoring() {
   }
   
   // Ensure monitoring flag is disabled
-  importWithTimeout('@/app/lib/monitorControl', MODULE_IMPORT_TIMEOUT)
+  importWithTimeout('./monitorControl', MODULE_IMPORT_TIMEOUT)
     .then(({ disableMonitoring }) => {
       disableMonitoring();
       console.log('Disabled monitoring flag');
@@ -268,7 +266,7 @@ export async function initializeServer(): Promise<boolean> {
   try {
     // 1. First verify the pump system is operational
     console.log('1. Verifying pump system');
-    const pumpModule = await importWithTimeout('@/app/lib/pumps', MODULE_IMPORT_TIMEOUT);
+    const pumpModule = await importWithTimeout('./pumps', MODULE_IMPORT_TIMEOUT);
     const pumpStatus = pumpModule.getAllPumpStatus();
     
     // Stop any active pumps that might be lingering
@@ -285,12 +283,12 @@ export async function initializeServer(): Promise<boolean> {
     
     // 2. Now that pumps are verified, initialize auto-dosing
     console.log('2. Initializing auto-dosing system');
-    const { initializeAutoDosing } = await importWithTimeout('@/app/lib/autoDosing', MODULE_IMPORT_TIMEOUT);
+    const { initializeAutoDosing } = await importWithTimeout('./autoDosing', MODULE_IMPORT_TIMEOUT);
     await initializeAutoDosing();
     
     // 3. Set up the monitoring system, but keep it disabled until explicitly enabled
     console.log('3. Setting up monitoring (will remain disabled)');
-    const { disableMonitoring } = await importWithTimeout('@/app/lib/monitorControl', MODULE_IMPORT_TIMEOUT);
+    const { disableMonitoring } = await importWithTimeout('./monitorControl', MODULE_IMPORT_TIMEOUT);
     disableMonitoring(); // Ensure monitoring starts in disabled state
     
     // 4. Try to load GPIO cleanup for future use
@@ -315,62 +313,58 @@ export async function initializeServer(): Promise<boolean> {
 export async function cleanupServer(): Promise<void> {
   console.log('Cleaning up server resources');
   
-  // Stop monitoring first to prevent new operations from starting
-  stopContinuousMonitoring();
-  
-  // If intervals weren't properly cleared, try again with more direct approach
-  if (!intervalsCleared) {
-    if (monitoringInterval) {
-      try {
-        clearInterval(monitoringInterval);
-        monitoringInterval = null;
-        console.log('Forcibly cleared monitoring interval');
-      } catch (err) {
-        console.error('Failed to forcibly clear monitoring interval:', err);
-      }
-    }
-    
-    if (dosingInterval) {
-      try {
-        clearInterval(dosingInterval);
-        dosingInterval = null;
-        console.log('Forcibly cleared dosing interval');
-      } catch (err) {
-        console.error('Failed to forcibly clear dosing interval:', err);
-      }
-    }
-  }
-  
   try {
-    // Ensure all pumps are stopped
-    const { getAllPumpStatus, stopPump } = await importWithTimeout('@/app/lib/pumps', MODULE_IMPORT_TIMEOUT);
-    const pumpStatus = getAllPumpStatus();
+    // First stop the continuous monitoring to prevent more checks
+    console.log('Stopping continuous monitoring');
+    stopContinuousMonitoring();
     
-    // Force stop any active pumps
-    const activePumps = pumpStatus.filter((p: PumpStatus) => p.active);
-    if (activePumps.length > 0) {
-      console.warn(`Found ${activePumps.length} active pumps during cleanup, stopping them...`);
-      for (const pump of activePumps) {
-        await stopPump(pump.name).catch((err: Error) => 
-          console.error(`Failed to stop pump ${pump.name} during cleanup:`, err));
+    try {
+      // Ensure all pumps are stopped
+      const { getAllPumpStatus, stopPump } = await importWithTimeout('./pumps', MODULE_IMPORT_TIMEOUT);
+      const pumpStatus = getAllPumpStatus();
+      
+      // Force stop any active pumps
+      const activePumps = pumpStatus.filter((p: PumpStatus) => p.active);
+      if (activePumps.length > 0) {
+        console.log(`Found ${activePumps.length} active pumps, forcing stop`);
+        
+        await Promise.all(activePumps.map((pump: PumpStatus) => {
+          console.log(`Emergency stopping pump ${pump.name} during cleanup`);
+          return stopPump(pump.name);
+        }));
       }
+      
+      // Optionally run hardware-specific cleanup
+      if (cleanupGPIO) {
+        console.log('Running GPIO cleanup');
+        await cleanupGPIO();
+      }
+    } catch (error) {
+      console.error('Error during server cleanup:', error);
     }
     
-    // Try to load GPIO cleanup if not already loaded
-    await tryLoadGPIOCleanup();
-    
-    // Clean up GPIO resources
-    if (cleanupGPIO) {
-      await cleanupGPIO().catch((err: Error) => 
-        console.error('Error cleaning up GPIO:', err));
-    } else {
-      console.warn('No GPIO cleanup function available - skipping GPIO cleanup');
+    // Ensure monitoring flag is disabled
+    try {
+      const monitorControlModule = await importWithTimeout('./monitorControl', MODULE_IMPORT_TIMEOUT);
+      monitorControlModule.disableMonitoring();
+    } catch (error) {
+      console.error('Error disabling monitoring flag:', error);
     }
     
-    console.log('Server cleanup complete');
-  } catch (err) {
-    console.error('Error during server cleanup:', err);
-    throw err; // Rethrow to ensure calling code knows cleanup failed
+    // Never auto-start monitoring based on config file - user must explicitly enable
+    try {
+      const { getDosingConfig, updateDosingConfig } = await importWithTimeout('./autoDosing', MODULE_IMPORT_TIMEOUT);
+      const config = getDosingConfig();
+      
+      if (config.enabled === true) {
+        console.log('Auto-dosing was enabled, disabling on shutdown for safety');
+        updateDosingConfig({ enabled: false });
+      }
+    } catch (error) {
+      console.error('Failed to clean up after initialization error:', error);
+    }
+  } catch (error) {
+    console.error('Fatal error during server cleanup:', error);
   }
 }
 
@@ -394,7 +388,7 @@ if (typeof window === 'undefined') {
     console.log('Server initialization - auto-dosing will remain OFF until explicitly enabled by user');
     
     // Never auto-start monitoring based on config file - user must explicitly enable
-    importWithTimeout('@/app/lib/autoDosing', MODULE_IMPORT_TIMEOUT)
+    importWithTimeout('./autoDosing', MODULE_IMPORT_TIMEOUT)
       .then(({ getDosingConfig, updateDosingConfig }) => {
         const config = getDosingConfig();
         // Force disable on startup if somehow enabled
