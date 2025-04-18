@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
 import { getAllSensorReadings } from '@/app/lib/sensors';
-import { getUnifiedDosingConfig } from '@/app/lib/dosingMigration';
+import { getDosingConfig } from '@/app/lib/autoDosing';
 import { error, info, debug, warn } from '@/app/lib/logger';
 
 const MODULE = 'api:sensors';
@@ -47,7 +47,7 @@ export async function GET() {
 
     // Check if auto-dosing is enabled
     try {
-      const dosingConfig = await getUnifiedDosingConfig();
+      const dosingConfig = getDosingConfig();
       if (dosingConfig?.enabled) {
         debug(MODULE, 'Auto-dosing enabled - scheduling check with latest sensor readings');
         
