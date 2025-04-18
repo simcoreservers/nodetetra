@@ -60,9 +60,25 @@ export async function POST(req: Request) {
     if (action === 'enable') {
       console.log('[INFO] [dosing-api] User explicitly enabled auto-dosing');
       
+      // First update the config
+      config.enabled = true;
+      
+      // Save the configuration first
+      await updateDosingConfig(config);
+      
       // Explicitly enable monitoring when auto-dosing is enabled
       enableMonitoring();
       console.log('[INFO] [dosing-api] Explicitly enabled monitoring with auto-dosing');
+      
+      // Make sure monitoring system is running
+      try {
+        // Import and start monitoring if needed
+        const { startContinuousMonitoring } = await import('../../lib/server-init');
+        startContinuousMonitoring();
+        console.log('[INFO] [dosing-api] Started continuous monitoring for auto-dosing');
+      } catch (err) {
+        console.error('[ERROR] [dosing-api] Failed to start continuous monitoring:', err);
+      }
       
       if (forceReset) {
         console.log('[INFO] [dosing-api] Force resetting all safety flags for clean start');
@@ -79,9 +95,6 @@ export async function POST(req: Request) {
           console.error('[ERROR] [dosing-api] Failed to reset safety flags:', err);
         }
       }
-      
-      // Update config
-      config.enabled = true;
     } else if (action === 'disable') {
       console.log('[INFO] [dosing-api] User explicitly disabled auto-dosing');
       
@@ -145,7 +158,7 @@ export async function POST(req: Request) {
     }
 
     // Save config - only updateDosingConfig() is needed as it handles persistence
-    if (action === 'enable' || action === 'disable') {
+    if (action === 'disable') {
       await updateDosingConfig(config);
     }
 
