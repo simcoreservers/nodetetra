@@ -762,7 +762,6 @@ function saveDosingConfig(): void {
     // Get path for config file
     const configPath = path.join(DATA_PATH, 'autodosing.json');
     const tempPath = path.join(DATA_PATH, 'autodosing.json.tmp');
-    const backupPath = path.join(DATA_PATH, 'autodosing.json.bak');
     
     // Create a deep copy of the config to avoid reference issues
     const configToSave = JSON.parse(JSON.stringify(dosingConfig));
@@ -770,22 +769,18 @@ function saveDosingConfig(): void {
     // Write to temporary file first
     fs.writeFileSync(tempPath, JSON.stringify(configToSave, null, 2), 'utf8');
     
-    // If the original file exists, create a backup
-    if (fs.existsSync(configPath)) {
-      fs.copyFileSync(configPath, backupPath);
-    }
-    
     // Atomic rename to final filename (prevents corruption if system crashes during write)
     fs.renameSync(tempPath, configPath);
     
-    // Ensure data is flushed to disk by syncing the directory
+    // Optionally force sync the parent directory to ensure changes are flushed to disk
+    // This is more reliable but can be slower
     try {
-      const dirHandle = fs.openSync(DATA_PATH, 'r');
-      fs.fsyncSync(dirHandle);
-      fs.closeSync(dirHandle);
+      const dirFd = fs.openSync(DATA_PATH, 'r');
+      fs.fsyncSync(dirFd);
+      fs.closeSync(dirFd);
     } catch (syncErr) {
       warn(MODULE, 'Could not fsync directory:', syncErr);
-      // Not critical, just a best-effort to ensure writes are durable
+      // Continue without error - this is just an additional safety measure
     }
     
     trace(MODULE, `Auto-dosing config saved to ${configPath}`);
@@ -797,6 +792,7 @@ function saveDosingConfig(): void {
 
 /**
  * Asynchronous version of saveDosingConfig for non-blocking saves
+ * Uses atomic file operations without creating backup files
  */
 async function saveDosingConfigAsync(): Promise<void> {
   return new Promise((resolve, reject) => {

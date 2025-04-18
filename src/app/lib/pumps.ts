@@ -166,6 +166,7 @@ function loadPumpStates(): void {
 
 /**
  * Save the current active state of pumps to file
+ * Uses atomic file operations to prevent corruption
  */
 function savePumpStates(): void {
   if (isClient) {
@@ -188,8 +189,24 @@ function savePumpStates(): void {
       };
     }
 
-    // Write the state object to file
-    fs.writeFileSync(PUMP_STATE_FILE, JSON.stringify(statesToSave, null, 2), 'utf8');
+    // Use atomic write pattern with a temporary file
+    const tempFile = `${PUMP_STATE_FILE}.tmp`;
+    
+    // Write to temporary file first
+    fs.writeFileSync(tempFile, JSON.stringify(statesToSave, null, 2), 'utf8');
+    
+    // Rename the temporary file to the actual state file (atomic operation)
+    fs.renameSync(tempFile, PUMP_STATE_FILE);
+    
+    // Optionally force sync the parent directory to ensure changes are flushed to disk
+    try {
+      const dirFd = fs.openSync(DATA_PATH, 'r');
+      fs.fsyncSync(dirFd);
+      fs.closeSync(dirFd);
+    } catch (syncErr) {
+      console.warn('Could not fsync directory:', syncErr);
+      // Continue without error - this is just an additional safety measure
+    }
     
     console.log('Pump active states saved to file');
   } catch (error) {
@@ -232,13 +249,12 @@ export function savePumpConfig(): void {
     fs.renameSync(tempFile, PUMP_CONFIG_FILE);
     
     // Optionally force sync the parent directory to ensure changes are flushed to disk
-    // This is more reliable but can be slower
     try {
       const dirFd = fs.openSync(DATA_PATH, 'r');
       fs.fsyncSync(dirFd);
       fs.closeSync(dirFd);
-    } catch (syncError) {
-      console.warn('Could not fsync directory:', syncError);
+    } catch (syncErr) {
+      console.warn('Could not fsync directory:', syncErr);
       // Continue without error - this is just an additional safety measure
     }
     
