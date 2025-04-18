@@ -2580,4 +2580,10 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
   });
   
   return dosingConfig;
+}
+
+// Export getDosingConfig function
+export function getDosingConfig(): DosingConfig {
+  // Return a deep copy to prevent external mutation
+  return JSON.parse(JSON.stringify(dosingConfig));
 } 
