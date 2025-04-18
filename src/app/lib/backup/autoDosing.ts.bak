@@ -604,6 +604,37 @@ function calculateBackoffTime(): number {
 }
 
 /**
+ * Helper function to get the active profile with improved error handling and caching
+ * Uses a cache to reduce file system reads
+ */
+async function getActiveProfileOptimized(): Promise<any> {
+  try {
+    const now = Date.now();
+    
+    // Return cached profile if still valid
+    if (activeProfileCache && (now - profileCacheTime) < PROFILE_CACHE_TTL) {
+      trace(MODULE, 'Using cached active profile');
+      return activeProfileCache;
+    }
+    
+    // Get fresh profile using existing function
+    const profile = await getActiveProfile();
+    
+    // Cache the result if valid
+    if (profile) {
+      activeProfileCache = profile;
+      profileCacheTime = now;
+    }
+    
+    return profile;
+  } catch (error) {
+    console.error("Error in optimized profile getter:", error);
+    // Fall back to original implementation on error
+    return getActiveProfile();
+  }
+}
+
+/**
  * Helper function to get the active profile
  */
 async function getActiveProfile() {
@@ -681,7 +712,7 @@ async function getActiveProfile() {
  */
 export async function syncProfilePumps(): Promise<boolean> {
   try {
-    const profile = await getActiveProfile();
+    const profile = await getActiveProfileOptimized();
     
     // Check if we have a valid profile
     if (!profile) {
@@ -1774,7 +1805,6 @@ export async function initializeAutoDosing(): Promise<boolean> {
         dosingConfig.errorHandling.lastFailure = null;
       }
       
-      // Load config and set defaults for any missing values
       await loadDosingConfigFromDisk(); // Must happen first to load saved settings
       
       // CRITICAL SAFETY REQUIREMENT: Force auto-dosing to be disabled on startup
@@ -1795,10 +1825,9 @@ export async function initializeAutoDosing(): Promise<boolean> {
       
       // Always save the disabled state
       saveDosingConfig();
-      
-      // Get active profile for pump configuration
-      const profile = await getActiveProfile();
-      
+
+      // Only sync with profile if we have an active profile
+      const profile = await getActiveProfileOptimized();
       if (profile) {
         // We'll only sync pumps on first initialization, but we won't
         // change any intervals that were already loaded from disk
