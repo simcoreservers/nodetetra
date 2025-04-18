@@ -2376,9 +2376,9 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
         updates.dosing.phUp.flowRate = Math.max(0.1, Math.min(updates.dosing.phUp.flowRate, 5.0));
       }
       
-      if (updates.dosing.phUp.minInterval !== undefined && (updates.dosing.phUp.minInterval < 10 || updates.dosing.phUp.minInterval > 3600)) {
-        warn(MODULE, `Invalid pH Up minimum interval: ${updates.dosing.phUp.minInterval}, must be between 10 and 3600 seconds`);
-        updates.dosing.phUp.minInterval = Math.max(10, Math.min(updates.dosing.phUp.minInterval, 3600));
+      if (updates.dosing.phUp.minInterval !== undefined && (updates.dosing.phUp.minInterval < 1 || updates.dosing.phUp.minInterval > 3600)) {
+        warn(MODULE, `Invalid pH Up minimum interval: ${updates.dosing.phUp.minInterval}, must be between 1 and 3600 seconds`);
+        updates.dosing.phUp.minInterval = Math.max(1, Math.min(updates.dosing.phUp.minInterval, 3600));
       }
     }
     
@@ -2394,9 +2394,9 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
         updates.dosing.phDown.flowRate = Math.max(0.1, Math.min(updates.dosing.phDown.flowRate, 5.0));
       }
       
-      if (updates.dosing.phDown.minInterval !== undefined && (updates.dosing.phDown.minInterval < 10 || updates.dosing.phDown.minInterval > 3600)) {
-        warn(MODULE, `Invalid pH Down minimum interval: ${updates.dosing.phDown.minInterval}, must be between 10 and 3600 seconds`);
-        updates.dosing.phDown.minInterval = Math.max(10, Math.min(updates.dosing.phDown.minInterval, 3600));
+      if (updates.dosing.phDown.minInterval !== undefined && (updates.dosing.phDown.minInterval < 1 || updates.dosing.phDown.minInterval > 3600)) {
+        warn(MODULE, `Invalid pH Down minimum interval: ${updates.dosing.phDown.minInterval}, must be between 1 and 3600 seconds`);
+        updates.dosing.phDown.minInterval = Math.max(1, Math.min(updates.dosing.phDown.minInterval, 3600));
       }
     }
     
@@ -2412,9 +2412,9 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
         updates.dosing.nutrient.flowRate = Math.max(0.1, Math.min(updates.dosing.nutrient.flowRate, 5.0));
       }
       
-      if (updates.dosing.nutrient.minInterval !== undefined && (updates.dosing.nutrient.minInterval < 10 || updates.dosing.nutrient.minInterval > 3600)) {
-        warn(MODULE, `Invalid nutrient minimum interval: ${updates.dosing.nutrient.minInterval}, must be between 10 and 3600 seconds`);
-        updates.dosing.nutrient.minInterval = Math.max(10, Math.min(updates.dosing.nutrient.minInterval, 3600));
+      if (updates.dosing.nutrient.minInterval !== undefined && (updates.dosing.nutrient.minInterval < 1 || updates.dosing.nutrient.minInterval > 3600)) {
+        warn(MODULE, `Invalid nutrient minimum interval: ${updates.dosing.nutrient.minInterval}, must be between 1 and 3600 seconds`);
+        updates.dosing.nutrient.minInterval = Math.max(1, Math.min(updates.dosing.nutrient.minInterval, 3600));
       }
     }
     
@@ -2433,9 +2433,9 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
           pump.flowRate = Math.max(0.1, Math.min(pump.flowRate, 5.0));
         }
         
-        if (pump.minInterval !== undefined && (pump.minInterval < 10 || pump.minInterval > 3600)) {
-          warn(MODULE, `Invalid minimum interval for ${pumpName}: ${pump.minInterval}, must be between 10 and 3600 seconds`);
-          pump.minInterval = Math.max(10, Math.min(pump.minInterval, 3600));
+        if (pump.minInterval !== undefined && (pump.minInterval < 1 || pump.minInterval > 3600)) {
+          warn(MODULE, `Invalid minimum interval for ${pumpName}: ${pump.minInterval}, must be between 1 and 3600 seconds`);
+          pump.minInterval = Math.max(1, Math.min(pump.minInterval, 3600));
         }
         
         if (pump.proportion !== undefined && (pump.proportion < 0 || pump.proportion > 1)) {

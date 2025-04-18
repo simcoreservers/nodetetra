@@ -952,7 +952,8 @@ export default function DosingPage() {
                         
                         <div className="mt-3 text-xs text-gray-400">
                           <span className="text-[#00a3e0]">Note:</span> Setting intervals too short may cause over-dosing. 
-                          Recommended minimum: 120 seconds (2 minutes) for pH adjusters, 180 seconds (3 minutes) for nutrients.
+                          You can set intervals as low as 1 second, but it's generally recommended to use higher values 
+                          like 120 seconds (2 minutes) for pH adjusters and 180 seconds (3 minutes) for nutrients to allow proper mixing.
                         </div>
                       </div>
                     </div>
