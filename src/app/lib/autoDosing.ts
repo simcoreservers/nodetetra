@@ -2623,9 +2623,18 @@ export function getDosingConfig(): DosingConfig {
 let autoDosingEnabled = false;
 
 // Initialize the flag once config is loaded
-function initializeAutoDosingState(): void {
+export function initializeAutoDosingState(): void {
   autoDosingEnabled = dosingConfig?.enabled || false;
   info(MODULE, `Auto-dosing system initialized to ${autoDosingEnabled ? 'ENABLED' : 'DISABLED'} state`);
+  
+  // If auto-dosing is enabled, start monitoring
+  if (autoDosingEnabled && !monitoringInterval) {
+    startMonitoring();
+  } else if (!autoDosingEnabled && monitoringInterval) {
+    stopMonitoring();
+  }
+  
+  debug(MODULE, `Auto-dosing state initialized: enabled=${autoDosingEnabled}, monitoring=${monitoringInterval !== null}`);
 }
 
 /**
@@ -2691,23 +2700,6 @@ export function disableAutoDosing(): DosingConfig {
 // Monitoring functionality
 let monitoringInterval: NodeJS.Timeout | null = null;
 const MONITORING_INTERVAL_MS = 10000; // Check every 10 seconds
-
-/**
- * Initialize the auto-dosing state and make sure everything is in sync
- */
-export function initializeAutoDosingState() {
-  // Sync our global flag with the config value
-  autoDosingEnabled = dosingConfig.enabled || false;
-  
-  // If auto-dosing is enabled, start monitoring
-  if (autoDosingEnabled && !monitoringInterval) {
-    startMonitoring();
-  } else if (!autoDosingEnabled && monitoringInterval) {
-    stopMonitoring();
-  }
-  
-  debug(MODULE, `Auto-dosing state initialized: enabled=${autoDosingEnabled}, monitoring=${monitoringInterval !== null}`);
-}
 
 /**
  * Start the monitoring interval that periodically checks sensor values
