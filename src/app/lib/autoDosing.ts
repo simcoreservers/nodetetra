@@ -1691,7 +1691,7 @@ export async function performAutoDosing(): Promise<{
       
       // Get the appropriate sensor data
       if (isSimulationMode) {
-        const simData = getSimulatedSensorReadings();
+        const simData = await getSimulatedSensorReadings();
         sensorData = {
           ph: simData.ph,
           ec: simData.ec,
