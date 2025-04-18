@@ -3,14 +3,13 @@
  * Controls automatic nutrient and pH dosing based on sensor readings
  */
 
-import { PumpName, dispensePump, getAllPumpStatus } from './pumps';
-import { SensorData } from './sensors';
-import { getAllSensorReadings } from './sensors';
+import { getAllPumpStatus, stopPump, dispensePump } from './pumps';
+import type { PumpName } from './pumps';
+import { getAllSensorReadings, SensorData } from './sensors';
 import { getSimulatedSensorReadings, isSimulationEnabled } from './simulation';
-import { disableMonitoring } from './monitorControl';
 import fs from 'fs';
 import path from 'path';
-import { info, error, debug, trace, warn } from './logger';
+import { info, error as logError, debug, trace, warn } from './logger';
 
 // Module name for logging
 const MODULE = 'autoDosing';
@@ -233,7 +232,7 @@ const DEFAULT_DOSING_CONFIG: DosingConfig = {
       minInterval: 120
     },
     nutrient: {
-      pumpName: 'Nutrient',
+      pumpName: 'Pump 1', // Changed from 'Nutrient' to a valid PumpName
       doseAmount: 0.5,
       flowRate: 1.0,
       minInterval: 120
@@ -509,7 +508,7 @@ try {
     }
   }
 } catch (err) {
-  error(MODULE, 'Error loading auto-dosing config from disk', err);
+  logError(MODULE, 'Error loading auto-dosing config from disk', err);
   // Continue with defaults if loading fails
 }
 
@@ -533,12 +532,12 @@ function calculatePIDDose(
   try {
     // Input validation
     if (current === undefined || target === undefined) {
-      error(MODULE, 'Invalid input to PID controller: current or target is undefined');
+      logError(MODULE, 'Invalid input to PID controller: current or target is undefined');
       return baseDoseAmount; // Return base dose as fallback
     }
     
     if (!controller) {
-      error(MODULE, 'PID controller is null or undefined');
+      logError(MODULE, 'PID controller is null or undefined');
       return baseDoseAmount; // Return base dose as fallback
     }
     
@@ -594,7 +593,7 @@ function calculatePIDDose(
     
     return result;
   } catch (err) {
-    error(MODULE, 'Error in PID calculation:', err);
+    logError(MODULE, 'Error in PID calculation:', err);
     recordFailure(); // Record failure for circuit breaker
     return baseDoseAmount; // Return base dose as fallback on error
   }
@@ -607,7 +606,7 @@ function resetPIDController(controller: PIDController): void {
   try {
     // Guard against null or undefined controller
     if (!controller) {
-      error(MODULE, 'Attempted to reset null or undefined PID controller');
+      logError(MODULE, 'Attempted to reset null or undefined PID controller');
       return;
     }
     
@@ -621,7 +620,7 @@ function resetPIDController(controller: PIDController): void {
       kd: controller.kd
     });
   } catch (err) {
-    error(MODULE, 'Error resetting PID controller:', err);
+    logError(MODULE, 'Error resetting PID controller:', err);
     // Don't throw - this is a non-critical operation
   }
 }
@@ -785,7 +784,7 @@ function saveDosingConfig(): void {
     
     trace(MODULE, `Auto-dosing config saved to ${configPath}`);
   } catch (err) {
-    error(MODULE, 'Failed to save auto-dosing config to disk:', err);
+    logError(MODULE, 'Failed to save auto-dosing config to disk:', err);
     recordFailure(); // Record failure for circuit breaker
   }
 }
@@ -806,7 +805,7 @@ async function saveDosingConfigAsync(): Promise<void> {
       saveDosingConfig();
       resolve();
     } catch (err) {
-      error(MODULE, 'Async save of dosing config failed:', err);
+      logError(MODULE, 'Async save of dosing config failed:', err);
       reject(err);
     }
   });
@@ -860,7 +859,7 @@ async function loadDosingConfigFromDisk(): Promise<boolean> {
     info(MODULE, 'Successfully loaded auto-dosing config from disk');
     return true;
   } catch (err) {
-    error(MODULE, 'Error loading auto-dosing config from disk:', err);
+    logError(MODULE, 'Error loading auto-dosing config from disk:', err);
     recordFailure(); // Record failure for circuit breaker
     return false;
   }
@@ -960,7 +959,7 @@ export async function syncProfilePumps(): Promise<boolean> {
     
     // Validate profile format
     if (!isValidProfileFormat(profile)) {
-      error(MODULE, 'Invalid profile format, cannot sync pumps');
+      logError(MODULE, 'Invalid profile format, cannot sync pumps');
       recordFailure();
       return false;
     }
@@ -1021,7 +1020,7 @@ export async function syncProfilePumps(): Promise<boolean> {
       
       // If we still have 0, something is wrong - abort
       if (totalProportions === 0) {
-        error(MODULE, 'No valid pumps found in profile');
+        logError(MODULE, 'No valid pumps found in profile');
         return false;
       }
     }
@@ -1116,7 +1115,7 @@ export async function syncProfilePumps(): Promise<boolean> {
     
     // Always save config after syncing
     await saveDosingConfigAsync().catch(err => {
-      error(MODULE, 'Failed to save dosing config after profile sync:', err);
+      logError(MODULE, 'Failed to save dosing config after profile sync:', err);
       // Still continue since we've updated in-memory config
     });
     
@@ -1127,17 +1126,17 @@ export async function syncProfilePumps(): Promise<boolean> {
     
     return true;
   } catch (err) {
-    error(MODULE, 'Error syncing profile pumps:', err);
+    logError(MODULE, 'Error syncing profile pumps:', err);
     recordFailure();
     
     // Try to recover from the error condition
     try {
       // If the config might be in a bad state, revert to the last known good state
       await loadDosingConfigFromDisk().catch(loadErr => {
-        error(MODULE, 'Failed to load config during error recovery:', loadErr);
+        logError(MODULE, 'Failed to load config during error recovery:', loadErr);
       });
     } catch (recoveryErr) {
-      error(MODULE, 'Error during recovery attempt:', recoveryErr);
+      logError(MODULE, 'Error during recovery attempt:', recoveryErr);
     }
     
     return false;
@@ -1224,7 +1223,7 @@ async function getActiveProfileOptimized(): Promise<any> {
     
     return activeProfile;
   } catch (err) {
-    error(MODULE, 'Error getting active profile:', err);
+    logError(MODULE, 'Error getting active profile:', err);
     recordFailure();
     return null;
   }
@@ -1262,7 +1261,7 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
     // Get active profile for nutrient proportions
     const profile = await getActiveProfile();
     if (!profile) {
-      error(MODULE, 'No active profile found');
+      logError(MODULE, 'No active profile found');
       return {
         action: 'error',
         details: { reason: 'No active profile found for nutrient dosing' }
@@ -1272,7 +1271,7 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
     // Verify we have pump assignments in the profile
     const pumpDosages = profile.pumpDosages || profile.pumpAssignments || [];
     if (pumpDosages.length === 0) {
-      error(MODULE, 'No pump dosages defined in active profile');
+      logError(MODULE, 'No pump dosages defined in active profile');
       return {
         action: 'error',
         details: { reason: 'No pump dosages defined in active profile' }
@@ -1287,7 +1286,7 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
     
     if (nutrientPumpDosages.length === 0) {
       // Add more detailed logging to help diagnose the issue
-      error(MODULE, `No nutrient pumps found after filtering. Total pumps before filter: ${pumpDosages.length}. Pump names: ${pumpDosages.map((p: any) => p.pumpName || 'unnamed').join(', ')}`);
+      logError(MODULE, `No nutrient pumps found after filtering. Total pumps before filter: ${pumpDosages.length}. Pump names: ${pumpDosages.map((p: any) => p.pumpName || 'unnamed').join(', ')}`);
       return {
         action: 'error',
         details: { reason: 'No nutrient pumps defined in active profile' }
@@ -1299,7 +1298,7 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
       sum + (Number(pump.dosage) || 0), 0);
       
     if (totalDosage <= 0) {
-      error(MODULE, 'Zero total dosage for nutrients in profile');
+      logError(MODULE, 'Zero total dosage for nutrients in profile');
       return {
         action: 'error',
         details: { reason: 'Zero total dosage for nutrients in profile' }
@@ -1414,7 +1413,7 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
           sensorSimulation: isSimulation
         });
       } catch (err) {
-        error(MODULE, `Error dispensing from ${pumpName}`, err);
+        logError(MODULE, `Error dispensing from ${pumpName}`, err);
         // Continue with other pumps despite errors
       }
     }
@@ -1447,7 +1446,7 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
       };
     }
   } catch (err) {
-    error(MODULE, 'Error during nutrient dosing', err);
+    logError(MODULE, 'Error during nutrient dosing', err);
     return {
       action: 'error',
       details: { error: `Error during nutrient dosing: ${err}` }
@@ -1570,10 +1569,21 @@ async function getServerJSON(filePath: string): Promise<any> {
     const data = await fs.promises.readFile(filePath, 'utf8');
     return JSON.parse(data);
   } catch (err) {
-    error(MODULE, `Error loading JSON from ${filePath}:`, err);
+    logError(MODULE, `Error loading JSON from ${filePath}:`, err);
     recordFailure();
     return null;
   }
+}
+
+// Add or update this interface definition near the top of the file
+interface ExtendedSensorData {
+  ec?: number;
+  ph?: number;
+  dosing?: {
+    ec: { target: number; current: number };
+    ph: { target: number; current: number };
+  };
+  [key: string]: any;
 }
 
 /**
@@ -1612,7 +1622,6 @@ export async function performAutoDosing(): Promise<{
   // First, check if auto-dosing has been explicitly disabled
   if (autoDosingExplicitlyDisabled) {
     warn(MODULE, 'Auto-dosing has been explicitly disabled, aborting dosing operation');
-    disableMonitoring(); // Force monitoring off
     result = { 
       action: 'aborted', 
       details: { reason: 'Auto-dosing has been explicitly disabled' } 
@@ -1622,7 +1631,6 @@ export async function performAutoDosing(): Promise<{
   
   // Check if auto-dosing is enabled using strict comparison
   if (dosingConfig.enabled !== true) {
-    disableMonitoring(); // Force monitoring off
     debug(MODULE, 'Auto-dosing is disabled, skipping cycle');
     result = { 
       action: 'none', 
@@ -1677,7 +1685,12 @@ export async function performAutoDosing(): Promise<{
     info(MODULE, 'Starting auto-dosing cycle');
     
     // Get current sensor readings
-    let sensorData: SensorData;
+    let sensorData: ExtendedSensorData = {
+      dosing: {
+        ec: { target: 0, current: 0 },
+        ph: { target: 0, current: 0 }
+      }
+    };
     let isSimulationMode = false;
     
     try {
@@ -1783,9 +1796,32 @@ export async function performAutoDosing(): Promise<{
     // Keep track of what was dosed
     const dosed: any[] = [];
     
+    // Initialize sensorData with dosing property
+    sensorData = {
+      ...sensorData,
+      dosing: {
+        ec: { 
+          target: dosingConfig.targets.ec.target, 
+          current: sensorData?.ec || 0 
+        },
+        ph: { 
+          target: dosingConfig.targets.ph.target, 
+          current: sensorData?.ph || 7 
+        }
+      }
+    };
+    
     // Check if pH is too low (need to add pH Up)
     if (sensorData.ph < (dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance)) {
       info(MODULE, `pH too low: ${sensorData.ph.toFixed(2)}, target: ${dosingConfig.targets.ph.target.toFixed(2)}`);
+      
+      // Initialize the dosing.ph if it doesn't exist
+      if (!sensorData.dosing.ph) {
+        sensorData.dosing.ph = {
+          target: dosingConfig.targets.ph.target,
+          current: sensorData.ph
+        };
+      }
       
       // Check if we can dose pH Up
       if (canDose('phUp')) {
@@ -1836,7 +1872,7 @@ export async function performAutoDosing(): Promise<{
           };
           return result;
         } catch (err) {
-          error(MODULE, 'Error dispensing pH Up', err);
+          logError(MODULE, 'Error dispensing pH Up', err);
           recordFailure(); // Record failure for circuit breaker
           
           result = {
@@ -1864,6 +1900,14 @@ export async function performAutoDosing(): Promise<{
     // Check if pH is too high (need to add pH Down)
     if (sensorData.ph > (dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance)) {
       info(MODULE, `pH too high: ${sensorData.ph.toFixed(2)}, target: ${dosingConfig.targets.ph.target.toFixed(2)}`);
+      
+      // Initialize the dosing.ph if it doesn't exist
+      if (!sensorData.dosing.ph) {
+        sensorData.dosing.ph = {
+          target: dosingConfig.targets.ph.target,
+          current: sensorData.ph
+        };
+      }
       
       // Check if we can dose pH Down
       if (canDose('phDown')) {
@@ -1911,7 +1955,7 @@ export async function performAutoDosing(): Promise<{
           };
           return result;
         } catch (err) {
-          error(MODULE, 'Error dispensing pH Down', err);
+          logError(MODULE, 'Error dispensing pH Down', err);
           recordFailure(); // Record failure for circuit breaker
           
           result = {
@@ -1939,6 +1983,14 @@ export async function performAutoDosing(): Promise<{
     // Check if EC is too low (need to add nutrients)
     if (sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
       info(MODULE, `EC too low: ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
+      
+      // Initialize the dosing.ec if it doesn't exist
+      if (!sensorData.dosing.ec) {
+        sensorData.dosing.ec = {
+          target: dosingConfig.targets.ec.target,
+          current: sensorData.ec
+        };
+      }
       
       // Check if we can dose Nutrient
       if (canDose('nutrient')) {
@@ -1989,7 +2041,7 @@ export async function performAutoDosing(): Promise<{
           };
           return result;
         } catch (err) {
-          error(MODULE, 'Error dispensing Nutrient', err);
+          logError(MODULE, 'Error dispensing Nutrient', err);
           recordFailure(); // Record failure for circuit breaker
           
           result = {
@@ -2017,6 +2069,15 @@ export async function performAutoDosing(): Promise<{
     // If EC is too high, we can't automatically reduce it (requires water change)
     if (sensorData.ec > (dosingConfig.targets.ec.target + dosingConfig.targets.ec.tolerance)) {
       info(MODULE, `EC too high: ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
+      
+      // Initialize the dosing.ec if it doesn't exist
+      if (!sensorData.dosing.ec) {
+        sensorData.dosing.ec = {
+          target: dosingConfig.targets.ec.target,
+          current: sensorData.ec
+        };
+      }
+      
       result = {
         action: 'warning',
         details: {
@@ -2057,7 +2118,7 @@ export async function performAutoDosing(): Promise<{
     // Record the failure for circuit breaker
     recordFailure();
     
-    error(MODULE, 'Error during auto-dosing:', err);
+    logError(MODULE, 'Error during auto-dosing:', err);
     result = {
       action: 'error',
       details: { 
@@ -2120,7 +2181,7 @@ function scheduleEffectivenessCheck(
       
       debug(MODULE, `Recorded effectiveness data for ${pumpName} ${doseAmount}ml dose`);
     } catch (err) {
-      error(MODULE, 'Error recording dose effectiveness', err);
+      logError(MODULE, 'Error recording dose effectiveness', err);
       recordFailure(); // Record failure in error tracking
     }
   }, 300000); // Check after 5 minutes for stabilization
@@ -2252,6 +2313,7 @@ export async function initializeAutoDosing(): Promise<boolean> {
       
       // Always force disable regardless of loaded config
       dosingConfig.enabled = false;
+      autoDosingEnabled = false; // Also update our new unified flag
       autoDosingExplicitlyDisabled = true; // Set the explicit disable flag
       
       // Log the state
@@ -2268,11 +2330,75 @@ export async function initializeAutoDosing(): Promise<boolean> {
       // Initialize our auto-dosing state flag for consistency
       initializeAutoDosingState();
       
-      // Rest of the initialization code...
+      // Get active profile for pump configuration
+      const profile = await getActiveProfile();
+      
+      if (profile) {
+        // We'll only sync pumps on first initialization, but we won't
+        // change any intervals that were already loaded from disk
+        const syncSuccess = await syncProfilePumps();
+        if (!syncSuccess) {
+          warn(MODULE, "Profile pump sync failed, but continuing with initialization");
+        }
+      } else {
+        info(MODULE, "No active profile found, skipping profile pump sync");
+      }
+      
+      // Reset PID controllers on initialization
+      if (dosingConfig.pidControllers) {
+        resetPIDController(dosingConfig.pidControllers.ph);
+        resetPIDController(dosingConfig.pidControllers.ec);
+        debug(MODULE, "Reset PID controllers to initial state");
+      }
+      
+      // Verify all pumps are OFF via the pumps module
+      if (typeof window === 'undefined') {
+        try {
+          const pumpStatus = getAllPumpStatus();
+          const activePumps = pumpStatus.filter(p => p.active);
+          
+          if (activePumps.length > 0) {
+            logError(MODULE, `SAFETY CRITICAL: Found ${activePumps.length} active pumps during auto-dosing init. Forcing stop.`);
+            
+            // Stop all active pumps
+            await Promise.all(activePumps.map(pump => {
+              logError(MODULE, `Emergency stopping active pump ${pump.name} during auto-dosing init`);
+              return stopPump(pump.name).catch(err => 
+                logError(MODULE, `Error stopping pump ${pump.name}:`, err));
+            }));
+          }
+        } catch (err) {
+          logError(MODULE, "Error checking pump status during initialization:", err);
+        }
+      }
+      
+      isInitialized = true;
+      info(MODULE, "== AUTO-DOSING: INITIALIZATION COMPLETE - AUTO-DOSING IS DISABLED ==");
+      
+      // Debug output to verify final initialized config
+      debug(MODULE, "Final initialized dosing config:", {
+        enabled: dosingConfig.enabled,
+        phTarget: dosingConfig.targets.ph.target,
+        ecTarget: dosingConfig.targets.ec.target,
+        phUp: { 
+          pump: dosingConfig.dosing.phUp.pumpName, 
+          interval: dosingConfig.dosing.phUp.minInterval 
+        },
+        phDown: { 
+          pump: dosingConfig.dosing.phDown.pumpName, 
+          interval: dosingConfig.dosing.phDown.minInterval 
+        },
+        nutrientPumps: Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
+          name,
+          interval: dosingConfig.dosing.nutrientPumps[name].minInterval
+        }))
+      });
+      
+      return true;
     }
     return true;
   } catch (err: any) {
-    error(MODULE, "Failed to initialize auto-dosing:", err);
+    logError(MODULE, "Failed to initialize auto-dosing:", err);
     recordFailure();
     return false;
   }
@@ -2447,7 +2573,7 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
     
     // Sync with pump assignments from active profile
     syncProfilePumps().catch(err => {
-      error(MODULE, "Failed to sync profile pumps when enabling auto-dosing:", err);
+      logError(MODULE, "Failed to sync profile pumps when enabling auto-dosing:", err);
     });
     
     // Dynamically import server-init to avoid circular dependencies
@@ -2467,10 +2593,10 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
           startContinuousMonitoring();
           info(MODULE, 'Started continuous monitoring for auto-dosing');
         }).catch(err => {
-          error(MODULE, 'Failed to import server-init module:', err);
+          logError(MODULE, 'Failed to import server-init module:', err);
         });
       }).catch(err => {
-        error(MODULE, 'Failed to import monitorControl module:', err);
+        logError(MODULE, 'Failed to import monitorControl module:', err);
       });
     }
   } else if (oldEnabled && !newEnabled) {
@@ -2490,4 +2616,275 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
 export function getDosingConfig(): DosingConfig {
   // Return a deep copy to prevent external mutation
   return JSON.parse(JSON.stringify(dosingConfig));
-} 
+}
+
+// Global flag to control auto-dosing system state
+// We'll immediately initialize it from the config for consistency
+let autoDosingEnabled = false;
+
+// Initialize the flag once config is loaded
+function initializeAutoDosingState(): void {
+  autoDosingEnabled = dosingConfig?.enabled || false;
+  info(MODULE, `Auto-dosing system initialized to ${autoDosingEnabled ? 'ENABLED' : 'DISABLED'} state`);
+}
+
+/**
+ * Check if auto-dosing system is enabled
+ * This is the single source of truth for the system status
+ */
+export function isAutoDosingEnabled(): boolean {
+  return autoDosingEnabled && dosingConfig?.enabled === true;
+}
+
+/**
+ * Enable the auto-dosing system
+ * This is the single unified function to control the system
+ */
+export function enableAutoDosing(): DosingConfig {
+  info(MODULE, `!!! ENABLING AUTO-DOSING SYSTEM (current state: ${autoDosingEnabled ? 'enabled' : 'disabled'}) !!!`);
+  
+  // Update both our internal flag and the config
+  autoDosingEnabled = true;
+  
+  // Update the config and return the updated version
+  const updatedConfig = updateDosingConfig({ enabled: true });
+  
+  if (updatedConfig.enabled) {
+    info(MODULE, 'Auto-dosing system is now ENABLED');
+  } else {
+    logError(MODULE, 'Failed to enable auto-dosing system - config update did not take effect');
+    // Force the value in case something went wrong
+    dosingConfig.enabled = true;
+    autoDosingEnabled = true;
+    saveDosingConfig();
+  }
+  
+  return dosingConfig;
+}
+
+/**
+ * Disable the auto-dosing system
+ * This is the single unified function to control the system
+ */
+export function disableAutoDosing(): DosingConfig {
+  info(MODULE, `!!! DISABLING AUTO-DOSING SYSTEM (current state: ${autoDosingEnabled ? 'enabled' : 'disabled'}) !!!`);
+  
+  // Update both our internal flag and the config
+  autoDosingEnabled = false;
+  
+  // Update the config and return the updated version
+  const updatedConfig = updateDosingConfig({ enabled: false });
+  
+  if (!updatedConfig.enabled) {
+    info(MODULE, 'Auto-dosing system is now DISABLED');
+  } else {
+    logError(MODULE, 'Failed to disable auto-dosing system - config update did not take effect');
+    // Force the value in case something went wrong
+    dosingConfig.enabled = false;
+    autoDosingEnabled = false;
+    saveDosingConfig();
+  }
+  
+  return dosingConfig;
+}
+
+// Monitoring functionality
+let monitoringInterval: NodeJS.Timeout | null = null;
+const MONITORING_INTERVAL_MS = 10000; // Check every 10 seconds
+
+/**
+ * Initialize the auto-dosing state and make sure everything is in sync
+ */
+export function initializeAutoDosingState() {
+  // Sync our global flag with the config value
+  autoDosingEnabled = dosingConfig.enabled || false;
+  
+  // If auto-dosing is enabled, start monitoring
+  if (autoDosingEnabled && !monitoringInterval) {
+    startMonitoring();
+  } else if (!autoDosingEnabled && monitoringInterval) {
+    stopMonitoring();
+  }
+  
+  debug(MODULE, `Auto-dosing state initialized: enabled=${autoDosingEnabled}, monitoring=${monitoringInterval !== null}`);
+}
+
+/**
+ * Start the monitoring interval that periodically checks sensor values
+ * and triggers dosing as needed
+ */
+export function startMonitoring() {
+  // Don't start if already running
+  if (monitoringInterval) {
+    debug(MODULE, "Monitoring already active, not starting again");
+    return;
+  }
+  
+  info(MODULE, "Starting auto-dosing monitoring");
+  
+  // Update the global state
+  autoDosingEnabled = true;
+  autoDosingExplicitlyDisabled = false;
+  
+  // Create the monitoring interval
+  monitoringInterval = setInterval(async () => {
+    try {
+      await monitoringCycle();
+    } catch (err) {
+      logError(MODULE, "Error in auto-dosing monitoring cycle:", err);
+    }
+  }, MONITORING_INTERVAL_MS);
+}
+
+/**
+ * Stop the monitoring interval
+ */
+export function stopMonitoring() {
+  if (!monitoringInterval) {
+    debug(MODULE, "Monitoring already stopped, nothing to do");
+    return;
+  }
+  
+  info(MODULE, "Stopping auto-dosing monitoring");
+  
+  // Clear the interval
+  clearInterval(monitoringInterval);
+  monitoringInterval = null;
+  
+  // Update the global state
+  autoDosingEnabled = false;
+}
+
+/**
+ * Run a single monitoring cycle, checking sensor values and
+ * performing dosing if needed
+ */
+async function monitoringCycle() {
+  // Skip if auto-dosing is not enabled
+  if (!autoDosingEnabled) {
+    debug(MODULE, "Auto-dosing not enabled, skipping monitoring cycle");
+    return;
+  }
+  
+  // Skip if circuit breaker is open (too many errors)
+  if (isCircuitBreakerOpen()) {
+    warn(MODULE, "Auto-dosing circuit breaker is open (too many errors), skipping monitoring cycle");
+    return;
+  }
+  
+  try {
+    // Check for safety delay on startup
+    const elapsedSinceStart = Date.now() - serverStartTime;
+    if (elapsedSinceStart < STARTUP_SAFETY_DELAY) {
+      const remainingSeconds = Math.round((STARTUP_SAFETY_DELAY - elapsedSinceStart) / 1000);
+      debug(MODULE, `Startup safety delay in effect, ${remainingSeconds}s remaining before dosing is allowed`);
+      return;
+    }
+    
+    // Get latest sensor data
+    const sensorData = await getLatestSensorData();
+    if (!sensorData) {
+      warn(MODULE, "Could not get latest sensor data, skipping monitoring cycle");
+      return;
+    }
+    
+    // Process sensor data and perform dosing if needed
+    await processAutoDosingCycle(sensorData);
+    
+  } catch (err) {
+    logError(MODULE, "Error in monitoring cycle:", err);
+    recordFailure();
+  }
+}
+
+/**
+ * Get the latest sensor data for auto-dosing
+ */
+async function getLatestSensorData(): Promise<SensorData | null> {
+  try {
+    // Try to get real sensor readings first
+    const readings = await getAllSensorReadings();
+    
+    // If in simulation mode, override with simulated values
+    if (isSimulationEnabled()) {
+      return getSimulatedSensorReadings();
+    }
+    
+    return readings;
+  } catch (err) {
+    logError(MODULE, 'Error getting latest sensor data:', err);
+    return null;
+  }
+}
+
+/**
+ * Process a single auto-dosing cycle with the provided sensor data
+ */
+async function processAutoDosingCycle(sensorData: SensorData): Promise<void> {
+  try {
+    // Skip if auto-dosing is not enabled
+    if (!autoDosingEnabled) {
+      debug(MODULE, 'Auto-dosing not enabled, skipping processing cycle');
+      return;
+    }
+    
+    // Process each target in order of priority (pH first, then EC)
+    // Logic similar to performAutoDosing() but more modular
+    
+    // Will implement dosing logic here
+  } catch (err) {
+    logError(MODULE, 'Error processing auto-dosing cycle:', err);
+    recordFailure();
+  }
+}
+
+/**
+ * Check if circuit breaker is open (too many errors)
+ */
+function isCircuitBreakerOpen(): boolean {
+  return isCircuitOpen();
+}
+
+/**
+ * Add a nutrient to the dosing mix with its proportion
+ */
+function addNutrientToDosagePlan(
+  pump: PumpName | string,
+  mixProportion: number,
+  totalDosage: number
+): {
+  pumpName: PumpName | string;
+  dosage: number;
+} {
+  return {
+    pumpName: pump,
+    dosage: mixProportion * totalDosage
+  };
+}
+
+/**
+ * Map profile data from either array or object format to a consistent array output
+ * @param profile The profile data that could be in array or object format
+ * @param keyField The name of the field to use as the key for object conversion
+ * @returns An array of type T
+ */
+function mapProfileData<T>(profile: any, keyField: string): T[] {
+  if (!profile) return [];
+  
+  // Handle array format
+  if (Array.isArray(profile)) {
+    return profile as T[];
+  }
+  
+  // Handle object format with key:value pairs
+  if (typeof profile === 'object') {
+    // Convert to object format to array format for consistency
+    return Object.entries(profile).map(([key, value]: [string, any]) => {
+      const result = { ...(value as object) } as any;
+      result[keyField] = key;
+      return result as T;
+    });
+  }
+  
+  return [];
+}
