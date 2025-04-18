@@ -69,15 +69,19 @@ export async function GET() {
           try {
             debug(MODULE, 'Scheduling auto-dosing check');
             
-            // Direct request with absolute URL
-            await fetch('http://localhost:3000/api/dosing/auto', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache',
-              },
-              body: JSON.stringify({ action: 'dose' }),
-            });
+            // Double-check enabled status again before actual dispatch
+            const currentConfig = getDosingConfig();
+            if (currentConfig && currentConfig.enabled === true) {
+              // Direct request with absolute URL
+              await fetch('http://localhost:3000/api/dosing/auto', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Cache-Control': 'no-cache',
+                },
+                body: JSON.stringify({ action: 'dose' }),
+              });
+            }
           } catch (e) {
             error(MODULE, 'Auto-dosing trigger failed:', e);
           }

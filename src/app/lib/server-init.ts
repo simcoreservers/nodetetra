@@ -14,11 +14,12 @@ export function startContinuousMonitoring() {
       const { getDosingConfig, performAutoDosing } = await import('./autoDosing');
       const config = getDosingConfig();
       
-      if (config.enabled) {
+      if (config && config.enabled === true) {
         console.log('Auto-dosing scheduled check - running performAutoDosing()');
         await performAutoDosing();
       } else {
-        console.log('Auto-dosing disabled, skipping scheduled check');
+        // Use debug level instead of info to reduce noise
+        // console.log('Auto-dosing disabled, skipping scheduled check');
       }
     } catch (err) {
       console.error('Auto-dosing monitoring error:', err);
@@ -213,7 +214,7 @@ if (typeof window === 'undefined') {
   // Start continuous monitoring on server init if not already started
   import('./autoDosing').then(({ getDosingConfig }) => {
     const config = getDosingConfig();
-    if (config.enabled) {
+    if (config && config.enabled === true) {
       startContinuousMonitoring();
     }
   }).catch(err => {

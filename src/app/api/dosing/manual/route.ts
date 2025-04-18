@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dispensePump, getAllPumpStatus, PumpName } from '@/app/lib/pumps';
 import { error, info, debug, warn } from '@/app/lib/logger';
-import { getUnifiedDosingConfig, saveUnifiedDosingConfig } from '@/app/lib/dosingMigration';
+import { getDosingConfig, updateDosingConfig } from '@/app/lib/autoDosing';
 
 const MODULE = 'api:dosing:manual';
 
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         flowRate : 1.0;
       
       // Get current config to update dose timestamps
-      const config = await getUnifiedDosingConfig();
+      const config = getDosingConfig();
       
       info(MODULE, `Manually dispensing ${amount}ml from ${pumpName} at ${effectiveFlowRate}ml/s`);
       
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
         }
         
         // Save updated config
-        await saveUnifiedDosingConfig(config);
+        updateDosingConfig(config);
       }
       
       return NextResponse.json({
