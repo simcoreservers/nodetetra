@@ -194,6 +194,8 @@ let dosingConfig: DosingConfig = { ...DEFAULT_DOSING_CONFIG };
 
 // Add at the top of the file, near the other variable declarations
 let isInitialized = false;
+// Track when auto-dosing has been explicitly disabled to prevent any new operations
+let autoDosingExplicitlyDisabled = false;
 
 // Unified dosing lock to prevent concurrent operations and rate limit calls
 const dosingLock = {
@@ -1244,6 +1246,16 @@ export async function performAutoDosing(): Promise<{
   }
   dosingLock.lastAttempt = now;
   
+  // First, check if auto-dosing has been explicitly disabled
+  if (autoDosingExplicitlyDisabled) {
+    warn(MODULE, 'Auto-dosing has been explicitly disabled, aborting dosing operation');
+    disableMonitoring(); // Force monitoring off
+    return { 
+      action: 'aborted', 
+      details: { reason: 'Auto-dosing has been explicitly disabled' } 
+    };
+  }
+  
   // Check if auto-dosing is enabled using strict comparison
   if (dosingConfig.enabled !== true) {
     disableMonitoring(); // Force monitoring off
@@ -1847,6 +1859,9 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
   if (!oldEnabled && newEnabled) {
     info(MODULE, 'Auto-dosing has been enabled with configuration:', dosingConfig);
     
+    // Reset the flag when auto-dosing is enabled
+    autoDosingExplicitlyDisabled = false;
+    
     // Reset lastDose timestamps when enabling to allow immediate dosing
     resetDoseTimestamps();
     
@@ -1879,14 +1894,33 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
     // Stop continuous monitoring when auto-dosing is disabled
     info(MODULE, '### AUTO-DOSING DISABLED - STOPPING MONITORING ###');
     
+    // Set the explicit disable flag
+    autoDosingExplicitlyDisabled = true;
+    
     // Directly disable monitoring flag
     disableMonitoring();
     
+    // Force stop any active pumps when auto-dosing is disabled
     if (typeof window === 'undefined') {
+      // First stop monitoring
       import('./server-init').then(({ stopContinuousMonitoring }) => {
         stopContinuousMonitoring();
+        
+        // Then force stop any active pumps
+        return import('./pumps').then(({ getAllPumpStatus, stopPump }) => {
+          const pumps = getAllPumpStatus();
+          info(MODULE, `Checking for active pumps to stop: ${pumps.filter(p => p.active).length} active`);
+          
+          for (const pump of pumps) {
+            if (pump.active) {
+              info(MODULE, `Force stopping active pump ${pump.name} due to auto-dosing being disabled`);
+              stopPump(pump.name).catch(err => 
+                error(MODULE, `Error stopping pump ${pump.name}:`, err));
+            }
+          }
+        });
       }).catch(err => {
-        error(MODULE, 'Failed to import server-init module:', err);
+        error(MODULE, 'Failed to import server-init module or stop pumps:', err);
       });
     }
   }

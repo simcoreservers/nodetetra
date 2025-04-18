@@ -66,6 +66,28 @@ export function stopContinuousMonitoring() {
     // Disable the monitoring flag
     disableMonitoring();
     console.log('Continuous monitoring for auto-dosing stopped');
+    
+    // Force stop any active pumps for safety
+    try {
+      import('./pumps').then(({ getAllPumpStatus, stopPump }) => {
+        const pumps = getAllPumpStatus();
+        const activePumps = pumps.filter(p => p.active);
+        
+        if (activePumps.length > 0) {
+          console.log(`Stopping ${activePumps.length} active pumps after monitoring disabled`);
+          
+          // Stop all active pumps
+          Promise.all(activePumps.map(pump => {
+            console.log(`Stopping active pump ${pump.name} after monitoring disabled`);
+            return stopPump(pump.name).catch(err => 
+              console.error(`Error stopping pump ${pump.name}:`, err));
+          })).catch(err => 
+            console.error('Error stopping pumps after monitoring disabled:', err));
+        }
+      }).catch(err => console.error('Error importing pumps module:', err));
+    } catch (err) {
+      console.error('Failed to stop active pumps:', err);
+    }
   } else {
     console.log('No active monitoring to stop');
   }
