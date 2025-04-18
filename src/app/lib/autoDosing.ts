@@ -15,21 +15,67 @@ import { info, error, debug, trace, warn } from './logger';
 // Module name for logging
 const MODULE = 'autoDosing';
 
-// Profile cache system
+// Profile cache system with environment-specific TTL
 const profileCache = {
   data: null,
   timestamp: 0,
-  TTL: 15000 // 15 second TTL
+  TTL: currentCacheConfig.profileTTL // Use environment-specific TTL from config
 };
 
 // Add initialization safety delay - prevent dosing for initial seconds after server start
 let serverStartTime = Date.now();
 const STARTUP_SAFETY_DELAY = 30000; // 30 seconds before allowing any dosing
 
-// Path to the active profile file
-const DATA_PATH = path.join(process.cwd(), 'data');
+// Environment configuration
+const ENV = process.env.NODE_ENV || 'development';
+
+// Path configuration with environment support
+const DATA_PATHS = {
+  development: path.join(process.cwd(), 'data'),
+  test: path.join(process.cwd(), 'test_data'),
+  production: path.join(process.cwd(), 'data')
+};
+
+// Get the appropriate data path for current environment
+const DATA_PATH = DATA_PATHS[ENV] || DATA_PATHS.development;
+
+// Ensure the data directory exists
+if (typeof window === 'undefined' && !fs.existsSync(DATA_PATH)) {
+  try {
+    fs.mkdirSync(DATA_PATH, { recursive: true });
+    console.log(`Created data directory for ${ENV} environment: ${DATA_PATH}`);
+  } catch (err) {
+    console.error(`Failed to create data directory for ${ENV} environment:`, err);
+  }
+}
+
+// Configure path to the active profile and profiles files
 const ACTIVE_PROFILE_FILE = path.join(DATA_PATH, 'active_profile.json');
 const PROFILES_FILE = path.join(DATA_PATH, 'profiles.json');
+
+console.log(`Using data path for ${ENV} environment: ${DATA_PATH}`);
+console.log(`Active profile file: ${ACTIVE_PROFILE_FILE}`);
+console.log(`Profiles file: ${PROFILES_FILE}`);
+
+// Cache TTL configuration based on environment
+const CACHE_CONFIG = {
+  development: {
+    profileTTL: 15000, // 15 seconds in development for faster testing
+    stateRefreshInterval: 5000 // 5 seconds refresh in development
+  },
+  test: {
+    profileTTL: 5000, // 5 seconds in test for faster unit tests
+    stateRefreshInterval: 2000 // 2 seconds refresh in test
+  },
+  production: {
+    profileTTL: 60000, // 1 minute in production for stability
+    stateRefreshInterval: 15000 // 15 seconds refresh in production
+  }
+};
+
+// Get the appropriate cache configuration for current environment
+const currentCacheConfig = CACHE_CONFIG[ENV] || CACHE_CONFIG.development;
+console.log(`Using ${ENV} environment cache configuration: profileTTL=${currentCacheConfig.profileTTL}ms`);
 
 // PID Controller interface for improved dosing accuracy
 interface PIDController {
@@ -307,14 +353,56 @@ function resetDosingLockTimeout(): void {
   debug(MODULE, 'Dosing lock timeout reset');
 }
 
-// Cache for active profile to reduce disk I/O
+// Cache for active profile to reduce disk I/O - uses environment-specific TTL
 let activeProfileCache: any = null;
 let profileCacheTime: number = 0;
-const PROFILE_CACHE_TTL = 60000; // 1 minute cache TTL
+const PROFILE_CACHE_TTL = currentCacheConfig.profileTTL; // Use environment-specific TTL
 
 // Export lock status check for external components
 export function isLocked(): boolean {
   return dosingLock.inProgress;
+}
+
+/**
+ * Deep merge utility that creates a new object without mutating originals
+ */
+function deepMerge<T>(target: T, source: Partial<T>): T {
+  if (!source || typeof source !== 'object') return target;
+  if (!target || typeof target !== 'object') return target;
+  
+  // Create a new object to avoid modifying the original
+  const output = Array.isArray(target) ? [...target as any] : {...target};
+  
+  // Iterate over source properties
+  for (const key in source) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      const sourceValue = source[key];
+      const targetValue = target[key];
+      
+      // Skip undefined values
+      if (sourceValue === undefined) continue;
+      
+      // If both values are objects (but not null), merge them recursively
+      if (sourceValue && targetValue && 
+          typeof sourceValue === 'object' && typeof targetValue === 'object' && 
+          !Array.isArray(sourceValue) && !Array.isArray(targetValue) &&
+          sourceValue !== null && targetValue !== null) {
+        // Recursive merge for nested objects
+        output[key] = deepMerge(targetValue, sourceValue);
+      } else {
+        // For non-objects or arrays, just copy the value
+        // For arrays, replace entirely rather than merging
+        // Use JSON parse/stringify for deep cloning to avoid reference issues
+        if (sourceValue !== null && typeof sourceValue === 'object') {
+          output[key] = JSON.parse(JSON.stringify(sourceValue));
+        } else {
+          output[key] = sourceValue;
+        }
+      }
+    }
+  }
+  
+  return output as T;
 }
 
 /**
@@ -371,15 +459,12 @@ export function resetSafetyFlags(): void {
 // Try to load the saved configuration from disk
 try {
   if (typeof window === 'undefined') {
-    const fs = require('fs');
-    const path = require('path');
-    
-    const dataPath = path.join(process.cwd(), 'data');
-    const configPath = path.join(dataPath, 'autodosing.json');
+    // Use the environment-specific data path for configuration
+    const configPath = path.join(DATA_PATH, 'autodosing.json');
     
     if (fs.existsSync(configPath)) {
       const savedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      info(MODULE, 'Loading saved auto-dosing config from disk', { path: configPath });
+      info(MODULE, 'Loading saved auto-dosing config from disk', { path: configPath, environment: ENV });
       
       // Deep merge the saved config with defaults to ensure all properties exist
       dosingConfig = deepMerge(DEFAULT_DOSING_CONFIG, savedConfig);
@@ -445,58 +530,112 @@ function calculatePIDDose(
   controller: PIDController,
   baseDoseAmount: number
 ): number {
-  const now = Date.now();
-  const dt = controller.lastTime === 0 ? 1 : Math.min((now - controller.lastTime) / 1000, 10);
-  
-  // Skip integral if first run
-  if (controller.lastTime === 0) {
+  try {
+    // Input validation
+    if (current === undefined || target === undefined) {
+      error(MODULE, 'Invalid input to PID controller: current or target is undefined');
+      return baseDoseAmount; // Return base dose as fallback
+    }
+    
+    if (!controller) {
+      error(MODULE, 'PID controller is null or undefined');
+      return baseDoseAmount; // Return base dose as fallback
+    }
+    
+    const now = Date.now();
+    const dt = controller.lastTime === 0 ? 1 : Math.min((now - controller.lastTime) / 1000, 10);
+    
+    // Skip integral if first run
+    if (controller.lastTime === 0) {
+      controller.lastTime = now;
+      controller.lastError = target - current;
+      debug(MODULE, 'First PID run, using base dose amount', { baseDoseAmount });
+      return baseDoseAmount; // Default dose on first run
+    }
+    
+    const error = target - current;
+    
+    // Anti-windup: Limit integral term
+    const maxIntegral = 5.0;
+    controller.integral = Math.max(
+      Math.min(controller.integral + error * dt, maxIntegral), 
+      -maxIntegral
+    );
+    
+    const derivative = dt > 0 ? (error - controller.lastError) / dt : 0;
+    
+    // Calculate PID output
+    const output = (
+      controller.kp * error + 
+      controller.ki * controller.integral + 
+      controller.kd * derivative
+    );
+    
+    // Update controller state
+    controller.lastError = error;
     controller.lastTime = now;
-    controller.lastError = target - current;
-    return baseDoseAmount; // Default dose on first run
+    
+    // Scale base dose by PID output (minimum 0.1mL, maximum 3x base)
+    const scaledDose = baseDoseAmount * Math.min(Math.max(Math.abs(output), 0.2), 3.0);
+    
+    // Round to one decimal place
+    const result = Math.round(scaledDose * 10) / 10;
+    
+    trace(MODULE, 'PID calculation', {
+      current,
+      target,
+      error,
+      integral: controller.integral,
+      derivative,
+      output,
+      scaledDose: result,
+      baseDose: baseDoseAmount
+    });
+    
+    return result;
+  } catch (err) {
+    error(MODULE, 'Error in PID calculation:', err);
+    recordFailure(); // Record failure for circuit breaker
+    return baseDoseAmount; // Return base dose as fallback on error
   }
-  
-  const error = target - current;
-  
-  // Anti-windup: Limit integral term
-  const maxIntegral = 5.0;
-  controller.integral = Math.max(
-    Math.min(controller.integral + error * dt, maxIntegral), 
-    -maxIntegral
-  );
-  
-  const derivative = dt > 0 ? (error - controller.lastError) / dt : 0;
-  
-  // Calculate PID output
-  const output = (
-    controller.kp * error + 
-    controller.ki * controller.integral + 
-    controller.kd * derivative
-  );
-  
-  // Update controller state
-  controller.lastError = error;
-  controller.lastTime = now;
-  
-  // Scale base dose by PID output (minimum 0.1mL, maximum 3x base)
-  const scaledDose = baseDoseAmount * Math.min(Math.max(Math.abs(output), 0.2), 3.0);
-  
-  // Round to one decimal place
-  return Math.round(scaledDose * 10) / 10;
 }
 
 /**
  * Reset a PID controller to initial state
  */
 function resetPIDController(controller: PIDController): void {
-  controller.integral = 0;
-  controller.lastError = 0;
-  controller.lastTime = 0;
+  try {
+    // Guard against null or undefined controller
+    if (!controller) {
+      error(MODULE, 'Attempted to reset null or undefined PID controller');
+      return;
+    }
+    
+    controller.integral = 0;
+    controller.lastError = 0;
+    controller.lastTime = 0;
+    
+    debug(MODULE, 'PID controller reset successful', {
+      kp: controller.kp,
+      ki: controller.ki,
+      kd: controller.kd
+    });
+  } catch (err) {
+    error(MODULE, 'Error resetting PID controller:', err);
+    // Don't throw - this is a non-critical operation
+  }
 }
 
 /**
  * Record dose effectiveness for analysis and adaptive dosing
  */
 function recordDoseEffectiveness(data: DoseEffectiveness): void {
+  // First check circuit breaker to prevent recording when system is in failure mode
+  if (isCircuitOpen()) {
+    warn(MODULE, 'Circuit breaker is open, skipping dose effectiveness recording');
+    return;
+  }
+
   if (!dosingConfig.telemetry) {
     dosingConfig.telemetry = {
       doseHistory: [],
@@ -569,11 +708,12 @@ function recordFailure(): void {
 
 /**
  * Record a success and reset failure count
+ * Always resets the failure count even after temporary success
  */
 function recordSuccess(): void {
   if (!dosingConfig.errorHandling) return;
   
-  // Reset failure count and circuit breaker status on success
+  // Reset failure count regardless of previous state
   dosingConfig.errorHandling.currentFailCount = 0;
   
   // Reset circuit breaker if it was open
@@ -586,6 +726,9 @@ function recordSuccess(): void {
   dosingConfig.errorHandling.lastFailure = null;
   
   debug(MODULE, 'Reset failure tracking after successful operation');
+  
+  // Ensure changes are saved to persist circuit breaker state
+  saveDosingConfig();
 }
 
 /**
@@ -601,6 +744,130 @@ function calculateBackoffTime(): number {
   
   // Calculate exponential backoff with ceiling
   return Math.min(baseBackoff * Math.pow(backoffFactor, failCount), 60000); // Max 60 seconds
+}
+
+/**
+ * Save dosing configuration to disk
+ * Uses atomic file operations to prevent data corruption
+ */
+function saveDosingConfig(): void {
+  if (typeof window !== 'undefined') return; // Don't run on client
+  
+  try {
+    // Ensure data directory exists
+    if (!fs.existsSync(DATA_PATH)) {
+      fs.mkdirSync(DATA_PATH, { recursive: true });
+    }
+    
+    // Get path for config file
+    const configPath = path.join(DATA_PATH, 'autodosing.json');
+    const tempPath = path.join(DATA_PATH, 'autodosing.json.tmp');
+    const backupPath = path.join(DATA_PATH, 'autodosing.json.bak');
+    
+    // Create a deep copy of the config to avoid reference issues
+    const configToSave = JSON.parse(JSON.stringify(dosingConfig));
+    
+    // Write to temporary file first
+    fs.writeFileSync(tempPath, JSON.stringify(configToSave, null, 2), 'utf8');
+    
+    // If the original file exists, create a backup
+    if (fs.existsSync(configPath)) {
+      fs.copyFileSync(configPath, backupPath);
+    }
+    
+    // Atomic rename to final filename (prevents corruption if system crashes during write)
+    fs.renameSync(tempPath, configPath);
+    
+    // Ensure data is flushed to disk by syncing the directory
+    try {
+      const dirHandle = fs.openSync(DATA_PATH, 'r');
+      fs.fsyncSync(dirHandle);
+      fs.closeSync(dirHandle);
+    } catch (syncErr) {
+      warn(MODULE, 'Could not fsync directory:', syncErr);
+      // Not critical, just a best-effort to ensure writes are durable
+    }
+    
+    trace(MODULE, `Auto-dosing config saved to ${configPath}`);
+  } catch (err) {
+    error(MODULE, 'Failed to save auto-dosing config to disk:', err);
+    recordFailure(); // Record failure for circuit breaker
+  }
+}
+
+/**
+ * Asynchronous version of saveDosingConfig for non-blocking saves
+ */
+async function saveDosingConfigAsync(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      // Check circuit breaker but don't block config saves
+      // Just log the warning but still proceed with the save
+      if (isCircuitOpen()) {
+        warn(MODULE, 'Circuit breaker is open, but still proceeding with config save');
+      }
+      
+      saveDosingConfig();
+      resolve();
+    } catch (err) {
+      error(MODULE, 'Async save of dosing config failed:', err);
+      reject(err);
+    }
+  });
+}
+
+/**
+ * Load dosing configuration from disk with validation
+ */
+async function loadDosingConfigFromDisk(): Promise<boolean> {
+  if (typeof window !== 'undefined') return false; // Don't run on client
+  
+  try {
+    const configPath = path.join(DATA_PATH, 'autodosing.json');
+    
+    if (!fs.existsSync(configPath)) {
+      info(MODULE, 'No saved auto-dosing config found, using defaults');
+      return false;
+    }
+    
+    const data = await fs.promises.readFile(configPath, 'utf8');
+    const loadedConfig = JSON.parse(data);
+    
+    // Validate the loaded config
+    if (!loadedConfig || typeof loadedConfig !== 'object') {
+      warn(MODULE, 'Invalid auto-dosing config file format, using defaults');
+      return false;
+    }
+    
+    // Deep merge with defaults to ensure all required fields exist
+    dosingConfig = deepMerge(DEFAULT_DOSING_CONFIG, loadedConfig);
+    
+    // Convert date strings back to Date objects for lastDose timestamps
+    if (dosingConfig.lastDose.phUp) {
+      dosingConfig.lastDose.phUp = new Date(dosingConfig.lastDose.phUp);
+    }
+    if (dosingConfig.lastDose.phDown) {
+      dosingConfig.lastDose.phDown = new Date(dosingConfig.lastDose.phDown);
+    }
+    if (dosingConfig.lastDose.nutrient) {
+      dosingConfig.lastDose.nutrient = new Date(dosingConfig.lastDose.nutrient);
+    }
+    
+    // Convert nutrient pump timestamps
+    for (const pumpName in dosingConfig.lastDose.nutrientPumps) {
+      const timestamp = dosingConfig.lastDose.nutrientPumps[pumpName];
+      if (timestamp) {
+        dosingConfig.lastDose.nutrientPumps[pumpName] = new Date(timestamp);
+      }
+    }
+    
+    info(MODULE, 'Successfully loaded auto-dosing config from disk');
+    return true;
+  } catch (err) {
+    error(MODULE, 'Error loading auto-dosing config from disk:', err);
+    recordFailure(); // Record failure for circuit breaker
+    return false;
+  }
 }
 
 /**
@@ -680,6 +947,12 @@ async function getActiveProfile() {
  * Enhanced to validate profile format and handle errors
  */
 export async function syncProfilePumps(): Promise<boolean> {
+  // Check circuit breaker first before proceeding
+  if (isCircuitOpen()) {
+    warn(MODULE, 'Circuit breaker is open, cannot sync profile pumps');
+    return false;
+  }
+
   try {
     const profile = await getActiveProfile();
     
@@ -971,6 +1244,15 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
   action: string;
   details: any;
 }> {
+  // Check circuit breaker first before any operations
+  if (isCircuitOpen()) {
+    warn(MODULE, 'Circuit breaker is open, skipping nutrient dosing');
+    return {
+      action: 'circuitOpen',
+      details: { reason: 'Too many failures detected, system paused for safety' }
+    };
+  }
+
   debug(MODULE, `Starting nutrient dosing process for EC ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
   
   try {
@@ -1174,6 +1456,127 @@ async function doNutrientDosing(sensorData: SensorData, isSimulation: boolean, d
       action: 'error',
       details: { error: `Error during nutrient dosing: ${err}` }
     };
+  }
+}
+
+/**
+ * Check if we can dose a particular type now (respects minimum interval)
+ * @param type The type of dosing to check (phUp, phDown, nutrient)
+ */
+function canDose(type: 'phUp' | 'phDown' | 'nutrient'): boolean {
+  // First check circuit breaker - if open, no dosing is allowed
+  if (isCircuitOpen()) {
+    debug(MODULE, `Cannot dose ${type} - circuit breaker is open`);
+    return false;
+  }
+
+  const now = new Date();
+  const lastDose = dosingConfig.lastDose[type];
+  
+  // If we've never dosed or no timestamp exists, we can dose
+  if (!lastDose) {
+    return true;
+  }
+  
+  // Get the minimum interval for this dosing type
+  const minInterval = dosingConfig.dosing[type].minInterval * 1000; // convert to ms
+  
+  // Calculate time since last dose
+  const timeSinceLastDose = now.getTime() - lastDose.getTime();
+  
+  // Can dose if enough time has passed
+  return timeSinceLastDose >= minInterval;
+}
+
+/**
+ * Check if we can dose a particular nutrient pump now (respects minimum interval)
+ * @param pumpName The name of the nutrient pump to check
+ */
+function canDoseNutrient(pumpName: string): boolean {
+  // First check circuit breaker - if open, no dosing is allowed
+  if (isCircuitOpen()) {
+    debug(MODULE, `Cannot dose ${pumpName} - circuit breaker is open`);
+    return false;
+  }
+
+  // Make sure the pump exists in the config
+  if (!dosingConfig.dosing.nutrientPumps[pumpName]) {
+    warn(MODULE, `Cannot dose unknown pump: ${pumpName}`);
+    return false;
+  }
+  
+  const now = new Date();
+  const lastDose = dosingConfig.lastDose.nutrientPumps[pumpName];
+  
+  // If we've never dosed or no timestamp exists, we can dose
+  if (!lastDose) {
+    return true;
+  }
+  
+  // Get the minimum interval for this pump
+  const minInterval = dosingConfig.dosing.nutrientPumps[pumpName].minInterval * 1000; // convert to ms
+  
+  // Calculate time since last dose
+  const timeSinceLastDose = now.getTime() - lastDose.getTime();
+  
+  // Can dose if enough time has passed
+  return timeSinceLastDose >= minInterval;
+}
+
+/**
+ * Record that we dosed a particular type
+ * @param type The type of dosing to record (phUp, phDown, nutrient)
+ */
+function recordDose(type: 'phUp' | 'phDown' | 'nutrient'): void {
+  // Record the dose time
+  dosingConfig.lastDose[type] = new Date();
+  
+  // Save the updated config to disk
+  saveDosingConfig();
+  
+  debug(MODULE, `Recorded ${type} dose at ${dosingConfig.lastDose[type]?.toISOString()}`);
+}
+
+/**
+ * Record that we dosed a particular nutrient pump
+ * @param pumpName The name of the nutrient pump to record
+ */
+function recordNutrientDose(pumpName: string): void {
+  // Make sure the pump exists in the lastDose structure
+  if (!dosingConfig.lastDose.nutrientPumps[pumpName]) {
+    dosingConfig.lastDose.nutrientPumps[pumpName] = null;
+  }
+  
+  // Record the dose time
+  dosingConfig.lastDose.nutrientPumps[pumpName] = new Date();
+  
+  // Save the updated config to disk
+  saveDosingConfig();
+  
+  debug(MODULE, `Recorded ${pumpName} dose at ${dosingConfig.lastDose.nutrientPumps[pumpName]?.toISOString()}`);
+}
+
+/**
+ * Helper function to load JSON from a server file
+ */
+async function getServerJSON(filePath: string): Promise<any> {
+  if (typeof window !== 'undefined') return null;
+  if (isCircuitOpen()) {
+    warn(MODULE, `Circuit breaker is open, cannot load JSON from ${filePath}`);
+    return null;
+  }
+  
+  try {
+    if (!fs.existsSync(filePath)) {
+      return null;
+    }
+    
+    const data = await fs.promises.readFile(filePath, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    error(MODULE, `Error loading JSON from ${filePath}:`, err);
+    recordFailure();
+    return null;
   }
 }
 
@@ -1631,8 +2034,20 @@ function scheduleEffectivenessCheck(
   beforeValue: number,
   targetType: 'ph' | 'ec'
 ): void {
-  setTimeout(async () => {
+  // Don't schedule if circuit breaker is open
+  if (isCircuitOpen()) {
+    warn(MODULE, 'Circuit breaker is open, not scheduling effectiveness check');
+    return;
+  }
+
+  const checkTimeout = setTimeout(async () => {
     try {
+      // Check circuit breaker status again at time of execution
+      if (isCircuitOpen()) {
+        warn(MODULE, 'Circuit breaker open, skipping delayed effectiveness check');
+        return;
+      }
+
       // Get current reading after stabilization
       let currentReadings;
       
@@ -1640,6 +2055,12 @@ function scheduleEffectivenessCheck(
         currentReadings = await getSimulatedSensorReadings();
       } else {
         currentReadings = await getAllSensorReadings();
+      }
+      
+      // Validate readings before recording
+      if (!validateSensorReadings(currentReadings)) {
+        warn(MODULE, 'Invalid sensor readings for effectiveness check, skipping');
+        return;
       }
       
       // Record effectiveness
@@ -1656,8 +2077,12 @@ function scheduleEffectivenessCheck(
       debug(MODULE, `Recorded effectiveness data for ${pumpName} ${doseAmount}ml dose`);
     } catch (err) {
       error(MODULE, 'Error recording dose effectiveness', err);
+      recordFailure(); // Record failure in error tracking
     }
   }, 300000); // Check after 5 minutes for stabilization
+  
+  // Allow process to exit if this is the only timer running
+  checkTimeout.unref?.();
 }
 
 /**
