@@ -2,14 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAllSensorReadings } from '@/app/lib/sensors';
 import { getAllPumpStatus } from '@/app/lib/pumps';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
-import { getDosingConfig } from '@/app/lib/autoDosing';
 
 // Track active stream connections
 const CLIENTS = new Set<ReadableStreamController<Uint8Array>>();
 let streamInterval: NodeJS.Timeout | null = null;
 const STREAM_INTERVAL_MS = 1000; // 1 second update interval
-
-// Auto-dosing related code removed to rely solely on monitorControl
 
 function startStreamInterval() {
   if (streamInterval) return; // Only start if not already running
@@ -51,9 +48,6 @@ function startStreamInterval() {
         pumpData = { error: 'Failed to get pump status', status: 'error' };
       }
       
-      // Auto-dosing check removed - relying solely on monitorControl
-      const dosingConfig = getDosingConfig();
-      
       // Format the data for SSE
       const data = {
         sensors: {
@@ -61,10 +55,7 @@ function startStreamInterval() {
           timestamp: new Date().toISOString()
         },
         pumps: pumpData,
-        autoDosing: {
-          enabled: dosingConfig.enabled,
-          timestamp: new Date().toISOString()
-        }
+        timestamp: new Date().toISOString()
       };
       
       // Send to all connected clients

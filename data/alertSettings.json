@@ -1,8 +1,0 @@
-{
-  "email": "",
-  "smsNumber": "",
-  "notifyOnCritical": true,
-  "notifyOnWarning": true,
-  "notifyOnInfo": false,
-  "dailySummary": true
-}

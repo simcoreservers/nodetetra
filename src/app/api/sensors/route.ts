@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSimulationConfig, getSimulatedSensorReadings } from '@/app/lib/simulation';
 import { getAllSensorReadings } from '@/app/lib/sensors';
-import { getDosingConfig } from '@/app/lib/autoDosing';
 import { error, info, debug, warn } from '@/app/lib/logger';
 
 const MODULE = 'api:sensors';
@@ -9,7 +8,6 @@ const MODULE = 'api:sensors';
 /**
  * GET API route for fetching sensor data
  * Returns simulated data when simulation mode is enabled
- * Triggers auto-dosing checks if enabled
  */
 export async function GET() {
   try {
@@ -44,55 +42,8 @@ export async function GET() {
         }, { status: 503 }); // Service Unavailable
       }
     }
-
-    // Check if auto-dosing is enabled
-    try {
-      const dosingConfig = getDosingConfig();
-      // Ensure we check the enabled property correctly
-      if (dosingConfig && dosingConfig.enabled === true) {
-        debug(MODULE, 'Auto-dosing enabled - scheduling check with latest sensor readings');
-        
-        // Create a task that runs after response is sent (important: use high delay)
-        const taskId = setTimeout(async () => {
-          // Don't make too many requests
-          const now = Date.now();
-          const requestKey = 'last_autodose_request';
-          const lastRequest = global[requestKey] || 0;
-          
-          if (now - lastRequest < 5000) { // 5 second minimum between triggers
-            // Skip silently without logging
-            return;
-          }
-          
-          global[requestKey] = now;
-          
-          try {
-            debug(MODULE, 'Scheduling auto-dosing check');
-            
-            // Double-check enabled status again before actual dispatch
-            const currentConfig = getDosingConfig();
-            if (currentConfig && currentConfig.enabled === true) {
-              // Direct request with absolute URL
-              await fetch('http://localhost:3000/api/dosing/auto', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Cache-Control': 'no-cache',
-                },
-                body: JSON.stringify({ action: 'dose' }),
-              });
-            }
-          } catch (e) {
-            error(MODULE, 'Auto-dosing trigger failed:', e);
-          }
-        }, 500); // 500ms delay to ensure response is sent first
-      }
-    } catch (e) {
-      error(MODULE, 'Error checking auto-dosing status:', e);
-      // Continue to return sensor data even if auto-dosing check fails
-    }
     
-    // Return the sensor data regardless of auto-dosing status
+    // Return the sensor data
     return NextResponse.json(sensorData);
     
   } catch (error) {

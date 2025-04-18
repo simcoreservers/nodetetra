@@ -1,15 +1,8 @@
-// Continuous monitoring for auto-dosing
+// Continuous monitoring for safety
 let monitoringInterval: NodeJS.Timeout | null = null;
 const MONITORING_FREQUENCY = 1000; // Check every second for stuck pumps
 // Add safety timeout to ensure pumps don't get stuck
 const SAFETY_PUMP_TIMEOUT = 30000; // 30 seconds maximum pump operation time
-
-// Timing for dosing checks within the monitoring interval
-const DOSING_FREQUENCY = 1 * 1000; // Check dosing needs every 1 second
-// Store last dosing time to prevent too frequent attempts
-let lastDosingAttemptTime = 0;
-// Store last check time for dosing
-let lastDosingCheckTime = 0;
 
 // Track if server initialization is complete
 let serverInitialized = false;
@@ -23,31 +16,11 @@ let intervalsCleared = false;
 import type { PumpStatus } from './pumps';
 
 // Static imports for better build-time analysis
-import * as autoDosing from './autoDosing';
 import * as pumps from './pumps';
 
 // Auto-import the logger
 import { info, warn, error } from './logger';
 const MODULE = 'server-init';
-
-// Helper functions for module imports with timeout
-// Import autoDosing with timeout
-async function importAutoDosing(): Promise<typeof autoDosing> {
-  return new Promise(async (resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      reject(new Error(`Import of autoDosing timed out after ${MODULE_IMPORT_TIMEOUT}ms`));
-    }, MODULE_IMPORT_TIMEOUT);
-    
-    try {
-      const module = await import('./autoDosing');
-      clearTimeout(timeoutId);
-      resolve(module);
-    } catch (importError) {
-      clearTimeout(timeoutId);
-      reject(importError);
-    }
-  });
-}
 
 // Import pumps with timeout
 async function importPumps(): Promise<typeof pumps> {
@@ -110,7 +83,7 @@ export function startContinuousMonitoring() {
     return;
   }
   
-  info(MODULE, 'Starting continuous monitoring for auto-dosing system');
+  info(MODULE, 'Starting continuous safety monitoring for pumps');
   
   // Set a timeout for module import to prevent hanging
   const importTimeoutId = setTimeout(() => {
@@ -122,32 +95,15 @@ export function startContinuousMonitoring() {
   }, MODULE_IMPORT_TIMEOUT);
   
   // Import with error handling
-  Promise.all([importAutoDosing()])
-    .then(([autoDosingModule]) => {
+  importPumps()
+    .then((pumpsModule) => {
       // Clear the timeout since import succeeded
       clearTimeout(importTimeoutId);
       
-      // Log current auto-dosing system state
-      const dosingConfig = autoDosingModule.getDosingConfig();
-      const isEnabled = autoDosingModule.isAutoDosingEnabled();
-      info(MODULE, `Starting continuous monitoring with auto-dosing system ${isEnabled ? 'ENABLED' : 'DISABLED'}`);
-      
-      // Initialize the timestamps for dosing check tracking
-      lastDosingCheckTime = Date.now();
-      lastDosingAttemptTime = Date.now();
-      
-      // Combined monitoring interval - handles both pump safety and dosing
+      // Combined monitoring interval - handles pump safety
       monitoringInterval = setInterval(async () => {
         try {
-          // Get current auto-dosing state
-          const autoDosingModule = await importAutoDosing();
-          
-          // Skip processing if auto-dosing system is disabled
-          if (!autoDosingModule.isAutoDosingEnabled()) {
-            return;
-          }
-          
-          // PART 1: SAFETY MONITORING - Check for stuck pumps (runs every interval)
+          // SAFETY MONITORING - Check for stuck pumps (runs every interval)
           try {
             const { getAllPumpStatus, stopPump } = await importPumps();
             const pumpStatus = getAllPumpStatus();
@@ -161,37 +117,6 @@ export function startContinuousMonitoring() {
           } catch (err) {
             error(MODULE, 'Error checking for stuck pumps:', err);
           }
-          
-          // PART 2: AUTO-DOSING - Check if it's time to perform auto-dosing
-          const now = Date.now();
-          if (now - lastDosingCheckTime >= DOSING_FREQUENCY) {
-            lastDosingCheckTime = now;
-            
-            try {
-              // Only perform auto-dosing if the system is enabled
-              if (autoDosingModule.isAutoDosingEnabled()) {
-                // Check if minimum time has passed since last dosing attempt
-                const minTimeBetweenDosing = 15 * 1000; // 15 seconds minimum between checks
-                
-                if (now - lastDosingAttemptTime >= minTimeBetweenDosing) {
-                  info(MODULE, 'Auto-dosing scheduled check - running performAutoDosing()');
-                  lastDosingAttemptTime = now;
-                  
-                  // Perform auto-dosing based on current sensor readings
-                  const { performAutoDosing } = await importAutoDosing();
-                  const result = await performAutoDosing();
-                  
-                  // Log action taken
-                  info(MODULE, `Auto-dosing result: ${result.action}`, 
-                    result.action !== 'none' ? result.details : '');
-                } else {
-                  info(MODULE, `Skipping dosing check - too soon since last attempt (${Math.round((now - lastDosingAttemptTime)/1000)}s ago)`);
-                }
-              }
-            } catch (err) {
-              error(MODULE, 'Auto-dosing check error:', err);
-            }
-          }
         } catch (err) {
           error(MODULE, 'Monitoring interval error:', err);
         }
@@ -200,7 +125,7 @@ export function startContinuousMonitoring() {
       // Ensure interval is cleared if process exits
       monitoringInterval.unref?.();
       
-      info(MODULE, `Unified auto-dosing system monitoring started: safety checks every ${MONITORING_FREQUENCY/1000}s, dosing checks every ${DOSING_FREQUENCY/60000} minute(s)`);
+      info(MODULE, `Pump safety monitoring started: safety checks every ${MONITORING_FREQUENCY/1000}s`);
     })
     .catch(err => {
       // Clear the timeout since import failed
@@ -254,12 +179,7 @@ export async function initializeServer(): Promise<boolean> {
     
     info(MODULE, 'Pump system verification complete');
     
-    // 2. Now that pumps are verified, initialize auto-dosing
-    info(MODULE, '2. Initializing auto-dosing system');
-    const { initializeAutoDosing } = await importAutoDosing();
-    await initializeAutoDosing();
-    
-    // 3. Try to load GPIO cleanup for future use
+    // 2. Try to load GPIO cleanup for future use
     await tryLoadGPIOCleanup();
     
     serverInitialized = true;
@@ -310,19 +230,6 @@ export async function cleanupServer(): Promise<void> {
     } catch (pumpError) {
       error(MODULE, 'Error during server cleanup:', pumpError);
     }
-    
-    // Never auto-start monitoring based on config file - user must explicitly enable
-    try {
-      const { getDosingConfig, updateDosingConfig, disableAutoDosing } = await importAutoDosing();
-      const config = getDosingConfig();
-      
-      if (config.enabled === true) {
-        info(MODULE, 'Auto-dosing was enabled, disabling on shutdown for safety');
-        disableAutoDosing();
-      }
-    } catch (configError) {
-      error(MODULE, 'Failed to clean up after initialization error:', configError);
-    }
   } catch (cleanupError) {
     error(MODULE, 'Fatal error during server cleanup:', cleanupError);
   }
@@ -331,36 +238,6 @@ export async function cleanupServer(): Promise<void> {
 // Initialize server when this module is imported
 if (typeof window === 'undefined') {
   // Note: Actual initialization now triggered from middleware.ts
-  
-  // Only run the startup safety code during actual server initialization, not when this module
-  // is imported just to access monitoring functions
-  let isJustImportingForMonitoring = false;
-  try {
-    // Check stack trace to determine if we're being imported just for monitoring functions
-    const stackTrace = new Error().stack || '';
-    isJustImportingForMonitoring = stackTrace.includes('autoDosing.ts') && 
-                                   stackTrace.includes('updateDosingConfig');
-  } catch (err) {
-    error(MODULE, 'Error checking import context:', err);
-  }
-  
-  if (!isJustImportingForMonitoring) {
-    info(MODULE, 'Server initialization - auto-dosing will be OFF until explicitly enabled by user');
-    
-    // Safety measure: always ensure auto-dosing is OFF on startup
-    importAutoDosing()
-      .then(({ getDosingConfig, updateDosingConfig }) => {
-        const config = getDosingConfig();
-        // Force disable on startup for safety
-        if (config && config.enabled === true) {
-          info(MODULE, 'SAFETY: Found auto-dosing enabled in config, forcing OFF on startup');
-          updateDosingConfig({ enabled: false });
-        }
-      })
-      .catch(err => {
-        error(MODULE, 'Failed to check auto-dosing status on startup:', err);
-      });
-  }
   
   // Set up cleanup on process termination
   process.on('SIGINT', async () => {
