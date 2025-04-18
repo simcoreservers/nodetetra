@@ -21,19 +21,18 @@ const nextConfig = {
     maxInactiveAge: 24 * 60 * 60 * 1000, // 24 hours
     pagesBufferLength: 100, // Keep many more pages in memory
   },
-  // Enable SWC minification for faster builds
-  swcMinify: true,
+  // SWC minification is enabled by default in newer Next.js versions
   // Configure compilation for better performance
   compiler: {
     // Removes React properties like `data-testid` in production
     removeConsole: process.env.NODE_ENV === 'production',
   },
-  // More aggressively cache build artifacts
+  // Updated experimental features
   experimental: {
-    // Cache build outputs
-    turboCaching: true,
     // Improved startup time
     strictNextHead: true,
+    // Modern caching strategy
+    optimizeCss: true,
   },
 };
 
