@@ -324,10 +324,11 @@ export default function DosingPage() {
       // Resume refresh after updating
       resumeRefresh();
       
-      // Force a refresh of the config
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // No need to refresh the page - just a success notification
+      if (result) {
+        // Show success notification (can be replaced with a toast)
+        alert('Settings updated successfully');
+      }
     }
   };
 
@@ -356,9 +357,12 @@ export default function DosingPage() {
     if (phUpLimit !== "") {
       const limits: Record<string, number> = {};
       limits["pH Up"] = Number(phUpLimit);
-      await updateDosingLimits(limits);
+      const result = await updateDosingLimits(limits);
       resumeRefresh(); // Resume refresh after updating
-      refresh();
+      
+      if (result) {
+        refresh(); // Just refresh the data, not the page
+      }
     }
   };
 
@@ -366,9 +370,12 @@ export default function DosingPage() {
     if (phDownLimit !== "") {
       const limits: Record<string, number> = {};
       limits["pH Down"] = Number(phDownLimit);
-      await updateDosingLimits(limits);
+      const result = await updateDosingLimits(limits);
       resumeRefresh(); // Resume refresh after updating
-      refresh();
+      
+      if (result) {
+        refresh(); // Just refresh the data, not the page
+      }
     }
   };
 
@@ -376,9 +383,12 @@ export default function DosingPage() {
     if (nutrientALimit !== "") {
       const limits: Record<string, number> = {};
       limits["Nutrient A"] = Number(nutrientALimit);
-      await updateDosingLimits(limits);
+      const result = await updateDosingLimits(limits);
       resumeRefresh(); // Resume refresh after updating
-      refresh();
+      
+      if (result) {
+        refresh(); // Just refresh the data, not the page
+      }
     }
   };
 
@@ -386,9 +396,12 @@ export default function DosingPage() {
     if (nutrientBLimit !== "") {
       const limits: Record<string, number> = {};
       limits["Nutrient B"] = Number(nutrientBLimit);
-      await updateDosingLimits(limits);
+      const result = await updateDosingLimits(limits);
       resumeRefresh(); // Resume refresh after updating
-      refresh();
+      
+      if (result) {
+        refresh(); // Just refresh the data, not the page
+      }
     }
   };
 

@@ -4,7 +4,7 @@ interface UseUnifiedDosingProps {
   refreshInterval?: number;
 }
 
-export function useUnifiedDosing({ refreshInterval = 30000 }: UseUnifiedDosingProps = {}) {
+export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingProps = {}) {
   const [config, setConfig] = useState<any>(null);
   const [lastDosingResult, setLastDosingResult] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -12,14 +12,17 @@ export function useUnifiedDosing({ refreshInterval = 30000 }: UseUnifiedDosingPr
   const [isDosingInProgress, setIsDosingInProgress] = useState<boolean>(false);
   const [lastDosingAttemptTime, setLastDosingAttemptTime] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [isUserEditing, setIsUserEditing] = useState<boolean>(false);
   
   // Use ref for polling interval
   const currentIntervalRef = useRef<number>(refreshInterval);
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
+  const previousConfigRef = useRef<any>(null);
 
   // Function to pause refreshing temporarily
   const pauseRefresh = useCallback(() => {
     setIsPaused(true);
+    setIsUserEditing(true);
     if (intervalIdRef.current) {
       clearInterval(intervalIdRef.current);
       intervalIdRef.current = null;
@@ -29,12 +32,63 @@ export function useUnifiedDosing({ refreshInterval = 30000 }: UseUnifiedDosingPr
   // Function to resume refreshing
   const resumeRefresh = useCallback(() => {
     setIsPaused(false);
+    setIsUserEditing(false);
     // Set up interval again
     if (!intervalIdRef.current) {
-      intervalIdRef.current = setInterval(fetchConfig, currentIntervalRef.current);
+      intervalIdRef.current = setInterval(fetchConfigIfNeeded, currentIntervalRef.current);
     }
   }, []);
 
+  // Fetch config only if needed and don't disrupt UI
+  const fetchConfigIfNeeded = useCallback(async () => {
+    // Don't fetch if user is editing
+    if (isUserEditing) return;
+    
+    try {
+      // Only set loading state for initial fetch, not background refreshes
+      if (!config) {
+        setIsLoading(true);
+      }
+      
+      const response = await fetch('/api/dosing');
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch dosing config: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.status === 'error') {
+        throw new Error(data.error || 'Unknown error fetching dosing config');
+      }
+      
+      // Store previous config
+      previousConfigRef.current = config;
+      
+      // If user is editing, only update the data in the background without changing UI state
+      if (!isUserEditing) {
+        setConfig(data.config);
+        setIsDosingInProgress(data.isDosingInProgress || false);
+      } else {
+        // If user is editing, only update non-form fields that wouldn't affect what they're editing
+        if (data.config && config) {
+          // Update status values only, not user-editable fields
+          setIsDosingInProgress(data.isDosingInProgress || false);
+        }
+      }
+      
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching dosing config:', err);
+      setError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      if (!config) {
+        setIsLoading(false);
+      }
+    }
+  }, [config, isUserEditing]);
+
+  // Initial fetch with standard fetch function
   const fetchConfig = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -473,16 +527,15 @@ export function useUnifiedDosing({ refreshInterval = 30000 }: UseUnifiedDosingPr
 
   // Set up polling interval
   useEffect(() => {
-    // Don't set up interval if paused
-    if (isPaused) return;
-    
-    currentIntervalRef.current = document.hidden ? 60000 : refreshInterval;
+    // We still want the background process to continue at the regular interval
+    // But avoid UI updates during user editing
+    currentIntervalRef.current = document.hidden ? 30000 : refreshInterval;
     
     if (intervalIdRef.current) {
       clearInterval(intervalIdRef.current);
     }
     
-    intervalIdRef.current = setInterval(fetchConfig, currentIntervalRef.current);
+    intervalIdRef.current = setInterval(fetchConfigIfNeeded, currentIntervalRef.current);
     
     return () => {
       if (intervalIdRef.current) {
@@ -490,7 +543,7 @@ export function useUnifiedDosing({ refreshInterval = 30000 }: UseUnifiedDosingPr
         intervalIdRef.current = null;
       }
     };
-  }, [refreshInterval, fetchConfig, isPaused]);
+  }, [refreshInterval, fetchConfigIfNeeded, isPaused]);
 
   return {
     config,
