@@ -1,8 +1,14 @@
 // Continuous monitoring for auto-dosing
 let monitoringInterval: NodeJS.Timeout | null = null;
-const MONITORING_FREQUENCY = 1000; // Check every second
+const MONITORING_FREQUENCY = 1000; // Check every second for stuck pumps
 // Add safety timeout to ensure pumps don't get stuck
 const SAFETY_PUMP_TIMEOUT = 30000; // 30 seconds maximum pump operation time
+
+// Separate timer for auto-dosing with a more appropriate interval
+let dosingInterval: NodeJS.Timeout | null = null;
+const DOSING_FREQUENCY = 5 * 60 * 1000; // Check dosing needs every 5 minutes
+// Store last dosing time to prevent too frequent attempts
+let lastDosingAttemptTime = 0;
 
 export function startContinuousMonitoring() {
   if (monitoringInterval) {
@@ -11,14 +17,20 @@ export function startContinuousMonitoring() {
     monitoringInterval = null;
   }
   
+  if (dosingInterval) {
+    console.log('Dosing interval already active, stopping existing instance before restart');
+    clearInterval(dosingInterval);
+    dosingInterval = null;
+  }
+  
   console.log('Starting continuous monitoring for auto-dosing');
   enableMonitoring();
   
+  // Monitoring interval - runs frequently to check for stuck pumps
   monitoringInterval = setInterval(async () => {
     try {
       // Skip processing if monitoring disabled via control flag
       if (!isMonitoringEnabled()) {
-        console.log('Monitoring disabled via control flag, skipping auto-dosing check');
         return;
       }
       
@@ -36,61 +48,92 @@ export function startContinuousMonitoring() {
       } catch (err) {
         console.error('Error checking for stuck pumps:', err);
       }
+    } catch (err) {
+      console.error('Auto-dosing monitoring error:', err);
+    }
+  }, MONITORING_FREQUENCY);
+  
+  // Separate interval for actual auto-dosing checks - runs less frequently
+  dosingInterval = setInterval(async () => {
+    try {
+      // Skip processing if monitoring disabled via control flag
+      if (!isMonitoringEnabled()) {
+        console.log('Monitoring disabled via control flag, skipping auto-dosing check');
+        return;
+      }
       
       const { getDosingConfig, performAutoDosing } = await import('./autoDosing');
       const config = getDosingConfig();
       
       if (config && config.enabled === true) {
-        console.log('Auto-dosing scheduled check - running performAutoDosing()');
-        await performAutoDosing();
+        // Check if minimum time has passed since last dosing attempt
+        const now = Date.now();
+        const minTimeBetweenDosing = 60 * 1000; // 1 minute minimum between checks
+        
+        if (now - lastDosingAttemptTime >= minTimeBetweenDosing) {
+          console.log('Auto-dosing scheduled check - running performAutoDosing()');
+          lastDosingAttemptTime = now;
+          
+          // Perform auto-dosing based on current sensor readings
+          const result = await performAutoDosing();
+          
+          // Log action taken
+          console.log(`Auto-dosing result: ${result.action}`, 
+            result.action !== 'none' ? result.details : '');
+        } else {
+          console.log(`Skipping dosing check - too soon since last attempt (${Math.round((now - lastDosingAttemptTime)/1000)}s ago)`);
+        }
       } else {
         // If config.enabled is false, ensure monitoring is disabled
         if (config && config.enabled === false) {
           disableMonitoring();
           console.log('Auto-dosing disabled in config, disabling monitoring flag');
         }
-        // Use debug level instead of info to reduce noise
-        // console.log('Auto-dosing disabled, skipping scheduled check');
       }
     } catch (err) {
-      console.error('Auto-dosing monitoring error:', err);
+      console.error('Auto-dosing check error:', err);
     }
-  }, MONITORING_FREQUENCY);
+  }, DOSING_FREQUENCY);
   
-  console.log(`Continuous monitoring started with interval of ${MONITORING_FREQUENCY/1000}s`);
+  console.log(`Continuous monitoring started: safety checks every ${MONITORING_FREQUENCY/1000}s, dosing checks every ${DOSING_FREQUENCY/60000} minutes`);
 }
 
 export function stopContinuousMonitoring() {
+  // Clear both intervals
   if (monitoringInterval) {
     clearInterval(monitoringInterval);
     monitoringInterval = null;
-    // Disable the monitoring flag
-    disableMonitoring();
-    console.log('Continuous monitoring for auto-dosing stopped');
-    
-    // Force stop any active pumps for safety
-    try {
-      import('./pumps').then(({ getAllPumpStatus, stopPump }) => {
-        const pumps = getAllPumpStatus();
-        const activePumps = pumps.filter(p => p.active);
+  }
+  
+  if (dosingInterval) {
+    clearInterval(dosingInterval);
+    dosingInterval = null;
+  }
+  
+  // Disable the monitoring flag
+  disableMonitoring();
+  console.log('Continuous monitoring for auto-dosing stopped');
+  
+  // Force stop any active pumps for safety
+  try {
+    import('./pumps').then(({ getAllPumpStatus, stopPump }) => {
+      const pumps = getAllPumpStatus();
+      const activePumps = pumps.filter(p => p.active);
+      
+      if (activePumps.length > 0) {
+        console.log(`Stopping ${activePumps.length} active pumps after monitoring disabled`);
         
-        if (activePumps.length > 0) {
-          console.log(`Stopping ${activePumps.length} active pumps after monitoring disabled`);
-          
-          // Stop all active pumps
-          Promise.all(activePumps.map(pump => {
-            console.log(`Stopping active pump ${pump.name} after monitoring disabled`);
-            return stopPump(pump.name).catch(err => 
-              console.error(`Error stopping pump ${pump.name}:`, err));
-          })).catch(err => 
-            console.error('Error stopping pumps after monitoring disabled:', err));
-        }
-      }).catch(err => console.error('Error importing pumps module:', err));
-    } catch (err) {
-      console.error('Failed to stop active pumps:', err);
-    }
-  } else {
-    console.log('No active monitoring to stop');
+        // Stop all active pumps
+        Promise.all(activePumps.map(pump => {
+          console.log(`Stopping active pump ${pump.name} after monitoring disabled`);
+          return stopPump(pump.name).catch(err => 
+            console.error(`Error stopping pump ${pump.name}:`, err));
+        })).catch(err => 
+          console.error('Error stopping pumps after monitoring disabled:', err));
+      }
+    }).catch(err => console.error('Error importing pumps module:', err));
+  } catch (err) {
+    console.error('Failed to stop active pumps:', err);
   }
 }
 /**

@@ -1548,6 +1548,21 @@ export async function performAutoDosing(): Promise<{
   
     // Store the reading for reference
     lastReading = sensorData;
+    
+    // Log current readings compared to target values for diagnostic purposes
+    info(MODULE, `Auto-dosing values analysis - Current readings vs targets:
+      pH: ${sensorData.ph.toFixed(2)} (target: ${dosingConfig.targets.ph.target.toFixed(2)} ± ${dosingConfig.targets.ph.tolerance.toFixed(2)})
+      EC: ${sensorData.ec.toFixed(2)} (target: ${dosingConfig.targets.ec.target.toFixed(2)} ± ${dosingConfig.targets.ec.tolerance.toFixed(2)})
+      Water temp: ${sensorData.waterTemp ? sensorData.waterTemp.toFixed(1) + '°C' : 'N/A'}
+    `);
+    
+    // Determine if any values are outside acceptable ranges
+    const phLow = sensorData.ph < (dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance);
+    const phHigh = sensorData.ph > (dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance);
+    const ecLow = sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance);
+    const ecHigh = sensorData.ec > (dosingConfig.targets.ec.target + dosingConfig.targets.ec.tolerance);
+    
+    info(MODULE, `Values outside target ranges: ${phLow ? 'pH LOW' : ''} ${phHigh ? 'pH HIGH' : ''} ${ecLow ? 'EC LOW' : ''} ${ecHigh ? 'EC HIGH' : ''}`);
   
     // Check for already active pumps (don't dose if pumps are already running)
     try {

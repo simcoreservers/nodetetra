@@ -177,10 +177,15 @@ export default function DosingPage() {
       const ecTolerance = (ecData.max - ecData.min) / 2;
       
       // Only update if values are different to avoid unnecessary API calls
-      if (phTarget !== autoDoseConfig.targets.ph.target ||
-          phTolerance !== autoDoseConfig.targets.ph.tolerance ||
-          ecTarget !== autoDoseConfig.targets.ec.target ||
-          ecTolerance !== autoDoseConfig.targets.ec.tolerance) {
+      if (phTarget !== autoDoseConfig.targets?.ph?.target ||
+          phTolerance !== autoDoseConfig.targets?.ph?.tolerance ||
+          ecTarget !== autoDoseConfig.targets?.ec?.target ||
+          ecTolerance !== autoDoseConfig.targets?.ec?.tolerance) {
+        
+        console.log('Updating auto-dosing targets from active profile:', {
+          ph: { target: phTarget, tolerance: phTolerance },
+          ec: { target: ecTarget, tolerance: ecTolerance }
+        });
         
         updateAutoDoseConfig({
           targets: {
