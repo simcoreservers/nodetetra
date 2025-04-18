@@ -783,29 +783,60 @@ async function saveDosingConfigAsync(): Promise<void> {
       const configPath = path.join(dataPath, 'autodosing.json');
       const tempPath = `${configPath}.tmp`;
       
-      // Write to temp file first
-      await fs.writeFile(tempPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
-      
+      // Try three methods in sequence with proper error handling
+      // Method 1: Write to temp file and rename (atomic)
       try {
-        // Atomic rename operation
-        await fs.rename(tempPath, configPath);
-      } catch (renameErr: any) {
-        // If rename fails (can happen on some systems), try copy and delete
-        if (renameErr.code === 'ENOENT') {
-          console.warn('Rename operation failed, falling back to copy method');
-          await fs.copyFile(tempPath, configPath);
-          try {
-            await fs.unlink(tempPath); // Clean up temp file
-          } catch (unlinkErr) {
-            // Just log, don't fail the operation if we can't clean up
-            console.error('Failed to clean up temp file:', unlinkErr);
-          }
-        } else {
-          throw renameErr; // Re-throw if it's not an ENOENT error
+        await fs.writeFile(tempPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
+        
+        try {
+          // Atomic rename operation
+          await fs.rename(tempPath, configPath);
+          trace(MODULE, 'Auto-dosing config saved with atomic rename');
+          return; // Success, exit function
+        } catch (renameErr: any) {
+          console.warn('Rename operation failed:', renameErr.code || renameErr.message);
+          // Continue to method 2
         }
+        
+        // Method 2: Check if temp file exists, then copy and delete
+        try {
+          // Verify temp file exists before attempting to copy
+          const tempStats = await fs.stat(tempPath);
+          if (tempStats.isFile() && tempStats.size > 0) {
+            await fs.copyFile(tempPath, configPath);
+            console.log('Used copy method as fallback for saving config');
+            
+            try {
+              await fs.unlink(tempPath); // Clean up temp file
+            } catch (unlinkErr) {
+              // Just log, don't fail the operation if we can't clean up
+              console.error('Failed to clean up temp file:', unlinkErr);
+            }
+            return; // Success, exit function
+          } else {
+            console.error('Temp file exists but appears invalid, skipping copy');
+            // Continue to method 3
+          }
+        } catch (statsErr) {
+          console.error('Temp file does not exist or cannot be accessed:', statsErr);
+          // Continue to method 3
+        }
+      } catch (writeErr) {
+        console.error('Failed to write temp file:', writeErr);
+        // Continue to method 3
       }
       
-      trace(MODULE, 'Auto-dosing config saved with atomic file operations (async)');
+      // Method 3: Direct write to final destination (last resort)
+      try {
+        console.warn('Falling back to direct file write method (last resort)');
+        await fs.writeFile(configPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
+        console.log('Config saved with direct write method');
+      } catch (directWriteErr) {
+        console.error('All file save methods failed. Final error:', directWriteErr);
+        throw directWriteErr; // Rethrow to trigger fallback
+      }
+      
+      trace(MODULE, 'Auto-dosing config saved');
       recordSuccess(); // Record success for circuit breaker
     }
   } catch (err) {
@@ -843,38 +874,76 @@ function saveDosingConfig(): void {
       const configPath = path.join(dataPath, 'autodosing.json');
       const tempPath = `${configPath}.tmp`;
       
-      // Write to temp file first - use try/catch to handle errors
+      // Method 1: Atomic write through temp file
       try {
+        // Write to temp file first
         fs.writeFileSync(tempPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
-      
-        // Atomic rename operation
-        try {
-          fs.renameSync(tempPath, configPath);
-        } catch (renameErr) {
-          // If rename fails, try to copy and delete
-          console.warn('Rename operation failed during sync save, attempting copy method');
-          fs.copyFileSync(tempPath, configPath);
+        
+        // Check if the temp file was created successfully
+        if (fs.existsSync(tempPath) && fs.statSync(tempPath).size > 0) {
           try {
-            fs.unlinkSync(tempPath); // Delete temp file
-          } catch (unlinkErr) {
-            console.error('Failed to delete temp file after copy:', unlinkErr);
+            // Attempt atomic rename
+            fs.renameSync(tempPath, configPath);
+            trace(MODULE, 'Auto-dosing config saved with atomic rename (sync)');
+            
+            // Success with method 1, return early
+            recordSuccess();
+            return;
+          } catch (renameErr) {
+            console.warn('Rename operation failed during sync save:', renameErr);
+            // Fall through to next method
           }
+          
+          // Method 2: Copy and delete if rename failed
+          try {
+            // Copy temp to destination
+            fs.copyFileSync(tempPath, configPath);
+            console.log('Used copy method as fallback for sync saving config');
+            
+            // Try to delete temp file but don't fail if this errors
+            try {
+              fs.unlinkSync(tempPath);
+            } catch (unlinkErr) {
+              console.error('Failed to delete temp file after copy (sync):', unlinkErr);
+            }
+            
+            // Success with method 2, return early
+            recordSuccess();
+            return;
+          } catch (copyErr) {
+            console.error('Copy operation failed during sync save:', copyErr);
+            // Fall through to method 3
+          }
+        } else {
+          console.error('Temp file was not created properly during sync save');
+          // Fall through to method 3
         }
-        
-        // Force sync the directory for extra safety
-        try {
-          const dirFd = fs.openSync(dataPath, 'r');
-          fs.fsyncSync(dirFd);
-          fs.closeSync(dirFd);
-        } catch (syncError) {
-          console.warn('Could not fsync directory:', syncError);
-        }
-        
-        trace(MODULE, 'Auto-dosing config saved with atomic file operations');
-        recordSuccess(); // Record success for circuit breaker
       } catch (writeErr) {
-        console.error('Error writing config file during sync save:', writeErr);
-        throw writeErr;
+        console.error('Error writing temp file during sync save:', writeErr);
+        // Fall through to method 3
+      }
+      
+      // Method 3: Direct write as last resort
+      try {
+        console.warn('Falling back to direct file write method (sync, last resort)');
+        fs.writeFileSync(configPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
+        console.log('Config saved with direct write method (sync)');
+        
+        // Try to sync the file if possible
+        try {
+          const fd = fs.openSync(configPath, 'r');
+          fs.fsyncSync(fd);
+          fs.closeSync(fd);
+        } catch (syncErr) {
+          console.warn('Could not fsync file:', syncErr);
+        }
+        
+        // Success with method 3
+        recordSuccess();
+        return;
+      } catch (directWriteErr) {
+        console.error('All sync file save methods failed. Final error:', directWriteErr);
+        throw directWriteErr;
       }
     }
   } catch (err) {
