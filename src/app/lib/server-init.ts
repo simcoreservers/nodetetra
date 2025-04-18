@@ -4,11 +4,12 @@ const MONITORING_FREQUENCY = 1000; // Check every second for stuck pumps
 // Add safety timeout to ensure pumps don't get stuck
 const SAFETY_PUMP_TIMEOUT = 30000; // 30 seconds maximum pump operation time
 
-// Separate timer for auto-dosing with a more appropriate interval
-let dosingInterval: NodeJS.Timeout | null = null;
-const DOSING_FREQUENCY = 60 * 1000; // Check dosing needs every 1 minute (changed from 5 minutes)
+// Timing for dosing checks within the monitoring interval
+const DOSING_FREQUENCY = 60 * 1000; // Check dosing needs every 1 minute
 // Store last dosing time to prevent too frequent attempts
 let lastDosingAttemptTime = 0;
+// Store last check time for dosing
+let lastDosingCheckTime = 0;
 
 // Track if server initialization is complete
 let serverInitialized = false;
@@ -119,10 +120,10 @@ function safeClearInterval(interval: NodeJS.Timeout | null, name: string): boole
 }
 
 export function startContinuousMonitoring() {
-  // Only initialize intervals if they don't already exist
-  // Do not clear existing intervals as they may have been set by the user
-  if (monitoringInterval || dosingInterval) {
-    console.log('Monitoring or dosing intervals already exist, not overwriting user settings');
+  // Only initialize interval if it doesn't already exist
+  // Do not clear existing interval as it may have been set by the user
+  if (monitoringInterval) {
+    console.log('Monitoring interval already exists, not overwriting user settings');
     return;
   }
   
@@ -132,106 +133,111 @@ export function startContinuousMonitoring() {
   const importTimeoutId = setTimeout(() => {
     console.error(`Module import timeout occurred during startContinuousMonitoring after ${MODULE_IMPORT_TIMEOUT}ms`);
     // Attempt recovery if import times out
-    if (!monitoringInterval && !dosingInterval) {
-      console.log('No intervals were started. Import likely failed.');
+    if (!monitoringInterval) {
+      console.log('No interval was started. Import likely failed.');
     }
   }, MODULE_IMPORT_TIMEOUT);
   
   // Import with error handling
-  importMonitorControl()
-    .then(({ enableMonitoring }) => {
+  Promise.all([importMonitorControl(), importAutoDosing()])
+    .then(([monitorControlModule, autoDosingModule]) => {
       // Clear the timeout since import succeeded
       clearTimeout(importTimeoutId);
       
-      // Only enable monitoring if not already enabled
-      if (!monitoringInterval) {
-        enableMonitoring();
-        
-        // Monitoring interval - runs frequently to check for stuck pumps
-        monitoringInterval = setInterval(async () => {
+      // Check current auto-dosing config to set initial monitoring state
+      const dosingConfig = autoDosingModule.getDosingConfig();
+      
+      if (dosingConfig && dosingConfig.enabled === true) {
+        // Auto-dosing is enabled, so enable monitoring
+        monitorControlModule.enableMonitoring();
+        console.log('Auto-dosing enabled in config, enabling monitoring on startup');
+      } else {
+        // Auto-dosing is disabled, ensure monitoring is also disabled
+        monitorControlModule.disableMonitoring();
+        console.log('Auto-dosing disabled in config, ensuring monitoring is disabled on startup');
+      }
+      
+      // Initialize the timestamps for dosing check tracking
+      lastDosingCheckTime = Date.now();
+      lastDosingAttemptTime = Date.now();
+      
+      // Combined monitoring interval - handles both pump safety and dosing
+      monitoringInterval = setInterval(async () => {
+        try {
+          // Skip all processing if monitoring disabled via control flag
+          const monitoringModule = await importMonitorControl();
+          if (!monitoringModule.isMonitoringEnabled()) {
+            return;
+          }
+          
+          // PART 1: SAFETY MONITORING - Check for stuck pumps (runs every interval)
           try {
-            // Skip processing if monitoring disabled via control flag
-            const monitoringModule = await importMonitorControl();
-            if (!monitoringModule.isMonitoringEnabled()) {
-              return;
-            }
+            const { getAllPumpStatus, stopPump } = await importPumps();
+            const pumpStatus = getAllPumpStatus();
             
-            // Check for any pumps that might be stuck in "on" state
+            for (const pump of pumpStatus) {
+              if (pump.active && pump.activeSince && (Date.now() - pump.activeSince > SAFETY_PUMP_TIMEOUT)) {
+                console.error(`Safety timeout: Pump ${pump.name} has been active for more than ${SAFETY_PUMP_TIMEOUT/1000}s, forcing stop`);
+                await stopPump(pump.name);
+              }
+            }
+          } catch (err) {
+            console.error('Error checking for stuck pumps:', err);
+          }
+          
+          // PART 2: AUTO-DOSING - Check if it's time to perform auto-dosing
+          const now = Date.now();
+          if (now - lastDosingCheckTime >= DOSING_FREQUENCY) {
+            lastDosingCheckTime = now;
+            
             try {
-              const { getAllPumpStatus, stopPump } = await importPumps();
-              const pumpStatus = getAllPumpStatus();
+              const { getDosingConfig, performAutoDosing } = await importAutoDosing();
+              const config = getDosingConfig();
               
-              for (const pump of pumpStatus) {
-                if (pump.active && pump.activeSince && (Date.now() - pump.activeSince > SAFETY_PUMP_TIMEOUT)) {
-                  console.error(`Safety timeout: Pump ${pump.name} has been active for more than ${SAFETY_PUMP_TIMEOUT/1000}s, forcing stop`);
-                  await stopPump(pump.name);
+              // Ensure monitoring state is synchronized with auto-dosing config
+              if (config && config.enabled === true) {
+                // If auto-dosing is enabled but monitoring is not, enable it
+                if (!monitoringModule.isMonitoringEnabled()) {
+                  monitoringModule.enableMonitoring();
+                  console.log('Auto-dosing enabled in config, enabling monitoring flag');
+                }
+              
+                // Check if minimum time has passed since last dosing attempt
+                const minTimeBetweenDosing = 15 * 1000; // 15 seconds minimum between checks
+                
+                if (now - lastDosingAttemptTime >= minTimeBetweenDosing) {
+                  console.log('Auto-dosing scheduled check - running performAutoDosing()');
+                  lastDosingAttemptTime = now;
+                  
+                  // Perform auto-dosing based on current sensor readings
+                  const result = await performAutoDosing();
+                  
+                  // Log action taken
+                  console.log(`Auto-dosing result: ${result.action}`, 
+                    result.action !== 'none' ? result.details : '');
+                } else {
+                  console.log(`Skipping dosing check - too soon since last attempt (${Math.round((now - lastDosingAttemptTime)/1000)}s ago)`);
+                }
+              } else if (config && config.enabled === false) {
+                // If auto-dosing is disabled but monitoring is enabled, disable it
+                if (monitoringModule.isMonitoringEnabled()) {
+                  monitoringModule.disableMonitoring();
+                  console.log('Auto-dosing disabled in config, disabling monitoring flag');
                 }
               }
             } catch (err) {
-              console.error('Error checking for stuck pumps:', err);
+              console.error('Auto-dosing check error:', err);
             }
-          } catch (err) {
-            console.error('Auto-dosing monitoring error:', err);
           }
-        }, MONITORING_FREQUENCY);
-        
-        // Ensure interval is cleared if process exits
-        monitoringInterval.unref?.();
-      }
+        } catch (err) {
+          console.error('Monitoring interval error:', err);
+        }
+      }, MONITORING_FREQUENCY);
       
-      // Do not run performAutoDosing immediately at startup - this should be driven by user config
-      // Remove immediate dosing check on startup
+      // Ensure interval is cleared if process exits
+      monitoringInterval.unref?.();
       
-      // Only set up dosing interval if it doesn't already exist
-      if (!dosingInterval) {
-        // Separate interval for actual auto-dosing checks - runs less frequently
-        dosingInterval = setInterval(async () => {
-          try {
-            // Skip processing if monitoring disabled via control flag
-            const monitoringModule = await importMonitorControl();
-            if (!monitoringModule.isMonitoringEnabled()) {
-              console.log('Monitoring disabled via control flag, skipping auto-dosing check');
-              return;
-            }
-            
-            const { getDosingConfig, performAutoDosing } = await importAutoDosing();
-            const config = getDosingConfig();
-            
-            if (config && config.enabled === true) {
-              // Check if minimum time has passed since last dosing attempt
-              const now = Date.now();
-              const minTimeBetweenDosing = 15 * 1000; // 15 seconds minimum between checks (reduced from 60s)
-              
-              if (now - lastDosingAttemptTime >= minTimeBetweenDosing) {
-                console.log('Auto-dosing scheduled check - running performAutoDosing()');
-                lastDosingAttemptTime = now;
-                
-                // Perform auto-dosing based on current sensor readings
-                const result = await performAutoDosing();
-                
-                // Log action taken
-                console.log(`Auto-dosing result: ${result.action}`, 
-                  result.action !== 'none' ? result.details : '');
-              } else {
-                console.log(`Skipping dosing check - too soon since last attempt (${Math.round((now - lastDosingAttemptTime)/1000)}s ago)`);
-              }
-            } else {
-              // If config.enabled is false, ensure monitoring is disabled
-              if (config && config.enabled === false) {
-                monitoringModule.disableMonitoring();
-                console.log('Auto-dosing disabled in config, disabling monitoring flag');
-              }
-            }
-          } catch (err) {
-            console.error('Auto-dosing check error:', err);
-          }
-        }, DOSING_FREQUENCY);
-        
-        // Ensure interval is cleared if process exits
-        dosingInterval.unref?.();
-      }
-      
-      console.log(`Continuous monitoring configured: safety checks every ${MONITORING_FREQUENCY/1000}s, dosing checks every ${DOSING_FREQUENCY/60000} minute(s)`);
+      console.log(`Unified monitoring started: safety checks every ${MONITORING_FREQUENCY/1000}s, dosing checks every ${DOSING_FREQUENCY/60000} minute(s)`);
     })
     .catch(err => {
       // Clear the timeout since import failed
@@ -245,18 +251,16 @@ export function stopContinuousMonitoring() {
   console.log('Stopping continuous monitoring');
   
   const monitoringCleared = safeClearInterval(monitoringInterval, 'monitoring');
-  const dosingCleared = safeClearInterval(dosingInterval, 'dosing');
   
   monitoringInterval = null;
-  dosingInterval = null;
   
-  // Track if intervals were successfully cleared
-  intervalsCleared = monitoringCleared && dosingCleared;
+  // Track if interval was successfully cleared
+  intervalsCleared = monitoringCleared;
   
   if (!intervalsCleared) {
-    console.error('Failed to clear some intervals during stopContinuousMonitoring');
+    console.error('Failed to clear monitoring interval during stopContinuousMonitoring');
   } else {
-    console.log('Cleared all monitoring intervals successfully');
+    console.log('Cleared monitoring interval successfully');
   }
   
   // Ensure monitoring flag is disabled
