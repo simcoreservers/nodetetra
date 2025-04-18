@@ -163,11 +163,12 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
     if (!config) return false;
     
     const action = config.enabled ? 'disable' : 'enable';
+    console.log(`Toggling auto-dosing system - current state: ${config.enabled ? 'enabled' : 'disabled'}, action: ${action}`);
     
     try {
       setIsLoading(true);
       
-      // Optimistic update
+      // Optimistic update in UI
       setConfig({...config, enabled: !config.enabled});
       
       const response = await fetch('/api/dosing', {
@@ -194,28 +195,28 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
       
       // Update config with the returned state to ensure UI reflects server state
       if (data.config) {
+        console.log(`Server returned config with enabled=${data.config.enabled}`);
         setConfig(data.config);
       }
       
-      // Force monitoring to stop if disabling
-      if (action === 'disable') {
-        // Send an extra request to ensure monitoring is stopped
-        await fetch('/api/dosing/force-stop', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }).catch(err => console.error('Error forcing monitoring stop:', err));
-      } else if (action === 'enable') {
-        // When enabling, double-check status after a short delay
+      // Multiple checks to ensure UI is showing the correct state
+      if (action === 'enable') {
+        // When enabling, double-check status after short delays
         setTimeout(() => {
+          console.log('Refreshing config after enable (1st check)');
           fetchConfig();
         }, 1000);
         
-        // Add a second verification after slightly longer delay
         setTimeout(() => {
+          console.log('Refreshing config after enable (2nd check)');
           fetchConfig();
         }, 3000);
+      } else {
+        // For disable, check once after a short delay
+        setTimeout(() => {
+          console.log('Refreshing config after disable');
+          fetchConfig();
+        }, 1000);
       }
       
       setError(null);

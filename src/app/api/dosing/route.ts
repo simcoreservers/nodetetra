@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDosingConfig, updateDosingConfig } from '@/app/lib/autoDosing';
+import { 
+  getDosingConfig, 
+  updateDosingConfig, 
+  enableAutoDosing, 
+  disableAutoDosing,
+  isAutoDosingEnabled
+} from '@/app/lib/autoDosing';
 import { error, info } from '@/app/lib/logger';
-import { disableMonitoring, enableMonitoring } from '@/app/lib/monitorControl';
 
 const MODULE = 'api:dosing';
 
@@ -73,11 +78,10 @@ export async function POST(req: Request) {
     if (action === 'enable') {
       info(MODULE, 'User explicitly enabled auto-dosing system');
       
-      // Enable the unified auto-dosing system
-      await enableMonitoring();
+      // Use the unified enableAutoDosing function
+      config = enableAutoDosing();
       
-      // Reload config to ensure we have the updated state
-      config = getDosingConfig();
+      info(MODULE, `Auto-dosing enabled status is now: ${isAutoDosingEnabled() ? 'ENABLED' : 'DISABLED'}`);
       
       // Make sure monitoring system is running
       try {
@@ -111,11 +115,10 @@ export async function POST(req: Request) {
     } else if (action === 'disable') {
       info(MODULE, 'User explicitly disabled auto-dosing system');
       
-      // Disable the unified auto-dosing system
-      await disableMonitoring();
+      // Use the unified disableAutoDosing function
+      config = disableAutoDosing();
       
-      // Reload config to ensure we have the updated state
-      config = getDosingConfig();
+      info(MODULE, `Auto-dosing enabled status is now: ${isAutoDosingEnabled() ? 'ENABLED' : 'DISABLED'}`);
       
       // Force stop any running pumps
       try {
@@ -144,7 +147,7 @@ export async function POST(req: Request) {
         config = updateDosingConfig(body.config);
         
         if (enabledChanging) {
-          info(MODULE, `Auto-dosing system ${config.enabled ? 'enabled' : 'disabled'} through config update`);
+          info(MODULE, `Auto-dosing system ${isAutoDosingEnabled() ? 'enabled' : 'disabled'} through config update`);
         }
       }
     } else if (action === 'reset') {
@@ -171,9 +174,7 @@ export async function POST(req: Request) {
         // Update the config using updateDosingConfig which will handle saving
         config = updateDosingConfig(config);
         
-        // After reset, explicitly ensure system is disabled
-        await disableMonitoring();
-        info(MODULE, 'Disabled auto-dosing system after reset');
+        info(MODULE, 'Auto-dosing system reset and disabled');
       } catch (err) {
         error(MODULE, 'Failed to reset dosing config:', err);
       }

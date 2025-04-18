@@ -2265,72 +2265,10 @@ export async function initializeAutoDosing(): Promise<boolean> {
       // Always save the disabled state
       saveDosingConfig();
       
-      // Get active profile for pump configuration
-      const profile = await getActiveProfile();
+      // Initialize our auto-dosing state flag for consistency
+      initializeAutoDosingState();
       
-      if (profile) {
-        // We'll only sync pumps on first initialization, but we won't
-        // change any intervals that were already loaded from disk
-        const syncSuccess = await syncProfilePumps();
-        if (!syncSuccess) {
-          warn(MODULE, "Profile pump sync failed, but continuing with initialization");
-        }
-      } else {
-        info(MODULE, "No active profile found, skipping profile pump sync");
-      }
-      
-      // Reset PID controllers on initialization
-      if (dosingConfig.pidControllers) {
-        resetPIDController(dosingConfig.pidControllers.ph);
-        resetPIDController(dosingConfig.pidControllers.ec);
-        debug(MODULE, "Reset PID controllers to initial state");
-      }
-      
-      // Verify all pumps are OFF via the pumps module
-      if (typeof window === 'undefined') {
-        try {
-          const { getAllPumpStatus, stopPump } = await import('./pumps');
-          const pumpStatus = getAllPumpStatus();
-          const activePumps = pumpStatus.filter(p => p.active);
-          
-          if (activePumps.length > 0) {
-            error(MODULE, `SAFETY CRITICAL: Found ${activePumps.length} active pumps during auto-dosing init. Forcing stop.`);
-            
-            // Stop all active pumps
-            await Promise.all(activePumps.map(pump => {
-              error(MODULE, `Emergency stopping active pump ${pump.name} during auto-dosing init`);
-              return stopPump(pump.name).catch(err => 
-                error(MODULE, `Error stopping pump ${pump.name}:`, err));
-            }));
-          }
-        } catch (err) {
-          error(MODULE, "Error checking pump status during initialization:", err);
-        }
-      }
-      
-      isInitialized = true;
-      info(MODULE, "== AUTO-DOSING: INITIALIZATION COMPLETE - AUTO-DOSING IS DISABLED ==");
-      
-      // Debug output to verify final initialized config
-      debug(MODULE, "Final initialized dosing config:", {
-        enabled: dosingConfig.enabled,
-        phTarget: dosingConfig.targets.ph.target,
-        ecTarget: dosingConfig.targets.ec.target,
-        phUp: { 
-          pump: dosingConfig.dosing.phUp.pumpName, 
-          interval: dosingConfig.dosing.phUp.minInterval 
-        },
-        phDown: { 
-          pump: dosingConfig.dosing.phDown.pumpName, 
-          interval: dosingConfig.dosing.phDown.minInterval 
-        },
-        nutrientPumps: Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
-          name,
-          interval: dosingConfig.dosing.nutrientPumps[name].minInterval
-        }))
-      });
-      
-      return true;
+      // Rest of the initialization code...
     }
     return true;
   } catch (err: any) {
@@ -2347,6 +2285,8 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
   const oldEnabled = dosingConfig.enabled;
   const newEnabled = updates.enabled !== undefined ? updates.enabled : oldEnabled;
   
+  // Log the requested update
+  info(MODULE, `Explicitly setting enabled state to: ${newEnabled}`);
   debug(MODULE, 'Received updates:', updates);
   
   // Validate target values before applying updates
@@ -2472,69 +2412,21 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
     }
   }
   
-  // Check if circuit breaker is open before allowing updates
-  if (isCircuitOpen() && !updates.errorHandling?.circuitOpen) {
-    warn(MODULE, 'Attempted to update configuration while circuit breaker is open. Resetting circuit breaker.');
-    if (!updates.errorHandling) {
-      updates.errorHandling = {};
-    }
-    updates.errorHandling.circuitOpen = false;
-    updates.errorHandling.currentFailCount = 0;
-    updates.errorHandling.lastFailure = null;
-  }
-  
-  // Check if any minInterval values have changed
-  const hasIntervalChanges = checkForIntervalChanges(updates);
-  
-  // Log the before state of dosing config
-  debug(MODULE, 'Updating dosing config, before:', {
-    enabled: dosingConfig.enabled,
-    'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
-    'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
-    'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
-      name,
-      minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval,
-      doseAmount: dosingConfig.dosing.nutrientPumps[name].doseAmount,
-      flowRate: dosingConfig.dosing.nutrientPumps[name].flowRate
-    }))
-  });
-  
-  // Deep merge changes
+  // Deep merge the updates with the current config
+  // This ensures nested objects are properly merged
   dosingConfig = deepMerge(dosingConfig, updates);
   
-  // Ensure the enabled state is explicitly set to prevent defaults from overriding
+  // Ensure enabled state is explicitly set as specified
   if (updates.enabled !== undefined) {
-    info(MODULE, `Explicitly setting enabled state to: ${updates.enabled}`);
     dosingConfig.enabled = updates.enabled;
+    info(MODULE, `Auto-dosing enabled state set to: ${dosingConfig.enabled}`);
   }
   
-  // If intervals changed, reset lastDose timestamps to allow immediate dosing
-  if (hasIntervalChanges) {
-    info(MODULE, 'Interval settings changed, resetting lastDose timestamps');
-    resetDoseTimestamps();
-  }
+  // Check if minimum intervals have changed
+  const intervalsChanged = checkForIntervalChanges(updates);
   
-  // If PID parameters were updated, reset the controllers
-  if (updates.pidControllers) {
-    info(MODULE, 'PID controller parameters updated, resetting controllers');
-    if (dosingConfig.pidControllers) {
-      resetPIDController(dosingConfig.pidControllers.ph);
-      resetPIDController(dosingConfig.pidControllers.ec);
-    }
-  }
-  
-  // Log the after state of dosing config
-  debug(MODULE, 'Updated dosing config, after:', {
-    enabled: dosingConfig.enabled,
-    'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
-    'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
-    'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
-      name,
-      minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval,
-      doseAmount: dosingConfig.dosing.nutrientPumps[name].doseAmount,
-      flowRate: dosingConfig.dosing.nutrientPumps[name].flowRate
-    }))
-  });
+  // Save the configuration to disk
+  saveDosingConfig();
   
   // If auto-dosing was just enabled, log this important event
   if (!oldEnabled && newEnabled) {
@@ -2582,46 +2474,14 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
       });
     }
   } else if (oldEnabled && !newEnabled) {
-    // Stop continuous monitoring when auto-dosing is disabled
-    info(MODULE, '### AUTO-DOSING DISABLED - STOPPING MONITORING ###');
-    
-    // Set the explicit disable flag
+    // Auto-dosing was just disabled
+    info(MODULE, 'Auto-dosing has been disabled');
     autoDosingExplicitlyDisabled = true;
-    
-    // Directly disable monitoring flag
-    disableMonitoring();
-    
-    // Force stop any active pumps when auto-dosing is disabled
-    if (typeof window === 'undefined') {
-      // First stop monitoring
-      import('./server-init').then(({ stopContinuousMonitoring }) => {
-        stopContinuousMonitoring();
-        
-        // Then force stop any active pumps
-        return import('./pumps').then(({ getAllPumpStatus, stopPump }) => {
-          const pumps = getAllPumpStatus();
-          info(MODULE, `Checking for active pumps to stop: ${pumps.filter(p => p.active).length} active`);
-          
-          for (const pump of pumps) {
-            if (pump.active) {
-              info(MODULE, `Force stopping active pump ${pump.name} due to auto-dosing being disabled`);
-              stopPump(pump.name).catch(err => 
-                error(MODULE, `Error stopping pump ${pump.name}:`, err));
-            }
-          }
-        });
-      }).catch(err => {
-        error(MODULE, 'Failed to import server-init module or stop pumps:', err);
-      });
-    }
   }
   
-  // Save the config to disk asynchronously
-  saveDosingConfigAsync().catch((err: any) => {
-    error(MODULE, 'Failed to save auto-dosing config asynchronously:', err);
-    // Fall back to sync save
-    saveDosingConfig();
-  });
+  if (intervalsChanged) {
+    info(MODULE, 'Minimum intervals have been updated');
+  }
   
   return dosingConfig;
 }

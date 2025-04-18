@@ -23,31 +23,14 @@ let intervalsCleared = false;
 import type { PumpStatus } from './pumps';
 
 // Static imports for better build-time analysis
-import * as monitorControl from './monitorControl';
 import * as autoDosing from './autoDosing';
 import * as pumps from './pumps';
 
+// Auto-import the logger
+import { info, warn, error } from './logger';
+const MODULE = 'server-init';
+
 // Helper functions for module imports with timeout
-// These use direct string literals for each possible import
-
-// Import monitorControl with timeout
-async function importMonitorControl(): Promise<typeof monitorControl> {
-  return new Promise(async (resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      reject(new Error(`Import of monitorControl timed out after ${MODULE_IMPORT_TIMEOUT}ms`));
-    }, MODULE_IMPORT_TIMEOUT);
-    
-    try {
-      const module = await import('./monitorControl');
-      clearTimeout(timeoutId);
-      resolve(module);
-    } catch (error) {
-      clearTimeout(timeoutId);
-      reject(error);
-    }
-  });
-}
-
 // Import autoDosing with timeout
 async function importAutoDosing(): Promise<typeof autoDosing> {
   return new Promise(async (resolve, reject) => {
@@ -59,9 +42,9 @@ async function importAutoDosing(): Promise<typeof autoDosing> {
       const module = await import('./autoDosing');
       clearTimeout(timeoutId);
       resolve(module);
-    } catch (error) {
+    } catch (importError) {
       clearTimeout(timeoutId);
-      reject(error);
+      reject(importError);
     }
   });
 }
@@ -77,9 +60,9 @@ async function importPumps(): Promise<typeof pumps> {
       const module = await import('./pumps');
       clearTimeout(timeoutId);
       resolve(module);
-    } catch (error) {
+    } catch (importError) {
       clearTimeout(timeoutId);
-      reject(error);
+      reject(importError);
     }
   });
 }
@@ -98,9 +81,9 @@ async function tryLoadGPIOCleanup(): Promise<void> {
       }
       
       // Not using dynamic imports for hardware modules as they're optional
-      console.warn('No GPIO cleanup function found - this is expected in development environments');
+      warn(MODULE, 'No GPIO cleanup function found - this is expected in development environments');
     } catch (err) {
-      console.error('Failed to load GPIO cleanup function:', err);
+      error(MODULE, 'Failed to load GPIO cleanup function:', err);
     }
   }
 }
@@ -112,7 +95,7 @@ function safeClearInterval(interval: NodeJS.Timeout | null, name: string): boole
       clearInterval(interval);
       return true;
     } catch (err) {
-      console.error(`Failed to clear ${name} interval:`, err);
+      error(MODULE, `Failed to clear ${name} interval:`, err);
       return false;
     }
   }
@@ -123,31 +106,31 @@ export function startContinuousMonitoring() {
   // Only initialize interval if it doesn't already exist
   // Do not clear existing interval as it may have been set by the user
   if (monitoringInterval) {
-    console.log('Monitoring interval already exists, not overwriting user settings');
+    info(MODULE, 'Monitoring interval already exists, not overwriting user settings');
     return;
   }
   
-  console.log('Starting continuous monitoring for auto-dosing system');
+  info(MODULE, 'Starting continuous monitoring for auto-dosing system');
   
   // Set a timeout for module import to prevent hanging
   const importTimeoutId = setTimeout(() => {
-    console.error(`Module import timeout occurred during startContinuousMonitoring after ${MODULE_IMPORT_TIMEOUT}ms`);
+    error(MODULE, `Module import timeout occurred during startContinuousMonitoring after ${MODULE_IMPORT_TIMEOUT}ms`);
     // Attempt recovery if import times out
     if (!monitoringInterval) {
-      console.log('No interval was started. Import likely failed.');
+      info(MODULE, 'No interval was started. Import likely failed.');
     }
   }, MODULE_IMPORT_TIMEOUT);
   
   // Import with error handling
-  Promise.all([importMonitorControl(), importAutoDosing()])
-    .then(([monitorControlModule, autoDosingModule]) => {
+  Promise.all([importAutoDosing()])
+    .then(([autoDosingModule]) => {
       // Clear the timeout since import succeeded
       clearTimeout(importTimeoutId);
       
       // Log current auto-dosing system state
       const dosingConfig = autoDosingModule.getDosingConfig();
-      const isEnabled = dosingConfig.enabled;
-      console.log(`Starting continuous monitoring with auto-dosing system ${isEnabled ? 'ENABLED' : 'DISABLED'}`);
+      const isEnabled = autoDosingModule.isAutoDosingEnabled();
+      info(MODULE, `Starting continuous monitoring with auto-dosing system ${isEnabled ? 'ENABLED' : 'DISABLED'}`);
       
       // Initialize the timestamps for dosing check tracking
       lastDosingCheckTime = Date.now();
@@ -157,12 +140,10 @@ export function startContinuousMonitoring() {
       monitoringInterval = setInterval(async () => {
         try {
           // Get current auto-dosing state
-          const monitoringModule = await importMonitorControl();
-          const { getDosingConfig } = await importAutoDosing();
-          const config = getDosingConfig();
+          const autoDosingModule = await importAutoDosing();
           
           // Skip processing if auto-dosing system is disabled
-          if (!monitoringModule.isMonitoringEnabled()) {
+          if (!autoDosingModule.isAutoDosingEnabled()) {
             return;
           }
           
@@ -173,12 +154,12 @@ export function startContinuousMonitoring() {
             
             for (const pump of pumpStatus) {
               if (pump.active && pump.activeSince && (Date.now() - pump.activeSince > SAFETY_PUMP_TIMEOUT)) {
-                console.error(`Safety timeout: Pump ${pump.name} has been active for more than ${SAFETY_PUMP_TIMEOUT/1000}s, forcing stop`);
+                error(MODULE, `Safety timeout: Pump ${pump.name} has been active for more than ${SAFETY_PUMP_TIMEOUT/1000}s, forcing stop`);
                 await stopPump(pump.name);
               }
             }
           } catch (err) {
-            console.error('Error checking for stuck pumps:', err);
+            error(MODULE, 'Error checking for stuck pumps:', err);
           }
           
           // PART 2: AUTO-DOSING - Check if it's time to perform auto-dosing
@@ -188,12 +169,12 @@ export function startContinuousMonitoring() {
             
             try {
               // Only perform auto-dosing if the system is enabled
-              if (config && config.enabled === true) {
+              if (autoDosingModule.isAutoDosingEnabled()) {
                 // Check if minimum time has passed since last dosing attempt
                 const minTimeBetweenDosing = 15 * 1000; // 15 seconds minimum between checks
                 
                 if (now - lastDosingAttemptTime >= minTimeBetweenDosing) {
-                  console.log('Auto-dosing scheduled check - running performAutoDosing()');
+                  info(MODULE, 'Auto-dosing scheduled check - running performAutoDosing()');
                   lastDosingAttemptTime = now;
                   
                   // Perform auto-dosing based on current sensor readings
@@ -201,36 +182,36 @@ export function startContinuousMonitoring() {
                   const result = await performAutoDosing();
                   
                   // Log action taken
-                  console.log(`Auto-dosing result: ${result.action}`, 
+                  info(MODULE, `Auto-dosing result: ${result.action}`, 
                     result.action !== 'none' ? result.details : '');
                 } else {
-                  console.log(`Skipping dosing check - too soon since last attempt (${Math.round((now - lastDosingAttemptTime)/1000)}s ago)`);
+                  info(MODULE, `Skipping dosing check - too soon since last attempt (${Math.round((now - lastDosingAttemptTime)/1000)}s ago)`);
                 }
               }
             } catch (err) {
-              console.error('Auto-dosing check error:', err);
+              error(MODULE, 'Auto-dosing check error:', err);
             }
           }
         } catch (err) {
-          console.error('Monitoring interval error:', err);
+          error(MODULE, 'Monitoring interval error:', err);
         }
       }, MONITORING_FREQUENCY);
       
       // Ensure interval is cleared if process exits
       monitoringInterval.unref?.();
       
-      console.log(`Unified auto-dosing system monitoring started: safety checks every ${MONITORING_FREQUENCY/1000}s, dosing checks every ${DOSING_FREQUENCY/60000} minute(s)`);
+      info(MODULE, `Unified auto-dosing system monitoring started: safety checks every ${MONITORING_FREQUENCY/1000}s, dosing checks every ${DOSING_FREQUENCY/60000} minute(s)`);
     })
     .catch(err => {
       // Clear the timeout since import failed
       clearTimeout(importTimeoutId);
-      console.error('Failed to start continuous monitoring:', err);
+      error(MODULE, 'Failed to start continuous monitoring:', err);
     });
 }
 
 // Stop continuous monitoring and clean up
 export function stopContinuousMonitoring() {
-  console.log('Stopping continuous monitoring');
+  info(MODULE, 'Stopping continuous monitoring');
   
   const monitoringCleared = safeClearInterval(monitoringInterval, 'monitoring');
   
@@ -240,72 +221,57 @@ export function stopContinuousMonitoring() {
   intervalsCleared = monitoringCleared;
   
   if (!intervalsCleared) {
-    console.error('Failed to clear monitoring interval during stopContinuousMonitoring');
+    error(MODULE, 'Failed to clear monitoring interval during stopContinuousMonitoring');
   } else {
-    console.log('Cleared monitoring interval successfully');
+    info(MODULE, 'Cleared monitoring interval successfully');
   }
-  
-  // Ensure monitoring flag is disabled
-  importMonitorControl()
-    .then(({ disableMonitoring }) => {
-      disableMonitoring();
-      console.log('Disabled monitoring flag');
-    })
-    .catch(err => {
-      console.error('Error disabling monitoring flag:', err);
-    });
 }
 
 // Initialize server components in the correct order with proper verification
 export async function initializeServer(): Promise<boolean> {
   if (serverInitialized) {
-    console.log('Server already initialized, skipping');
+    info(MODULE, 'Server already initialized, skipping');
     return true;
   }
   
-  console.log('=== INITIALIZING SERVER COMPONENTS ===');
+  info(MODULE, '=== INITIALIZING SERVER COMPONENTS ===');
   
   try {
     // 1. First verify the pump system is operational
-    console.log('1. Verifying pump system');
+    info(MODULE, '1. Verifying pump system');
     const pumpModule = await importPumps();
     const pumpStatus = pumpModule.getAllPumpStatus();
     
     // Stop any active pumps that might be lingering
     const activePumps = pumpStatus.filter((p: PumpStatus) => p.active);
     if (activePumps.length > 0) {
-      console.warn(`Found ${activePumps.length} active pumps during initialization, stopping them...`);
+      warn(MODULE, `Found ${activePumps.length} active pumps during initialization, stopping them...`);
       for (const pump of activePumps) {
         await pumpModule.stopPump(pump.name).catch((err: Error) => 
-          console.error(`Failed to stop pump ${pump.name}:`, err));
+          error(MODULE, `Failed to stop pump ${pump.name}:`, err));
       }
     }
     
-    console.log('Pump system verification complete');
+    info(MODULE, 'Pump system verification complete');
     
     // 2. Now that pumps are verified, initialize auto-dosing
-    console.log('2. Initializing auto-dosing system');
+    info(MODULE, '2. Initializing auto-dosing system');
     const { initializeAutoDosing } = await importAutoDosing();
     await initializeAutoDosing();
     
-    // 3. Set up the monitoring system, but keep it disabled until explicitly enabled
-    console.log('3. Setting up monitoring (will remain disabled)');
-    const { disableMonitoring } = await importMonitorControl();
-    disableMonitoring(); // Ensure monitoring starts in disabled state
-    
-    // 4. Try to load GPIO cleanup for future use
+    // 3. Try to load GPIO cleanup for future use
     await tryLoadGPIOCleanup();
     
     serverInitialized = true;
-    console.log('=== SERVER INITIALIZATION COMPLETE ===');
+    info(MODULE, '=== SERVER INITIALIZATION COMPLETE ===');
     return true;
   } catch (err) {
-    console.error('Server initialization failed:', err);
+    error(MODULE, 'Server initialization failed:', err);
     // Attempt partial cleanup if initialization fails
     try {
       await cleanupServer();
     } catch (cleanupErr) {
-      console.error('Failed to clean up after initialization error:', cleanupErr);
+      error(MODULE, 'Failed to clean up after initialization error:', cleanupErr);
     }
     return false;
   }
@@ -313,11 +279,11 @@ export async function initializeServer(): Promise<boolean> {
 
 // Clean up server resources properly
 export async function cleanupServer(): Promise<void> {
-  console.log('Cleaning up server resources');
+  info(MODULE, 'Cleaning up server resources');
   
   try {
     // First stop the continuous monitoring to prevent more checks
-    console.log('Stopping continuous monitoring');
+    info(MODULE, 'Stopping continuous monitoring');
     stopContinuousMonitoring();
     
     try {
@@ -328,45 +294,37 @@ export async function cleanupServer(): Promise<void> {
       // Force stop any active pumps
       const activePumps = pumpStatus.filter((p: PumpStatus) => p.active);
       if (activePumps.length > 0) {
-        console.log(`Found ${activePumps.length} active pumps, forcing stop`);
+        info(MODULE, `Found ${activePumps.length} active pumps, forcing stop`);
         
         await Promise.all(activePumps.map((pump: PumpStatus) => {
-          console.log(`Emergency stopping pump ${pump.name} during cleanup`);
+          info(MODULE, `Emergency stopping pump ${pump.name} during cleanup`);
           return stopPump(pump.name);
         }));
       }
       
       // Optionally run hardware-specific cleanup
       if (cleanupGPIO) {
-        console.log('Running GPIO cleanup');
+        info(MODULE, 'Running GPIO cleanup');
         await cleanupGPIO();
       }
-    } catch (error) {
-      console.error('Error during server cleanup:', error);
-    }
-    
-    // Ensure monitoring flag is disabled
-    try {
-      const monitorControlModule = await importMonitorControl();
-      monitorControlModule.disableMonitoring();
-    } catch (error) {
-      console.error('Error disabling monitoring flag:', error);
+    } catch (pumpError) {
+      error(MODULE, 'Error during server cleanup:', pumpError);
     }
     
     // Never auto-start monitoring based on config file - user must explicitly enable
     try {
-      const { getDosingConfig, updateDosingConfig } = await importAutoDosing();
+      const { getDosingConfig, updateDosingConfig, disableAutoDosing } = await importAutoDosing();
       const config = getDosingConfig();
       
       if (config.enabled === true) {
-        console.log('Auto-dosing was enabled, disabling on shutdown for safety');
-        updateDosingConfig({ enabled: false });
+        info(MODULE, 'Auto-dosing was enabled, disabling on shutdown for safety');
+        disableAutoDosing();
       }
-    } catch (error) {
-      console.error('Failed to clean up after initialization error:', error);
+    } catch (configError) {
+      error(MODULE, 'Failed to clean up after initialization error:', configError);
     }
-  } catch (error) {
-    console.error('Fatal error during server cleanup:', error);
+  } catch (cleanupError) {
+    error(MODULE, 'Fatal error during server cleanup:', cleanupError);
   }
 }
 
@@ -383,11 +341,11 @@ if (typeof window === 'undefined') {
     isJustImportingForMonitoring = stackTrace.includes('autoDosing.ts') && 
                                    stackTrace.includes('updateDosingConfig');
   } catch (err) {
-    console.error('Error checking import context:', err);
+    error(MODULE, 'Error checking import context:', err);
   }
   
   if (!isJustImportingForMonitoring) {
-    console.log('Server initialization - auto-dosing will be OFF until explicitly enabled by user');
+    info(MODULE, 'Server initialization - auto-dosing will be OFF until explicitly enabled by user');
     
     // Safety measure: always ensure auto-dosing is OFF on startup
     importAutoDosing()
@@ -395,24 +353,22 @@ if (typeof window === 'undefined') {
         const config = getDosingConfig();
         // Force disable on startup for safety
         if (config && config.enabled === true) {
-          console.log('SAFETY: Found auto-dosing enabled in config, forcing OFF on startup');
+          info(MODULE, 'SAFETY: Found auto-dosing enabled in config, forcing OFF on startup');
           updateDosingConfig({ enabled: false });
         }
       })
       .catch(err => {
-        console.error('Failed to check auto-dosing status on startup:', err);
+        error(MODULE, 'Failed to check auto-dosing status on startup:', err);
       });
   }
   
-  // Auto-dosing check now happens on schedule, not just with sensor polls
-  
   // Set up cleanup on process termination
   process.on('SIGINT', async () => {
-    console.log('Received SIGINT. Cleaning up...');
+    info(MODULE, 'Received SIGINT. Cleaning up...');
     try {
       await cleanupServer();
-    } catch (error) {
-      console.error('Error during cleanup:', error);
+    } catch (err) {
+      error(MODULE, 'Error during cleanup:', err);
     } finally {
       process.exit(0);
     }
@@ -420,11 +376,11 @@ if (typeof window === 'undefined') {
   
   // Also clean up on SIGTERM
   process.on('SIGTERM', async () => {
-    console.log('Received SIGTERM. Cleaning up...');
+    info(MODULE, 'Received SIGTERM. Cleaning up...');
     try {
       await cleanupServer();
-    } catch (error) {
-      console.error('Error during cleanup:', error);
+    } catch (err) {
+      error(MODULE, 'Error during cleanup:', err);
     } finally {
       process.exit(0);
     }
@@ -432,12 +388,12 @@ if (typeof window === 'undefined') {
   
   // Add more signal handlers for unexpected terminations
   process.on('uncaughtException', async (err) => {
-    console.error('Uncaught Exception:', err);
-    console.log('Attempting cleanup before exit...');
+    error(MODULE, 'Uncaught Exception:', err);
+    info(MODULE, 'Attempting cleanup before exit...');
     try {
       await cleanupServer();
-    } catch (error) {
-      console.error('Error during emergency cleanup:', error);
+    } catch (cleanupErr) {
+      error(MODULE, 'Error during emergency cleanup:', cleanupErr);
     } finally {
       process.exit(1);
     }
