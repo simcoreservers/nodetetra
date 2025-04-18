@@ -362,19 +362,33 @@ export async function cleanupServer(): Promise<void> {
 if (typeof window === 'undefined') {
   // Note: Actual initialization now triggered from middleware.ts
   
-  console.log('Server initialization - auto-dosing will remain OFF until explicitly enabled by user');
+  // Only run the startup safety code during actual server initialization, not when this module
+  // is imported just to access monitoring functions
+  let isJustImportingForMonitoring = false;
+  try {
+    // Check stack trace to determine if we're being imported just for monitoring functions
+    const stackTrace = new Error().stack || '';
+    isJustImportingForMonitoring = stackTrace.includes('autoDosing.ts') && 
+                                   stackTrace.includes('updateDosingConfig');
+  } catch (err) {
+    console.error('Error checking import context:', err);
+  }
   
-  // Never auto-start monitoring based on config file - user must explicitly enable
-  import('./autoDosing').then(({ getDosingConfig, updateDosingConfig }) => {
-    const config = getDosingConfig();
-    // Force disable on startup if somehow enabled
-    if (config && config.enabled === true) {
-      console.log('SAFETY: Found auto-dosing enabled in config, forcing OFF on startup');
-      updateDosingConfig({ enabled: false });
-    }
-  }).catch(err => {
-    console.error('Failed to check auto-dosing status on startup:', err);
-  });
+  if (!isJustImportingForMonitoring) {
+    console.log('Server initialization - auto-dosing will remain OFF until explicitly enabled by user');
+    
+    // Never auto-start monitoring based on config file - user must explicitly enable
+    import('./autoDosing').then(({ getDosingConfig, updateDosingConfig }) => {
+      const config = getDosingConfig();
+      // Force disable on startup if somehow enabled
+      if (config && config.enabled === true) {
+        console.log('SAFETY: Found auto-dosing enabled in config, forcing OFF on startup');
+        updateDosingConfig({ enabled: false });
+      }
+    }).catch(err => {
+      console.error('Failed to check auto-dosing status on startup:', err);
+    });
+  }
   
   // Auto-dosing check now happens on schedule, not just with sensor polls
   
