@@ -4,17 +4,36 @@ interface UseUnifiedDosingProps {
   refreshInterval?: number;
 }
 
-export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingProps = {}) {
+export function useUnifiedDosing({ refreshInterval = 30000 }: UseUnifiedDosingProps = {}) {
   const [config, setConfig] = useState<any>(null);
   const [lastDosingResult, setLastDosingResult] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   const [isDosingInProgress, setIsDosingInProgress] = useState<boolean>(false);
   const [lastDosingAttemptTime, setLastDosingAttemptTime] = useState<number>(0);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
   
   // Use ref for polling interval
   const currentIntervalRef = useRef<number>(refreshInterval);
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Function to pause refreshing temporarily
+  const pauseRefresh = useCallback(() => {
+    setIsPaused(true);
+    if (intervalIdRef.current) {
+      clearInterval(intervalIdRef.current);
+      intervalIdRef.current = null;
+    }
+  }, []);
+
+  // Function to resume refreshing
+  const resumeRefresh = useCallback(() => {
+    setIsPaused(false);
+    // Set up interval again
+    if (!intervalIdRef.current) {
+      intervalIdRef.current = setInterval(fetchConfig, currentIntervalRef.current);
+    }
+  }, []);
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -454,7 +473,10 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
 
   // Set up polling interval
   useEffect(() => {
-    currentIntervalRef.current = document.hidden ? 30000 : refreshInterval;
+    // Don't set up interval if paused
+    if (isPaused) return;
+    
+    currentIntervalRef.current = document.hidden ? 60000 : refreshInterval;
     
     if (intervalIdRef.current) {
       clearInterval(intervalIdRef.current);
@@ -468,7 +490,7 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
         intervalIdRef.current = null;
       }
     };
-  }, [refreshInterval, fetchConfig]);
+  }, [refreshInterval, fetchConfig, isPaused]);
 
   return {
     config,
@@ -483,6 +505,8 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
     triggerAutoDosing,
     manualDosing,
     updateTargets,
-    calibratePump
+    calibratePump,
+    pauseRefresh,
+    resumeRefresh
   };
 }

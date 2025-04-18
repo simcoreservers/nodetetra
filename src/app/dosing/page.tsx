@@ -85,7 +85,9 @@ export default function DosingPage() {
     toggleEnabled: toggleAutoDosing,
     updateConfig: updateAutoDoseConfig,
     resetConfig: resetAutoDoseConfig,
-    triggerAutoDosing
+    triggerAutoDosing,
+    pauseRefresh,
+    resumeRefresh
   } = useUnifiedDosing();
 
   // Update local state when API data is loaded
@@ -264,34 +266,19 @@ export default function DosingPage() {
     }
   };
 
-  // Remove handlers for pH and EC inputs since they're not editable
-  
-  const handlePhUpLimitChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setPhUpLimit(e.target.value);
-  };
-
-  const handlePhDownLimitChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setPhDownLimit(e.target.value);
-  };
-
-  const handleNutrientALimitChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setNutrientALimit(e.target.value);
-  };
-
-  const handleNutrientBLimitChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setNutrientBLimit(e.target.value);
-  };
-
-  // Handlers for minInterval inputs
+  // Handlers for minInterval inputs with pause/resume refresh
   const handlePhUpIntervalChange = (e: ChangeEvent<HTMLInputElement>) => {
+    pauseRefresh(); // Pause refresh while editing
     setPhUpInterval(e.target.value);
   };
 
   const handlePhDownIntervalChange = (e: ChangeEvent<HTMLInputElement>) => {
+    pauseRefresh(); // Pause refresh while editing
     setPhDownInterval(e.target.value);
   };
 
   const handleNutrientIntervalChange = (e: ChangeEvent<HTMLInputElement>) => {
+    pauseRefresh(); // Pause refresh while editing
     setNutrientInterval(e.target.value);
   };
 
@@ -334,6 +321,9 @@ export default function DosingPage() {
       const result = await updateAutoDoseConfig(updates);
       console.log('Update result:', result);
       
+      // Resume refresh after updating
+      resumeRefresh();
+      
       // Force a refresh of the config
       setTimeout(() => {
         window.location.reload();
@@ -341,13 +331,33 @@ export default function DosingPage() {
     }
   };
 
-  // Remove pH and EC target update handlers
+  // Limits handlers with pause/resume refresh
+  const handlePhUpLimitChange = (e: ChangeEvent<HTMLInputElement>) => {
+    pauseRefresh(); // Pause refresh while editing
+    setPhUpLimit(e.target.value);
+  };
+
+  const handlePhDownLimitChange = (e: ChangeEvent<HTMLInputElement>) => {
+    pauseRefresh(); // Pause refresh while editing
+    setPhDownLimit(e.target.value);
+  };
+
+  const handleNutrientALimitChange = (e: ChangeEvent<HTMLInputElement>) => {
+    pauseRefresh(); // Pause refresh while editing
+    setNutrientALimit(e.target.value);
+  };
+
+  const handleNutrientBLimitChange = (e: ChangeEvent<HTMLInputElement>) => {
+    pauseRefresh(); // Pause refresh while editing
+    setNutrientBLimit(e.target.value);
+  };
 
   const handleUpdatePhUpLimit = async () => {
     if (phUpLimit !== "") {
       const limits: Record<string, number> = {};
       limits["pH Up"] = Number(phUpLimit);
       await updateDosingLimits(limits);
+      resumeRefresh(); // Resume refresh after updating
       refresh();
     }
   };
@@ -357,6 +367,7 @@ export default function DosingPage() {
       const limits: Record<string, number> = {};
       limits["pH Down"] = Number(phDownLimit);
       await updateDosingLimits(limits);
+      resumeRefresh(); // Resume refresh after updating
       refresh();
     }
   };
@@ -366,6 +377,7 @@ export default function DosingPage() {
       const limits: Record<string, number> = {};
       limits["Nutrient A"] = Number(nutrientALimit);
       await updateDosingLimits(limits);
+      resumeRefresh(); // Resume refresh after updating
       refresh();
     }
   };
@@ -375,6 +387,7 @@ export default function DosingPage() {
       const limits: Record<string, number> = {};
       limits["Nutrient B"] = Number(nutrientBLimit);
       await updateDosingLimits(limits);
+      resumeRefresh(); // Resume refresh after updating
       refresh();
     }
   };
