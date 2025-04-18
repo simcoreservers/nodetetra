@@ -3,9 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node server.js",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_ENV=production node server.js",
+    "start:windows": "set NODE_ENV=production&& node server.js",
+    "build:start": "npm run build && npm run start",
+    "build:start:windows": "npm run build && npm run start:windows",
     "lint": "next lint"
   },
   "dependencies": {
@@ -17,6 +20,7 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^0.487.0",
     "next": "15.3.0",
+    "node-fetch": "^2.6.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",

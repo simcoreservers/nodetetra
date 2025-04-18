@@ -84,6 +84,12 @@ export interface DosingConfig {
       flowRate: number;
       minInterval: number;
     };
+    nutrient: {
+      pumpName: PumpName;
+      doseAmount: number;
+      flowRate: number;
+      minInterval: number;
+    };
     // Dynamic nutrient pumps stored by their pump name
     nutrientPumps: {
       [pumpName: string]: {
@@ -98,6 +104,7 @@ export interface DosingConfig {
   lastDose: {
     phUp: Date | null;
     phDown: Date | null;
+    nutrient: Date | null;
     // Dynamic timestamps for last dosing of each pump
     nutrientPumps: {
       [pumpName: string]: Date | null;
@@ -163,11 +170,18 @@ const DEFAULT_DOSING_CONFIG: DosingConfig = {
       flowRate: 1.0,
       minInterval: 120
     },
+    nutrient: {
+      pumpName: 'Nutrient',
+      doseAmount: 0.5,
+      flowRate: 1.0,
+      minInterval: 120
+    },
     nutrientPumps: {}
   },
   lastDose: {
     phUp: null,
     phDown: null,
+    nutrient: null,
     nutrientPumps: {}
   },
   // Add PID controllers for adaptive dosing
@@ -1087,7 +1101,7 @@ export function resetDosingConfig(): DosingConfig {
  * @param pumpType The type of pump ('phUp', 'phDown')
  * @returns Boolean indicating if dosing is allowed
  */
-function canDose(pumpType: 'phUp' | 'phDown'): boolean {
+function canDose(pumpType: 'phUp' | 'phDown' | 'nutrient'): boolean {
   const lastDoseTime = dosingConfig.lastDose[pumpType];
   
   // If never dosed before, allow dosing
@@ -1607,6 +1621,9 @@ export async function performAutoDosing(): Promise<{
           
           info(MODULE, `PID controller calculated ${amount}ml dose of pH Up from ${pumpName} at ${flowRate}ml/s`);
           
+          // Force direct import of dispensePump to ensure it's using the correct implementation
+          const { dispensePump } = await import('./pumps');
+          
           // Always dispense regardless of sensor simulation mode
           await dispensePump(pumpName, amount, flowRate);
           info(MODULE, `Successfully dispensed ${amount}ml of pH Up`);
@@ -1729,25 +1746,77 @@ export async function performAutoDosing(): Promise<{
   
     // Check if EC is too low (need to add nutrients)
     if (sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
-      info(MODULE, `EC too low: ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
+      info(MODULE, `EC too low: ${sensorData.ec.toFixed(0)}, target: ${dosingConfig.targets.ec.target.toFixed(0)}`);
       
-      // Use dedicated function for nutrient dosing to ensure proper async handling
-      // Pass sensorSimulation flag but true dispenseMode flag to force actual dispensing
-      const result = await doNutrientDosing(sensorData, isSensorSimulation, true);
-      
-      // If successful, record the effectiveness check
-      if (result.action === 'dosed' && result.details.dispensed) {
-        for (const dispensed of result.details.dispensed) {
-          scheduleEffectivenessCheck(
-            dispensed.pumpName, 
-            dispensed.amount, 
+      // Check if we can dose Nutrient
+      if (canDose('nutrient')) {
+        try {
+          // Use PID controller to calculate optimal dose amount
+          const controller = dosingConfig.pidControllers?.ec || PID_DEFAULTS.ec;
+          const baseDoseAmount = dosingConfig.dosing.nutrient.doseAmount;
+          
+          // Calculate dose amount using PID controller for better accuracy
+          const amount = calculatePIDDose(
             sensorData.ec,
-            'ec'
+            dosingConfig.targets.ec.target,
+            controller,
+            baseDoseAmount
           );
+          
+          const pumpName = dosingConfig.dosing.nutrient.pumpName;
+          const flowRate = dosingConfig.dosing.nutrient.flowRate;
+          
+          info(MODULE, `PID controller calculated ${amount}ml dose of Nutrient from ${pumpName} at ${flowRate}ml/s`);
+          
+          // Force direct import of dispensePump to ensure it's using the correct implementation
+          const { dispensePump } = await import('./pumps');
+          
+          // Always dispense regardless of sensor simulation mode
+          await dispensePump(pumpName, amount, flowRate);
+          info(MODULE, `Successfully dispensed ${amount}ml of Nutrient`);
+          
+          // Record success for circuit breaker
+          recordSuccess();
+          
+          // Record the dose
+          recordDose('nutrient');
+          
+          // Record effectiveness for adaptive learning - create a timeout to check after 5 minutes
+          const beforeValue = sensorData.ec;
+          scheduleEffectivenessCheck(pumpName, amount, beforeValue, 'ec');
+          
+          return {
+            action: 'dosed',
+            details: {
+              type: 'Nutrient',
+              amount,
+              pumpName,
+              sensorSimulation: isSensorSimulation,
+              reason: `EC ${sensorData.ec} below target range (${dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance})`
+            }
+          };
+        } catch (err) {
+          error(MODULE, 'Error dispensing Nutrient', err);
+          recordFailure(); // Record failure for circuit breaker
+          
+          return {
+            action: 'error',
+            details: {
+              type: 'Nutrient',
+              error: `Failed to dispense Nutrient: ${err}`
+            }
+          };
         }
+      } else {
+        debug(MODULE, 'Cannot dose Nutrient yet due to minimum interval');
+        return {
+          action: 'waiting',
+          details: {
+            type: 'Nutrient',
+            reason: 'Minimum interval between doses not reached'
+          }
+        };
       }
-      
-      return result;
     }
     
     // If EC is too high, we can't automatically reduce it (requires water change)

@@ -6,7 +6,7 @@ const SAFETY_PUMP_TIMEOUT = 30000; // 30 seconds maximum pump operation time
 
 // Separate timer for auto-dosing with a more appropriate interval
 let dosingInterval: NodeJS.Timeout | null = null;
-const DOSING_FREQUENCY = 5 * 60 * 1000; // Check dosing needs every 5 minutes
+const DOSING_FREQUENCY = 60 * 1000; // Check dosing needs every 1 minute (changed from 5 minutes)
 // Store last dosing time to prevent too frequent attempts
 let lastDosingAttemptTime = 0;
 
@@ -53,6 +53,23 @@ export function startContinuousMonitoring() {
     }
   }, MONITORING_FREQUENCY);
   
+  // Run performAutoDosing immediately at startup to check if dosing is needed now
+  setTimeout(async () => {
+    try {
+      if (isMonitoringEnabled()) {
+        const { getDosingConfig, performAutoDosing } = await import('./autoDosing');
+        const config = getDosingConfig();
+        
+        if (config && config.enabled === true) {
+          console.log('Initial auto-dosing check on startup');
+          await performAutoDosing();
+        }
+      }
+    } catch (err) {
+      console.error('Error during initial auto-dosing check:', err);
+    }
+  }, 5000); // Wait 5 seconds after startup
+  
   // Separate interval for actual auto-dosing checks - runs less frequently
   dosingInterval = setInterval(async () => {
     try {
@@ -68,7 +85,7 @@ export function startContinuousMonitoring() {
       if (config && config.enabled === true) {
         // Check if minimum time has passed since last dosing attempt
         const now = Date.now();
-        const minTimeBetweenDosing = 60 * 1000; // 1 minute minimum between checks
+        const minTimeBetweenDosing = 15 * 1000; // 15 seconds minimum between checks (reduced from 60s)
         
         if (now - lastDosingAttemptTime >= minTimeBetweenDosing) {
           console.log('Auto-dosing scheduled check - running performAutoDosing()');
@@ -95,7 +112,7 @@ export function startContinuousMonitoring() {
     }
   }, DOSING_FREQUENCY);
   
-  console.log(`Continuous monitoring started: safety checks every ${MONITORING_FREQUENCY/1000}s, dosing checks every ${DOSING_FREQUENCY/60000} minutes`);
+  console.log(`Continuous monitoring started: safety checks every ${MONITORING_FREQUENCY/1000}s, dosing checks every ${DOSING_FREQUENCY/60000} minute(s)`);
 }
 
 export function stopContinuousMonitoring() {
