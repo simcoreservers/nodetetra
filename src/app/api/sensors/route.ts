@@ -60,7 +60,7 @@ export async function GET() {
           const lastRequest = global[requestKey] || 0;
           
           if (now - lastRequest < 5000) { // 5 second minimum between triggers
-            warn(MODULE, `Auto-dosing attempted too frequently, skipping (${now - lastRequest}ms since last request)`);
+            // Skip silently without logging
             return;
           }
           
