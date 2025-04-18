@@ -22,6 +22,10 @@ const profileCache = {
   TTL: 15000 // 15 second TTL
 };
 
+// Add initialization safety delay - prevent dosing for initial seconds after server start
+let serverStartTime = Date.now();
+const STARTUP_SAFETY_DELAY = 30000; // 30 seconds before allowing any dosing
+
 // Path to the active profile file
 const DATA_PATH = path.join(process.cwd(), 'data');
 const ACTIVE_PROFILE_FILE = path.join(DATA_PATH, 'active_profile.json');
@@ -232,6 +236,14 @@ try {
       // Deep merge the saved config with defaults to ensure all properties exist
       dosingConfig = deepMerge(DEFAULT_DOSING_CONFIG, savedConfig);
       
+      // CRITICAL SAFETY OVERRIDE: Force enabled to false on startup regardless of saved state
+      const wasPreviouslyEnabled = dosingConfig.enabled;
+      dosingConfig.enabled = false;
+      
+      if (wasPreviouslyEnabled) {
+        info(MODULE, '!!! SAFETY OVERRIDE: Auto-dosing was previously enabled but has been forced OFF on server start !!!');
+      }
+      
       // Convert date strings back to Date objects
       if (dosingConfig.lastDose.phUp) {
         dosingConfig.lastDose.phUp = new Date(dosingConfig.lastDose.phUp);
@@ -256,8 +268,11 @@ try {
           minInterval: dosingConfig.dosing.nutrientPumps[name].minInterval
         }))
       });
+      
+      // Always save the configuration with enabled=false to ensure it stays off after restart
+      saveDosingConfig();
     } else {
-      info(MODULE, 'No existing auto-dosing config found, using defaults');
+      info(MODULE, 'No existing auto-dosing config found, using defaults (auto-dosing disabled)');
     }
   }
 } catch (err) {
@@ -1246,6 +1261,16 @@ export async function performAutoDosing(): Promise<{
   }
   dosingLock.lastAttempt = now;
   
+  // Check startup safety delay to prevent dosing immediately after server start
+  if (now - serverStartTime < STARTUP_SAFETY_DELAY) {
+    const remainingTime = Math.ceil((STARTUP_SAFETY_DELAY - (now - serverStartTime)) / 1000);
+    warn(MODULE, `Server recently started, waiting ${remainingTime}s before allowing dosing operations`);
+    return {
+      action: 'waiting',
+      details: { reason: `Server recently started, safety delay active (${remainingTime}s remaining)` }
+    };
+  }
+  
   // First, check if auto-dosing has been explicitly disabled
   if (autoDosingExplicitlyDisabled) {
     warn(MODULE, 'Auto-dosing has been explicitly disabled, aborting dosing operation');
@@ -1740,6 +1765,10 @@ export async function initializeAutoDosing(): Promise<boolean> {
     if (!isInitialized) {
       info(MODULE, "== AUTO-DOSING: INITIALIZING ==");
       
+      // Reset the server start time to enforce the safety delay
+      serverStartTime = Date.now();
+      info(MODULE, `Setting startup safety delay - no dosing will occur for ${STARTUP_SAFETY_DELAY/1000} seconds`);
+      
       // Reset circuit breaker state on initialization
       if (dosingConfig.errorHandling) {
         dosingConfig.errorHandling.circuitOpen = false;
@@ -1748,6 +1777,25 @@ export async function initializeAutoDosing(): Promise<boolean> {
       }
       
       await loadDosingConfigFromDisk(); // Must happen first to load saved settings
+      
+      // CRITICAL SAFETY REQUIREMENT: Force auto-dosing to be disabled on startup
+      // Track if it was previously enabled just for logging
+      const wasEnabled = dosingConfig.enabled;
+      
+      // Always force disable regardless of loaded config
+      dosingConfig.enabled = false;
+      autoDosingExplicitlyDisabled = true; // Set the explicit disable flag
+      
+      // Log the state
+      if (wasEnabled) {
+        info(MODULE, "!!! CRITICAL SAFETY OVERRIDE: Auto-dosing was previously enabled but has been FORCED OFF on startup !!!");
+        info(MODULE, "Auto-dosing will remain disabled until explicitly enabled by the user");
+      } else {
+        info(MODULE, "Auto-dosing is disabled on startup as required");
+      }
+      
+      // Always save the disabled state
+      saveDosingConfig();
 
       // Only sync with profile if we have an active profile
       const profile = await getActiveProfileOptimized();
@@ -1769,8 +1817,30 @@ export async function initializeAutoDosing(): Promise<boolean> {
         debug(MODULE, "Reset PID controllers to initial state");
       }
       
+      // Verify all pumps are OFF via the pumps module
+      if (typeof window === 'undefined') {
+        try {
+          const { getAllPumpStatus, stopPump } = await import('./pumps');
+          const pumpStatus = getAllPumpStatus();
+          const activePumps = pumpStatus.filter(p => p.active);
+          
+          if (activePumps.length > 0) {
+            error(MODULE, `SAFETY CRITICAL: Found ${activePumps.length} active pumps during auto-dosing init. Forcing stop.`);
+            
+            // Stop all active pumps
+            await Promise.all(activePumps.map(pump => {
+              error(MODULE, `Emergency stopping active pump ${pump.name} during auto-dosing init`);
+              return stopPump(pump.name).catch(err => 
+                error(MODULE, `Error stopping pump ${pump.name}:`, err));
+            }));
+          }
+        } catch (err) {
+          error(MODULE, "Error checking pump status during initialization:", err);
+        }
+      }
+      
       isInitialized = true;
-      info(MODULE, "== AUTO-DOSING: INITIALIZATION COMPLETE ==");
+      info(MODULE, "== AUTO-DOSING: INITIALIZATION COMPLETE - AUTO-DOSING IS DISABLED ==");
       
       // Debug output to verify final initialized config
       debug(MODULE, "Final initialized dosing config:", {

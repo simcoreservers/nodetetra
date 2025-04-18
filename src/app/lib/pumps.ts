@@ -141,37 +141,23 @@ function loadPumpStates(): void {
     const rawData = fs.readFileSync(PUMP_STATE_FILE, 'utf8');
     const savedStates = JSON.parse(rawData);
 
-    // For each pump in the saved states
+    // CRITICAL SAFETY CHANGE: Always ensure all pumps are OFF on server startup
+    // This prevents pumps from running unexpectedly after restart
+    // We'll just log what was in the file but not actually apply any active states
     for (const pumpName in savedStates) {
       if (pumpStatus[pumpName as PumpName]) {
-        // Get the saved state
         const isActive = Boolean(savedStates[pumpName].active);
-        
-        // If the saved state is active, ensure the pump is actually on
         if (isActive) {
-          const pin = PUMP_GPIO[pumpName as PumpName];
-          if (pin) {
-            try {
-              // Set GPIO pin to match saved state (synchronous to ensure state is applied)
-              exec(`gpio -g write ${pin} 1`, (error) => {
-                if (error) {
-                  console.error(`Error reapplying active state to pump ${pumpName}:`, error);
-                  pumpStatus[pumpName as PumpName].active = false;
-                } else {
-                  pumpStatus[pumpName as PumpName].active = true;
-                  console.log(`Restored active state for pump ${pumpName}`);
-                }
-              });
-            } catch (error) {
-              console.error(`Error reapplying active state to pump ${pumpName}:`, error);
-              pumpStatus[pumpName as PumpName].active = false;
-            }
-          }
+          console.log(`Ignoring active state for pump ${pumpName} on startup for safety`);
+          pumpStatus[pumpName as PumpName].active = false;
         }
       }
     }
 
-    console.log('Pump active states loaded from file');
+    console.log('Pump active states loaded but all pumps set to OFF for safe startup');
+    
+    // Immediately save the OFF state for all pumps
+    savePumpStates();
   } catch (error) {
     console.error('Error loading pump states:', error);
     // Don't throw error, just log it - non-critical
@@ -699,19 +685,69 @@ export async function cleanupGpio(): Promise<void> {
   
   console.log('Cleaning up GPIO resources...');
   
+  // First, explicitly set all pump status to inactive
+  for (const [name, status] of Object.entries(pumpStatus)) {
+    status.active = false;
+    status.activeSince = undefined;
+  }
+  
+  // Then save pump states to file to ensure they're inactive on next startup
+  savePumpStates();
+  
   // Ensure all pumps are turned off by setting pins low
   const cleanupPromises = Object.entries(PUMP_GPIO).map(async ([name, pin]) => {
     try {
-      // Turn off the pump
-      await execAsync(`gpio -g write ${pin} 0`);
-      console.log(`Cleaned up GPIO pin ${pin}`);
+      // Use the stopPump function for more robust cleanup
+      try {
+        await stopPump(name as PumpName);
+        console.log(`Cleaned up pump ${name} - GPIO pin ${pin}`);
+      } catch {
+        // Fallback to direct GPIO control if stopPump fails
+        // Turn off the pump with multiple attempts for reliability
+        for (let i = 0; i < 3; i++) {
+          try {
+            await execAsync(`gpio -g write ${pin} 0`);
+            break; // Exit loop if successful
+          } catch (retryErr) {
+            if (i === 2) {
+              // On final attempt, log error
+              console.error(`Failed to clean up GPIO pin ${pin} after multiple attempts`);
+            }
+            // Short delay between attempts
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+      }
     } catch (error) {
       console.error(`Error cleaning up GPIO pin ${pin}:`, error);
     }
   });
   
-  // Wait for all cleanup operations to complete
-  await Promise.all(cleanupPromises);
+  // Add a final verification step to confirm all pins are off
+  try {
+    await Promise.all(cleanupPromises);
+    
+    // Double-check GPIO states after cleanup
+    console.log('Verifying all GPIO pins are low (OFF)...');
+    const verificationPromises = Object.entries(PUMP_GPIO).map(async ([name, pin]) => {
+      try {
+        const { stdout } = await execAsync(`gpio -g read ${pin}`);
+        const value = stdout.trim();
+        if (value !== '0') {
+          console.error(`WARNING: GPIO pin ${pin} for ${name} still high (${value}) after cleanup!`);
+          // One more attempt to force it low
+          await execAsync(`gpio -g write ${pin} 0`);
+        }
+      } catch (error) {
+        console.error(`Error verifying GPIO pin ${pin}:`, error);
+      }
+    });
+    
+    await Promise.all(verificationPromises);
+    console.log('GPIO cleanup and verification completed');
+  } catch (error) {
+    console.error('Error during GPIO cleanup final verification:', error);
+  }
 }
 
 /**

@@ -156,6 +156,25 @@ export async function initializeServer(): Promise<void> {
         TASK_TIMEOUT,
         'pump initialization'
       );
+      
+      // Add safety check to ensure all pumps are OFF before proceeding
+      const { getAllPumpStatus, stopPump } = await import('./pumps');
+      const pumpStatus = getAllPumpStatus();
+      const activePumps = pumpStatus.filter(p => p.active);
+      
+      if (activePumps.length > 0) {
+        console.error(`SAFETY WARNING: Found ${activePumps.length} pumps in active state during server init. Forcing all pumps OFF.`);
+        
+        // Stop all active pumps for safety
+        await Promise.all(activePumps.map(pump => {
+          console.error(`Emergency stopping active pump ${pump.name} during server initialization`);
+          return stopPump(pump.name).catch(err => 
+            console.error(`Error stopping pump ${pump.name}:`, err));
+        }));
+      } else {
+        console.log('Verified all pumps are in OFF state during initialization');
+      }
+      
       console.log('Pump system initialized successfully');
     } catch (error) {
       console.error('Error initializing pump system:', error);
@@ -188,6 +207,22 @@ export async function initializeServer(): Promise<void> {
     
     // Set up scheduled tasks
     setupScheduledTasks();
+    
+    // Add an additional safety check before marking initialization complete
+    try {
+      const { getAllPumpStatus } = await import('./pumps');
+      const finalPumpStatus = getAllPumpStatus();
+      const stillActivePumps = finalPumpStatus.filter(p => p.active);
+      
+      if (stillActivePumps.length > 0) {
+        console.error(`CRITICAL SAFETY ISSUE: After initialization, pumps are still active: ${stillActivePumps.map(p => p.name).join(', ')}`);
+        // Don't throw error but log this critical issue
+      } else {
+        console.log('Final safety check: All pumps confirmed in OFF state');
+      }
+    } catch (err) {
+      console.error('Error in final pump safety check:', err);
+    }
     
     isSystemInitialized = true;
     console.log('Server initialization completed successfully');
@@ -266,15 +301,9 @@ export async function cleanupServer(): Promise<void> {
 if (typeof window === 'undefined') {
   // Note: Actual initialization now triggered from middleware.ts
   
-  // Start continuous monitoring on server init if not already started
-  import('./autoDosing').then(({ getDosingConfig }) => {
-    const config = getDosingConfig();
-    if (config && config.enabled === true) {
-      startContinuousMonitoring();
-    }
-  }).catch(err => {
-    console.error('Failed to check auto-dosing status on startup:', err);
-  });
+  // Start continuous monitoring on server init ONLY if explicitly enabled by user after startup
+  // We no longer auto-start monitoring based on the config file
+  console.log('Auto-dosing monitoring NOT automatically started on server init - waiting for user to enable');
   
   // Auto-dosing check now happens on schedule, not just with sensor polls
   
