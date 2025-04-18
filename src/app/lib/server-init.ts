@@ -5,7 +5,7 @@ const MONITORING_FREQUENCY = 1000; // Check every second for stuck pumps
 const SAFETY_PUMP_TIMEOUT = 30000; // 30 seconds maximum pump operation time
 
 // Timing for dosing checks within the monitoring interval
-const DOSING_FREQUENCY = 60 * 1000; // Check dosing needs every 1 minute
+const DOSING_FREQUENCY = 1 * 1000; // Check dosing needs every 1 second
 // Store last dosing time to prevent too frequent attempts
 let lastDosingAttemptTime = 0;
 // Store last check time for dosing
