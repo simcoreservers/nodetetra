@@ -2579,25 +2579,9 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
     // Dynamically import server-init to avoid circular dependencies
     if (typeof window === 'undefined') {
       // Stop any existing monitoring first to ensure a clean restart
-      import('./monitorControl').then(({ enableMonitoring }) => {
-        // Explicitly re-enable monitoring
-        enableMonitoring();
-        info(MODULE, 'Explicitly enabled monitoring on auto-dosing enable');
-        
-        import('./server-init').then(({ startContinuousMonitoring, stopContinuousMonitoring }) => {
-          // First stop any existing monitoring
-          stopContinuousMonitoring();
-          info(MODULE, 'Stopped any existing monitoring before restart');
-          
-          // Start continuous monitoring when auto-dosing is enabled
-          startContinuousMonitoring();
-          info(MODULE, 'Started continuous monitoring for auto-dosing');
-        }).catch(err => {
-          logError(MODULE, 'Failed to import server-init module:', err);
-        });
-      }).catch(err => {
-        logError(MODULE, 'Failed to import monitorControl module:', err);
-      });
+      // Use internal monitoring functions instead of removed monitorControl module
+      startMonitoring();
+      info(MODULE, 'Explicitly enabled monitoring on auto-dosing enable');
     }
   } else if (oldEnabled && !newEnabled) {
     // Auto-dosing was just disabled
@@ -2680,6 +2664,12 @@ export function disableAutoDosing(): DosingConfig {
   
   // Update both our internal flag and the config
   autoDosingEnabled = false;
+  
+  // Stop monitoring when auto-dosing is disabled
+  if (typeof window === 'undefined') {
+    stopMonitoring();
+    info(MODULE, 'Stopped monitoring on auto-dosing disable');
+  }
   
   // Update the config and return the updated version
   const updatedConfig = updateDosingConfig({ enabled: false });
