@@ -1689,29 +1689,55 @@ export async function performAutoDosing(): Promise<{
         isSimulationMode = false;
       }
       
-      // Get the appropriate sensor data
-      if (isSimulationMode) {
-        const simData = await getSimulatedSensorReadings();
+      // Get the sensor data from the API endpoint to ensure consistent readings
+      try {
+        // Use the API endpoint to get sensor readings (simulated or real)
+        const response = await fetch('http://localhost:3000/api/sensors');
+        if (!response.ok) {
+          throw new Error(`Failed to get sensor readings from API: ${response.statusText}`);
+        }
+        
+        const apiData = await response.json();
+        if (apiData.status === 'error') {
+          throw new Error(`Sensor API returned error: ${apiData.error}`);
+        }
+        
         sensorData = {
-          ph: simData.ph,
-          ec: simData.ec,
-          waterTemp: simData.waterTemp,
-          timestamp: new Date().toISOString()
+          ph: apiData.ph,
+          ec: apiData.ec,
+          waterTemp: apiData.waterTemp,
+          timestamp: apiData.timestamp || new Date().toISOString()
         };
-      } else {
-        const realData = await getAllSensorReadings();
-        // Make sure we have a timestamp
-        if (!realData.timestamp) {
+        
+        // Log the source of the data
+        info(MODULE, `Got sensor readings from API: pH=${sensorData.ph.toFixed(2)}, EC=${sensorData.ec.toFixed(2)} (simulation: ${isSimulationMode})`);
+      } catch (apiError) {
+        // Fallback to direct method calls if API fails
+        warn(MODULE, `Failed to get readings from API, falling back to direct method calls: ${apiError}`);
+        
+        if (isSimulationMode) {
+          const simData = await getSimulatedSensorReadings();
           sensorData = {
-            ...realData,
+            ph: simData.ph,
+            ec: simData.ec,
+            waterTemp: simData.waterTemp,
             timestamp: new Date().toISOString()
           };
         } else {
-          sensorData = realData;
+          const realData = await getAllSensorReadings();
+          // Make sure we have a timestamp
+          if (!realData.timestamp) {
+            sensorData = {
+              ...realData,
+              timestamp: new Date().toISOString()
+            };
+          } else {
+            sensorData = realData;
+          }
         }
       }
       
-      // Validate sensor data
+      // Validate sensor data regardless of source
       if (sensorData.ph === undefined || sensorData.ec === undefined) {
         throw new Error('Invalid sensor data: Missing pH or EC values');
       }
