@@ -772,8 +772,11 @@ async function saveDosingConfigAsync(): Promise<void> {
       const dataPath = path.join(process.cwd(), 'data');
       try {
         await fs.mkdir(dataPath, { recursive: true });
-      } catch (err) {
-        // Ignore if directory already exists
+      } catch (err: any) {
+        // Ignore if directory already exists, but log other errors
+        if (err.code !== 'EEXIST') {
+          console.error('Error creating data directory:', err);
+        }
       }
       
       // Main config path and temp file path for atomic write
@@ -783,8 +786,24 @@ async function saveDosingConfigAsync(): Promise<void> {
       // Write to temp file first
       await fs.writeFile(tempPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
       
-      // Atomic rename operation
-      await fs.rename(tempPath, configPath);
+      try {
+        // Atomic rename operation
+        await fs.rename(tempPath, configPath);
+      } catch (renameErr: any) {
+        // If rename fails (can happen on some systems), try copy and delete
+        if (renameErr.code === 'ENOENT') {
+          console.warn('Rename operation failed, falling back to copy method');
+          await fs.copyFile(tempPath, configPath);
+          try {
+            await fs.unlink(tempPath); // Clean up temp file
+          } catch (unlinkErr) {
+            // Just log, don't fail the operation if we can't clean up
+            console.error('Failed to clean up temp file:', unlinkErr);
+          }
+        } else {
+          throw renameErr; // Re-throw if it's not an ENOENT error
+        }
+      }
       
       trace(MODULE, 'Auto-dosing config saved with atomic file operations (async)');
       recordSuccess(); // Record success for circuit breaker
@@ -812,30 +831,51 @@ function saveDosingConfig(): void {
       // Create data directory if it doesn't exist
       const dataPath = path.join(process.cwd(), 'data');
       if (!fs.existsSync(dataPath)) {
-        fs.mkdirSync(dataPath, { recursive: true });
+        try {
+          fs.mkdirSync(dataPath, { recursive: true });
+        } catch (err) {
+          // Log error but continue with attempt to save
+          console.error('Error creating data directory during sync save:', err);
+        }
       }
       
       // Main config path and temp file path for atomic write
       const configPath = path.join(dataPath, 'autodosing.json');
       const tempPath = `${configPath}.tmp`;
       
-      // Write to temp file first
-      fs.writeFileSync(tempPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
-      
-      // Atomic rename operation
-      fs.renameSync(tempPath, configPath);
-      
-      // Force sync the directory for extra safety
+      // Write to temp file first - use try/catch to handle errors
       try {
-        const dirFd = fs.openSync(dataPath, 'r');
-        fs.fsyncSync(dirFd);
-        fs.closeSync(dirFd);
-      } catch (syncError) {
-        console.warn('Could not fsync directory:', syncError);
-      }
+        fs.writeFileSync(tempPath, JSON.stringify(dosingConfig, null, 2), 'utf8');
       
-      trace(MODULE, 'Auto-dosing config saved with atomic file operations');
-      recordSuccess(); // Record success for circuit breaker
+        // Atomic rename operation
+        try {
+          fs.renameSync(tempPath, configPath);
+        } catch (renameErr) {
+          // If rename fails, try to copy and delete
+          console.warn('Rename operation failed during sync save, attempting copy method');
+          fs.copyFileSync(tempPath, configPath);
+          try {
+            fs.unlinkSync(tempPath); // Delete temp file
+          } catch (unlinkErr) {
+            console.error('Failed to delete temp file after copy:', unlinkErr);
+          }
+        }
+        
+        // Force sync the directory for extra safety
+        try {
+          const dirFd = fs.openSync(dataPath, 'r');
+          fs.fsyncSync(dirFd);
+          fs.closeSync(dirFd);
+        } catch (syncError) {
+          console.warn('Could not fsync directory:', syncError);
+        }
+        
+        trace(MODULE, 'Auto-dosing config saved with atomic file operations');
+        recordSuccess(); // Record success for circuit breaker
+      } catch (writeErr) {
+        console.error('Error writing config file during sync save:', writeErr);
+        throw writeErr;
+      }
     }
   } catch (err) {
     error(MODULE, 'Failed to save auto-dosing config', err);
@@ -1885,6 +1925,7 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
   
   // Log the before state of dosing config
   debug(MODULE, 'Updating dosing config, before:', {
+    enabled: dosingConfig.enabled,
     'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
     'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
     'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
@@ -1915,6 +1956,7 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
   
   // Log the after state of dosing config
   debug(MODULE, 'Updated dosing config, after:', {
+    enabled: dosingConfig.enabled,
     'phUp.minInterval': dosingConfig.dosing.phUp.minInterval,
     'phDown.minInterval': dosingConfig.dosing.phDown.minInterval,
     'nutrientPumps': Object.keys(dosingConfig.dosing.nutrientPumps).map(name => ({
@@ -1949,15 +1991,29 @@ export function updateDosingConfig(updates: Partial<DosingConfig>): DosingConfig
     
     // Dynamically import server-init to avoid circular dependencies
     if (typeof window === 'undefined') {
-      import('./server-init').then(({ initializeServer, startContinuousMonitoring }) => {
-        initializeServer().catch(err => {
-          error(MODULE, 'Failed to initialize server after enabling auto-dosing:', err);
-        });
+      // Stop any existing monitoring first to ensure a clean restart
+      import('./monitorControl').then(({ enableMonitoring }) => {
+        // Explicitly re-enable monitoring
+        enableMonitoring();
+        info(MODULE, 'Explicitly enabled monitoring on auto-dosing enable');
         
-        // Start continuous monitoring when auto-dosing is enabled
-        startContinuousMonitoring();
+        import('./server-init').then(({ initializeServer, startContinuousMonitoring, stopContinuousMonitoring }) => {
+          // First stop any existing monitoring
+          stopContinuousMonitoring();
+          info(MODULE, 'Stopped any existing monitoring before restart');
+          
+          initializeServer().catch(err => {
+            error(MODULE, 'Failed to initialize server after enabling auto-dosing:', err);
+          });
+          
+          // Start continuous monitoring when auto-dosing is enabled
+          startContinuousMonitoring();
+          info(MODULE, 'Started continuous monitoring for auto-dosing');
+        }).catch(err => {
+          error(MODULE, 'Failed to import server-init module:', err);
+        });
       }).catch(err => {
-        error(MODULE, 'Failed to import server-init module:', err);
+        error(MODULE, 'Failed to import monitorControl module:', err);
       });
     }
   } else if (oldEnabled && !newEnabled) {

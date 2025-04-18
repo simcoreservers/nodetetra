@@ -6,8 +6,9 @@ const SAFETY_PUMP_TIMEOUT = 30000; // 30 seconds maximum pump operation time
 
 export function startContinuousMonitoring() {
   if (monitoringInterval) {
-    console.log('Continuous monitoring already active, skipping start');
-    return;
+    console.log('Continuous monitoring already active, stopping existing instance before restart');
+    clearInterval(monitoringInterval);
+    monitoringInterval = null;
   }
   
   console.log('Starting continuous monitoring for auto-dosing');
@@ -301,9 +302,19 @@ export async function cleanupServer(): Promise<void> {
 if (typeof window === 'undefined') {
   // Note: Actual initialization now triggered from middleware.ts
   
-  // Start continuous monitoring on server init ONLY if explicitly enabled by user after startup
-  // We no longer auto-start monitoring based on the config file
-  console.log('Auto-dosing monitoring NOT automatically started on server init - waiting for user to enable');
+  console.log('Server initialization - auto-dosing will remain OFF until explicitly enabled by user');
+  
+  // Never auto-start monitoring based on config file - user must explicitly enable
+  import('./autoDosing').then(({ getDosingConfig, updateDosingConfig }) => {
+    const config = getDosingConfig();
+    // Force disable on startup if somehow enabled
+    if (config && config.enabled === true) {
+      console.log('SAFETY: Found auto-dosing enabled in config, forcing OFF on startup');
+      updateDosingConfig({ enabled: false });
+    }
+  }).catch(err => {
+    console.error('Failed to check auto-dosing status on startup:', err);
+  });
   
   // Auto-dosing check now happens on schedule, not just with sensor polls
   
