@@ -15,13 +15,6 @@ import { info, error, debug, trace, warn } from './logger';
 // Module name for logging
 const MODULE = 'autoDosing';
 
-// Profile cache system with environment-specific TTL
-const profileCache = {
-  data: null,
-  timestamp: 0,
-  TTL: currentCacheConfig.profileTTL // Use environment-specific TTL from config
-};
-
 // Add initialization safety delay - prevent dosing for initial seconds after server start
 let serverStartTime = Date.now();
 const STARTUP_SAFETY_DELAY = 30000; // 30 seconds before allowing any dosing
@@ -76,6 +69,13 @@ const CACHE_CONFIG = {
 // Get the appropriate cache configuration for current environment
 const currentCacheConfig = CACHE_CONFIG[ENV] || CACHE_CONFIG.development;
 console.log(`Using ${ENV} environment cache configuration: profileTTL=${currentCacheConfig.profileTTL}ms`);
+
+// Profile cache system with environment-specific TTL
+const profileCache = {
+  data: null,
+  timestamp: 0,
+  TTL: currentCacheConfig.profileTTL // Use environment-specific TTL from config
+};
 
 // PID Controller interface for improved dosing accuracy
 interface PIDController {
