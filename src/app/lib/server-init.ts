@@ -15,6 +15,7 @@ export function startContinuousMonitoring() {
     try {
       // Skip processing if monitoring disabled via control flag
       if (!isMonitoringEnabled()) {
+        console.log('Monitoring disabled via control flag, skipping auto-dosing check');
         return;
       }
       
@@ -25,6 +26,11 @@ export function startContinuousMonitoring() {
         console.log('Auto-dosing scheduled check - running performAutoDosing()');
         await performAutoDosing();
       } else {
+        // If config.enabled is false, ensure monitoring is disabled
+        if (config && config.enabled === false) {
+          disableMonitoring();
+          console.log('Auto-dosing disabled in config, disabling monitoring flag');
+        }
         // Use debug level instead of info to reduce noise
         // console.log('Auto-dosing disabled, skipping scheduled check');
       }

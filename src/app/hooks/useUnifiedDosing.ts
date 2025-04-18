@@ -116,6 +116,18 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
       }
       
       setConfig(data.config);
+      
+      // Force monitoring to stop if disabling
+      if (action === 'disable') {
+        // Send an extra request to ensure monitoring is stopped
+        await fetch('/api/dosing/force-stop', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }).catch(err => console.error('Error forcing monitoring stop:', err));
+      }
+      
       setError(null);
       return true;
     } catch (err) {
