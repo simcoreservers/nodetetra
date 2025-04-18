@@ -1586,12 +1586,15 @@ export async function performAutoDosing(): Promise<{
 }> {
   // Add rate limiting to prevent rapid successive calls
   const now = Date.now();
+  let result: { action: string; details: any } | null = null;
+  
   if (now - dosingLock.lastAttempt < MIN_DOSING_ATTEMPT_INTERVAL) {
     warn(MODULE, `Dosing attempted too frequently (${now - dosingLock.lastAttempt}ms since last attempt)`);
-    return {
+    result = {
       action: 'waiting',
       details: { reason: 'Dosing attempted too frequently, please wait' }
     };
+    return result;
   }
   dosingLock.lastAttempt = now;
   
@@ -1599,36 +1602,39 @@ export async function performAutoDosing(): Promise<{
   if (now - serverStartTime < STARTUP_SAFETY_DELAY) {
     const remainingTime = Math.ceil((STARTUP_SAFETY_DELAY - (now - serverStartTime)) / 1000);
     warn(MODULE, `Server recently started, waiting ${remainingTime}s before allowing dosing operations`);
-    return {
+    result = {
       action: 'waiting',
       details: { reason: `Server recently started, safety delay active (${remainingTime}s remaining)` }
     };
+    return result;
   }
   
   // First, check if auto-dosing has been explicitly disabled
   if (autoDosingExplicitlyDisabled) {
     warn(MODULE, 'Auto-dosing has been explicitly disabled, aborting dosing operation');
     disableMonitoring(); // Force monitoring off
-    return { 
+    result = { 
       action: 'aborted', 
       details: { reason: 'Auto-dosing has been explicitly disabled' } 
     };
+    return result;
   }
   
   // Check if auto-dosing is enabled using strict comparison
   if (dosingConfig.enabled !== true) {
     disableMonitoring(); // Force monitoring off
     debug(MODULE, 'Auto-dosing is disabled, skipping cycle');
-    return { 
+    result = { 
       action: 'none', 
       details: { reason: 'Auto-dosing is disabled' } 
     };
+    return result;
   }
   
   // Check if circuit breaker is open
   if (isCircuitOpen()) {
     warn(MODULE, 'Circuit breaker is open, skipping dosing cycle');
-    return {
+    result = {
       action: 'circuitOpen',
       details: { 
         reason: 'Too many failures detected, system paused for safety', 
@@ -1640,15 +1646,17 @@ export async function performAutoDosing(): Promise<{
         threshold: dosingConfig.errorHandling?.circuitBreakerThreshold || 10
       }
     };
+    return result;
   }
   
   // Synchronous check to prevent concurrent operations
   if (dosingLock.inProgress) {
     warn(MODULE, 'Dosing already in progress, cannot start another operation');
-    return {
+    result = {
       action: 'waiting',
       details: { reason: 'A dosing operation is already in progress' }
     };
+    return result;
   }
   
   // Acquire lock for this dosing operation
@@ -1718,10 +1726,11 @@ export async function performAutoDosing(): Promise<{
       recordFailure();
       
       warn(MODULE, 'Failed to get sensor readings', error);
-      return {
+      result = {
         action: 'error',
         details: { reason: 'Failed to get sensor readings', error: error instanceof Error ? error.message : String(error) }
       };
+      return result;
     }
     
     // Check if sensors report realistic values to prevent dosing based on bad data
@@ -1736,10 +1745,11 @@ export async function performAutoDosing(): Promise<{
       recordFailure();
       
       warn(MODULE, `Invalid sensor readings detected: pH=${sensorData.ph}, EC=${sensorData.ec}`);
-      return {
+      result = {
         action: 'error',
         details: { reason: 'Invalid sensor readings detected', sensorData }
       };
+      return result;
     }
     
     info(MODULE, `Current readings: pH=${sensorData.ph.toFixed(2)}, EC=${sensorData.ec.toFixed(2)}`);
@@ -1788,7 +1798,7 @@ export async function performAutoDosing(): Promise<{
           const beforeValue = sensorData.ph;
           scheduleEffectivenessCheck(pumpName, amount, beforeValue, 'ph');
           
-          return {
+          result = {
             action: 'dosed',
             details: {
               type: 'pH Up',
@@ -1798,27 +1808,30 @@ export async function performAutoDosing(): Promise<{
               reason: `pH ${sensorData.ph} below target range (${dosingConfig.targets.ph.target - dosingConfig.targets.ph.tolerance})`
             }
           };
+          return result;
         } catch (err) {
           error(MODULE, 'Error dispensing pH Up', err);
           recordFailure(); // Record failure for circuit breaker
           
-          return {
+          result = {
             action: 'error',
             details: {
               type: 'pH Up',
               error: `Failed to dispense pH Up: ${err}`
             }
           };
+          return result;
         }
       } else {
         debug(MODULE, 'Cannot dose pH Up yet due to minimum interval');
-        return {
+        result = {
           action: 'waiting',
           details: {
             type: 'pH Up',
             reason: 'Minimum interval between doses not reached'
           }
         };
+        return result;
       }
     }
   
@@ -1860,7 +1873,7 @@ export async function performAutoDosing(): Promise<{
           const beforeValue = sensorData.ph;
           scheduleEffectivenessCheck(pumpName, amount, beforeValue, 'ph');
           
-          return {
+          result = {
             action: 'dosed',
             details: {
               type: 'pH Down',
@@ -1870,33 +1883,36 @@ export async function performAutoDosing(): Promise<{
               reason: `pH ${sensorData.ph} above target range (${dosingConfig.targets.ph.target + dosingConfig.targets.ph.tolerance})`
             }
           };
+          return result;
         } catch (err) {
           error(MODULE, 'Error dispensing pH Down', err);
           recordFailure(); // Record failure for circuit breaker
           
-          return {
+          result = {
             action: 'error',
             details: {
               type: 'pH Down',
               error: `Failed to dispense pH Down: ${err}`
             }
           };
+          return result;
         }
       } else {
         debug(MODULE, 'Cannot dose pH Down yet due to minimum interval');
-        return {
+        result = {
           action: 'waiting',
           details: {
             type: 'pH Down',
             reason: 'Minimum interval between doses not reached'
           }
         };
+        return result;
       }
     }
   
     // Check if EC is too low (need to add nutrients)
     if (sensorData.ec < (dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance)) {
-      info(MODULE, `EC too low: ${sensorData.ec.toFixed(0)}, target: ${dosingConfig.targets.ec.target.toFixed(0)}`);
+      info(MODULE, `EC too low: ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
       
       // Check if we can dose Nutrient
       if (canDose('nutrient')) {
@@ -1935,7 +1951,7 @@ export async function performAutoDosing(): Promise<{
           const beforeValue = sensorData.ec;
           scheduleEffectivenessCheck(pumpName, amount, beforeValue, 'ec');
           
-          return {
+          result = {
             action: 'dosed',
             details: {
               type: 'Nutrient',
@@ -1945,40 +1961,44 @@ export async function performAutoDosing(): Promise<{
               reason: `EC ${sensorData.ec} below target range (${dosingConfig.targets.ec.target - dosingConfig.targets.ec.tolerance})`
             }
           };
+          return result;
         } catch (err) {
           error(MODULE, 'Error dispensing Nutrient', err);
           recordFailure(); // Record failure for circuit breaker
           
-          return {
+          result = {
             action: 'error',
             details: {
               type: 'Nutrient',
               error: `Failed to dispense Nutrient: ${err}`
             }
           };
+          return result;
         }
       } else {
         debug(MODULE, 'Cannot dose Nutrient yet due to minimum interval');
-        return {
+        result = {
           action: 'waiting',
           details: {
             type: 'Nutrient',
             reason: 'Minimum interval between doses not reached'
           }
         };
+        return result;
       }
     }
     
     // If EC is too high, we can't automatically reduce it (requires water change)
     if (sensorData.ec > (dosingConfig.targets.ec.target + dosingConfig.targets.ec.tolerance)) {
       info(MODULE, `EC too high: ${sensorData.ec.toFixed(2)}, target: ${dosingConfig.targets.ec.target.toFixed(2)}`);
-      return {
+      result = {
         action: 'warning',
         details: {
           type: 'EC High',
           reason: `EC ${sensorData.ec} above target range (${dosingConfig.targets.ec.target + dosingConfig.targets.ec.tolerance}). Consider adding fresh water to dilute solution.`
         }
       };
+      return result;
     }
   
     // If we get here, everything is within target ranges
@@ -1987,7 +2007,7 @@ export async function performAutoDosing(): Promise<{
     // Record a success for the circuit breaker
     recordSuccess();
     
-    return {
+    result = {
       action: 'none',
       details: {
         reason: 'All parameters within target ranges',
@@ -1999,6 +2019,7 @@ export async function performAutoDosing(): Promise<{
         targets: dosingConfig.targets
       }
     };
+    return result;
   } catch (err: unknown) {
     // Ensure the lock is released even if there's an error
     dosingLock.inProgress = false;
@@ -2011,13 +2032,14 @@ export async function performAutoDosing(): Promise<{
     recordFailure();
     
     error(MODULE, 'Error during auto-dosing:', err);
-    return {
+    result = {
       action: 'error',
       details: { 
         reason: 'Error during auto-dosing operation', 
         error: err instanceof Error ? err.message : String(err)
       }
     };
+    return result;
   }
 }
 
