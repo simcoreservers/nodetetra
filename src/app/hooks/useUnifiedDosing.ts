@@ -385,6 +385,16 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
           clearInterval(intervalIdRef.current);
           intervalIdRef.current = setInterval(fetchConfig, currentIntervalRef.current);
         }
+        
+        // Before leaving tab, store info that dosing process might be in progress 
+        if (isDosingInProgress) {
+          try {
+            localStorage.setItem('autoDosing_inProgress', 'true');
+            localStorage.setItem('autoDosing_timestamp', Date.now().toString());
+          } catch (err) {
+            console.error('Failed to store auto-dosing state in localStorage', err);
+          }
+        }
       } else {
         // Resume normal polling when tab active
         currentIntervalRef.current = refreshInterval;
@@ -392,7 +402,28 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
         if (intervalIdRef.current) {
           clearInterval(intervalIdRef.current);
           intervalIdRef.current = setInterval(fetchConfig, currentIntervalRef.current);
-          fetchConfig(); // Fetch immediately when tab becomes visible
+          // Fetch immediately when tab becomes visible
+          fetchConfig().then(() => {
+            // Check if there was an in-progress operation when tab was hidden
+            try {
+              const wasInProgress = localStorage.getItem('autoDosing_inProgress') === 'true';
+              const timestamp = localStorage.getItem('autoDosing_timestamp');
+              
+              if (wasInProgress && timestamp) {
+                const timePassed = Date.now() - parseInt(timestamp);
+                // If it's been more than 60 seconds, fetch one more time to ensure we have latest state
+                if (timePassed > 60000) {
+                  setTimeout(fetchConfig, 1000);
+                }
+              }
+              
+              // Clear the storage regardless
+              localStorage.removeItem('autoDosing_inProgress');
+              localStorage.removeItem('autoDosing_timestamp');
+            } catch (err) {
+              console.error('Error checking auto-dosing persistence state', err);
+            }
+          });
         }
       }
     };
@@ -402,7 +433,7 @@ export function useUnifiedDosing({ refreshInterval = 5000 }: UseUnifiedDosingPro
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [refreshInterval, fetchConfig]);
+  }, [refreshInterval, fetchConfig, isDosingInProgress]);
 
   // Set up polling interval
   useEffect(() => {

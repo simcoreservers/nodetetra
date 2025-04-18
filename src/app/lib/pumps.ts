@@ -42,6 +42,7 @@ export interface PumpStatus {
   name: PumpName;
   active: boolean;
   lastActivated?: Date;
+  activeSince?: number; // Timestamp when the pump was activated
   flowRate?: number; // mL per second
   nutrient?: {
     productId: number;
@@ -351,6 +352,7 @@ export async function activatePump(pumpName: PumpName): Promise<void> {
     // Update the pump status
     pumpStatus[pumpName].active = true;
     pumpStatus[pumpName].lastActivated = new Date();
+    pumpStatus[pumpName].activeSince = Date.now(); // Set the timestamp when the pump was activated
     
     // Save the pump states to maintain activation between server restarts
     savePumpStates();
@@ -409,6 +411,7 @@ export async function deactivatePump(pumpName: PumpName): Promise<void> {
     
     // Update the pump status
     pumpStatus[pumpName].active = false;
+    pumpStatus[pumpName].activeSince = undefined; // Clear the activation timestamp
     
     // Save the pump states to file
     savePumpStates();
@@ -709,4 +712,49 @@ export async function cleanupGpio(): Promise<void> {
   
   // Wait for all cleanup operations to complete
   await Promise.all(cleanupPromises);
+}
+
+/**
+ * Safely stop a pump that might be stuck
+ */
+export async function stopPump(pumpName: PumpName): Promise<void> {
+  if (isClient) {
+    return;
+  }
+
+  try {
+    console.log(`Emergency stopping pump: ${pumpName}`);
+    
+    // Get the GPIO pin for this pump
+    const pin = PUMP_GPIO[pumpName];
+    
+    if (!pin) {
+      throw new Error(`Invalid pump name: ${pumpName}`);
+    }
+    
+    // Set the GPIO pin to low (0) to turn off the pump
+    await execAsync(`gpio -g write ${pin} 0`);
+    
+    // Update the status
+    pumpStatus[pumpName].active = false;
+    pumpStatus[pumpName].activeSince = undefined;
+    
+    // Log the event
+    const timestamp = new Date();
+    recentEvents.unshift({
+      time: timestamp.toLocaleTimeString(),
+      event: `Emergency stopped ${pumpName}`,
+      timestamp,
+    });
+    
+    // Save pump states to file
+    savePumpStates();
+    
+    console.log(`Emergency stop complete for ${pumpName}`);
+  } catch (error) {
+    console.error(`Error emergency stopping pump ${pumpName}:`, error);
+    // Log the error
+    logErrorEvent(`Failed to emergency stop pump ${pumpName}: ${error}`);
+    throw new Error(`Failed to emergency stop pump ${pumpName}: ${error}`);
+  }
 } 

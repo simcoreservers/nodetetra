@@ -1,6 +1,8 @@
 // Continuous monitoring for auto-dosing
 let monitoringInterval: NodeJS.Timeout | null = null;
 const MONITORING_FREQUENCY = 1000; // Check every second
+// Add safety timeout to ensure pumps don't get stuck
+const SAFETY_PUMP_TIMEOUT = 30000; // 30 seconds maximum pump operation time
 
 export function startContinuousMonitoring() {
   if (monitoringInterval) {
@@ -17,6 +19,21 @@ export function startContinuousMonitoring() {
       if (!isMonitoringEnabled()) {
         console.log('Monitoring disabled via control flag, skipping auto-dosing check');
         return;
+      }
+      
+      // Check for any pumps that might be stuck in "on" state
+      try {
+        const { getAllPumpStatus, stopPump } = await import('./pumps');
+        const pumpStatus = getAllPumpStatus();
+        
+        for (const pump of pumpStatus) {
+          if (pump.active && pump.activeSince && (Date.now() - pump.activeSince > SAFETY_PUMP_TIMEOUT)) {
+            console.error(`Safety timeout: Pump ${pump.name} has been active for more than ${SAFETY_PUMP_TIMEOUT/1000}s, forcing stop`);
+            await stopPump(pump.name);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking for stuck pumps:', err);
       }
       
       const { getDosingConfig, performAutoDosing } = await import('./autoDosing');
