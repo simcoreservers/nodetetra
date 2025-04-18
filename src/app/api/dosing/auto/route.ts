@@ -64,8 +64,8 @@ export async function POST(request: NextRequest) {
     
     switch (action) {
       case 'dose':
-        // Check if auto-dosing is enabled
-        if (!config.enabled) {
+        // Check if auto-dosing is enabled with strict comparison
+        if (config.enabled !== true) {
           return NextResponse.json({
             status: 'success',
             result: {

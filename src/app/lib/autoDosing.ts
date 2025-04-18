@@ -1243,8 +1243,8 @@ export async function performAutoDosing(): Promise<{
   }
   dosingLock.lastAttempt = now;
   
-  // Check if auto-dosing is enabled
-  if (!dosingConfig.enabled) {
+  // Check if auto-dosing is enabled using strict comparison
+  if (dosingConfig.enabled !== true) {
     debug(MODULE, 'Auto-dosing is disabled, skipping cycle');
     return { 
       action: 'none', 

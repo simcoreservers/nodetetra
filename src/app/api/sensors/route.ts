@@ -48,7 +48,8 @@ export async function GET() {
     // Check if auto-dosing is enabled
     try {
       const dosingConfig = getDosingConfig();
-      if (dosingConfig?.enabled) {
+      // Ensure we check the enabled property correctly
+      if (dosingConfig && dosingConfig.enabled === true) {
         debug(MODULE, 'Auto-dosing enabled - scheduling check with latest sensor readings');
         
         // Create a task that runs after response is sent (important: use high delay)
