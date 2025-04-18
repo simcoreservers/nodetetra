@@ -718,7 +718,7 @@ export default function DosingPage() {
                 <h2 className="card-title">Automated Dosing System</h2>
                 <div className="flex items-center">
                   <span className="mr-3 text-sm text-gray-400">
-                    {autoDoseConfig?.enabled ? 'Enabled' : 'Disabled'}
+                    Status: {autoDoseConfig?.enabled ? 'Active' : 'Inactive'}
                   </span>
                   <button
                     onClick={toggleAutoDosing}

@@ -127,7 +127,7 @@ export function startContinuousMonitoring() {
     return;
   }
   
-  console.log('Starting continuous monitoring for auto-dosing');
+  console.log('Starting continuous monitoring for auto-dosing system');
   
   // Set a timeout for module import to prevent hanging
   const importTimeoutId = setTimeout(() => {
@@ -144,10 +144,10 @@ export function startContinuousMonitoring() {
       // Clear the timeout since import succeeded
       clearTimeout(importTimeoutId);
       
-      // Always start with monitoring disabled
-      // Let the user explicitly enable auto-dosing when they want it
-      monitorControlModule.disableMonitoring();
-      console.log('Starting with monitoring disabled - auto-dosing will need to be explicitly enabled');
+      // Log current auto-dosing system state
+      const dosingConfig = autoDosingModule.getDosingConfig();
+      const isEnabled = dosingConfig.enabled;
+      console.log(`Starting continuous monitoring with auto-dosing system ${isEnabled ? 'ENABLED' : 'DISABLED'}`);
       
       // Initialize the timestamps for dosing check tracking
       lastDosingCheckTime = Date.now();
@@ -156,20 +156,12 @@ export function startContinuousMonitoring() {
       // Combined monitoring interval - handles both pump safety and dosing
       monitoringInterval = setInterval(async () => {
         try {
-          // Get current monitoring state
+          // Get current auto-dosing state
           const monitoringModule = await importMonitorControl();
           const { getDosingConfig } = await importAutoDosing();
           const config = getDosingConfig();
           
-          // IMPORTANT: Ensure monitoring state matches auto-dosing config
-          // Only enable monitoring if auto-dosing is enabled, never disable auto-dosing here
-          if (config && config.enabled === true && !monitoringModule.isMonitoringEnabled()) {
-            // Auto-dosing is enabled but monitoring is not, enable monitoring
-            monitoringModule.enableMonitoring();
-            console.log('Auto-dosing is enabled but monitoring was off, enabling monitoring');
-          }
-          
-          // Skip processing if monitoring is disabled
+          // Skip processing if auto-dosing system is disabled
           if (!monitoringModule.isMonitoringEnabled()) {
             return;
           }
@@ -195,7 +187,7 @@ export function startContinuousMonitoring() {
             lastDosingCheckTime = now;
             
             try {
-              // Only perform auto-dosing if explicitly enabled in config
+              // Only perform auto-dosing if the system is enabled
               if (config && config.enabled === true) {
                 // Check if minimum time has passed since last dosing attempt
                 const minTimeBetweenDosing = 15 * 1000; // 15 seconds minimum between checks
@@ -227,7 +219,7 @@ export function startContinuousMonitoring() {
       // Ensure interval is cleared if process exits
       monitoringInterval.unref?.();
       
-      console.log(`Unified monitoring started: safety checks every ${MONITORING_FREQUENCY/1000}s, dosing checks every ${DOSING_FREQUENCY/60000} minute(s)`);
+      console.log(`Unified auto-dosing system monitoring started: safety checks every ${MONITORING_FREQUENCY/1000}s, dosing checks every ${DOSING_FREQUENCY/60000} minute(s)`);
     })
     .catch(err => {
       // Clear the timeout since import failed

@@ -3,7 +3,6 @@ import { getDosingConfig, updateDosingConfig } from '@/app/lib/autoDosing';
 import { error, info } from '@/app/lib/logger';
 import { disableMonitoring, enableMonitoring } from '@/app/lib/monitorControl';
 
-
 const MODULE = 'api:dosing';
 
 /**
@@ -22,9 +21,23 @@ export async function GET() {
       );
     }
     
+    // Check if a dosing operation is currently in progress
+    let isDosingInProgress = false;
+    try {
+      // Look for active pumps as an indicator of dosing in progress
+      const { getAllPumpStatus } = await import('@/app/lib/pumps');
+      const pumpStatus = getAllPumpStatus();
+      
+      // If any pump is active, consider dosing in progress
+      isDosingInProgress = pumpStatus.some(pump => pump.active);
+    } catch (err) {
+      error(MODULE, 'Error checking active pumps:', err);
+    }
+    
     return NextResponse.json({
       status: 'success',
       config,
+      isDosingInProgress
     });
   } catch (err) {
     error(MODULE, 'Error getting dosing config:', err);
@@ -58,54 +71,70 @@ export async function POST(req: Request) {
     let config = await getDosingConfig();
 
     if (action === 'enable') {
-      console.log('[INFO] [dosing-api] User explicitly enabled auto-dosing');
+      info(MODULE, 'User explicitly enabled auto-dosing system');
       
-      // First update the config
-      config.enabled = true;
+      // Enable the unified auto-dosing system
+      await enableMonitoring();
       
-      // Save the configuration first
-      await updateDosingConfig(config);
-      
-      // Explicitly enable monitoring when auto-dosing is enabled
-      enableMonitoring();
-      console.log('[INFO] [dosing-api] Explicitly enabled monitoring with auto-dosing');
+      // Reload config to ensure we have the updated state
+      config = getDosingConfig();
       
       // Make sure monitoring system is running
       try {
         // Import and start monitoring if needed
         const { startContinuousMonitoring } = await import('../../lib/server-init');
         startContinuousMonitoring();
-        console.log('[INFO] [dosing-api] Started continuous monitoring for auto-dosing');
+        info(MODULE, 'Started continuous monitoring');
       } catch (err) {
-        console.error('[ERROR] [dosing-api] Failed to start continuous monitoring:', err);
+        error(MODULE, 'Failed to start continuous monitoring:', err);
       }
       
       if (forceReset) {
-        console.log('[INFO] [dosing-api] Force resetting all safety flags for clean start');
-        // Force reset all safety flags
+        info(MODULE, 'Force resetting safety flags for clean start');
+        // First stop any active pumps
         try {
-          await import('../../lib/autoDosing').then(module => {
-            if (typeof module.resetSafetyFlags === 'function') {
-              module.resetSafetyFlags();
-            } else {
-              console.warn('[WARN] [dosing-api] resetSafetyFlags function not found in autoDosing module');
+          const { getAllPumpStatus, stopPump } = await import('../../lib/pumps');
+          const pumpStatus = getAllPumpStatus();
+          
+          // Force stop any active pumps
+          for (const pump of pumpStatus) {
+            if (pump.active) {
+              info(MODULE, `Stopping active pump ${pump.name} during force reset`);
+              await stopPump(pump.name);
             }
-          });
+          }
+          info(MODULE, 'All pumps stopped during force reset');
         } catch (err) {
-          console.error('[ERROR] [dosing-api] Failed to reset safety flags:', err);
+          error(MODULE, 'Error stopping pumps during force reset:', err);
         }
       }
     } else if (action === 'disable') {
-      console.log('[INFO] [dosing-api] User explicitly disabled auto-dosing');
+      info(MODULE, 'User explicitly disabled auto-dosing system');
       
-      // Explicitly disable monitoring when auto-dosing is disabled
-      disableMonitoring();
-      console.log('[INFO] [dosing-api] Explicitly disabled monitoring with auto-dosing');
+      // Disable the unified auto-dosing system
+      await disableMonitoring();
       
-      config.enabled = false;
+      // Reload config to ensure we have the updated state
+      config = getDosingConfig();
+      
+      // Force stop any running pumps
+      try {
+        const { getAllPumpStatus, stopPump } = await import('../../lib/pumps');
+        const pumpStatus = getAllPumpStatus();
+        
+        // Force stop any active pumps
+        for (const pump of pumpStatus) {
+          if (pump.active) {
+            info(MODULE, `Stopping active pump ${pump.name} during disable`);
+            await stopPump(pump.name);
+          }
+        }
+        info(MODULE, 'All pumps stopped during disable');
+      } catch (err) {
+        error(MODULE, 'Error stopping pumps during disable:', err);
+      }
     } else if (action === 'update') {
-      // Handle configuration updates from UI
-      console.log('[INFO] [dosing-api] Updating auto-dosing configuration');
+      info(MODULE, 'Updating auto-dosing configuration');
       
       if (body.config) {
         // Check if enabled state is changing
@@ -114,21 +143,14 @@ export async function POST(req: Request) {
         // Apply the provided updates to the config
         config = updateDosingConfig(body.config);
         
-        // Sync monitoring state with dosing enabled state if it changed
         if (enabledChanging) {
-          if (config.enabled) {
-            enableMonitoring();
-            console.log('[INFO] [dosing-api] Enabled monitoring to match auto-dosing state');
-          } else {
-            disableMonitoring();
-            console.log('[INFO] [dosing-api] Disabled monitoring to match auto-dosing state');
-          }
+          info(MODULE, `Auto-dosing system ${config.enabled ? 'enabled' : 'disabled'} through config update`);
         }
       }
     } else if (action === 'reset') {
-      console.log('[INFO] [dosing-api] Resetting auto-dosing configuration to defaults');
+      info(MODULE, 'Resetting auto-dosing configuration to defaults');
       
-      // Use the default configuration instead of resetDosingConfig
+      // Use the default configuration
       try {
         // Reset to default values
         config = {
@@ -149,22 +171,34 @@ export async function POST(req: Request) {
         // Update the config using updateDosingConfig which will handle saving
         config = updateDosingConfig(config);
         
-        // After reset, ensure monitoring is disabled
-        disableMonitoring();
-        console.log('[INFO] [dosing-api] Disabled monitoring after resetting auto-dosing config');
+        // After reset, explicitly ensure system is disabled
+        await disableMonitoring();
+        info(MODULE, 'Disabled auto-dosing system after reset');
       } catch (err) {
-        console.error('[ERROR] [dosing-api] Failed to reset dosing config:', err);
+        error(MODULE, 'Failed to reset dosing config:', err);
       }
     }
 
-    // Save config - only updateDosingConfig() is needed as it handles persistence
-    if (action === 'disable') {
-      await updateDosingConfig(config);
+    // Check if a dosing operation is currently in progress
+    let isDosingInProgress = false;
+    try {
+      // Look for active pumps as an indicator of dosing in progress
+      const { getAllPumpStatus } = await import('@/app/lib/pumps');
+      const pumpStatus = getAllPumpStatus();
+      
+      // If any pump is active, consider dosing in progress
+      isDosingInProgress = pumpStatus.some(pump => pump.active);
+    } catch (err) {
+      error(MODULE, 'Error checking active pumps:', err);
     }
 
-    return new Response(JSON.stringify({ status: 'success', config }), { status: 200 });
-  } catch (error) {
-    console.error('[ERROR] [dosing-api]', error);
-    return new Response(JSON.stringify({ status: 'error', error: String(error) }), { status: 500 });
+    return new Response(JSON.stringify({ 
+      status: 'success', 
+      config,
+      isDosingInProgress
+    }), { status: 200 });
+  } catch (err) {
+    error(MODULE, 'API error:', err);
+    return new Response(JSON.stringify({ status: 'error', error: String(err) }), { status: 500 });
   }
 }
