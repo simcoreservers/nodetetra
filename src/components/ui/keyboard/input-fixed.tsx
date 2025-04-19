@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useRef, InputHTMLAttributes, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback, InputHTMLAttributes } from 'react';
 import { useKeyboard } from './keyboard-context';
 
 interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
