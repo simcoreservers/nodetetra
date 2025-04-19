@@ -402,18 +402,33 @@ async def disable_auto_dosing():
     """Disable auto dosing"""
     global auto_doser
     
-    if not auto_doser or not auto_doser.running:
-        logger.info("Auto dosing not running")
-        return
+    logger.debug("Disable auto dosing requested")
     
-    await auto_doser.stop()
-    
-    # Update config
+    # First update the config to prevent auto-restart
     config = load_config()
     config['enabled'] = False
     save_config(config)
+    logger.info("Auto dosing disabled in configuration")
     
-    logger.info("Auto dosing disabled")
+    # Then stop the running process if it exists
+    if auto_doser:
+        if auto_doser.running:
+            logger.info("Stopping running auto dosing task")
+            await auto_doser.stop()
+            logger.info("Auto dosing task stopped")
+        else:
+            logger.info("Auto dosing task not running")
+    else:
+        logger.info("No auto_doser instance exists")
+    
+    # Double check that task is really stopped
+    if auto_doser and auto_doser.task:
+        if not auto_doser.task.done() and not auto_doser.task.cancelled():
+            logger.warning("Auto dosing task still appears to be running, forcing cancellation")
+            auto_doser.task.cancel()
+    
+    # Return success response
+    return {"success": True, "message": "Auto dosing disabled"}
 
 
 def get_auto_dosing_status():
@@ -448,9 +463,24 @@ def get_auto_dosing_status():
             }
         }
     
+    # Read configuration state regardless of auto_doser
+    config = load_config()
+    config_enabled = config.get('enabled', False)
+    
     # Get status from auto_doser instance
     status = auto_doser.get_status()
+    
+    # The auto_doser.enabled flag might not match the config file
+    # Config file takes precedence for the UI display
+    status["enabled"] = config_enabled
     status["initialized"] = True
+    
+    # Force running to match task state
+    if auto_doser.task and not auto_doser.task.done() and not auto_doser.task.cancelled():
+        status["running"] = True
+        logger.debug("Auto-dosing task is active (running=True)")
+    else:
+        logger.debug(f"Auto-dosing task state: {auto_doser.task}")
     
     # Ensure config is always included
     if "config" not in status:
