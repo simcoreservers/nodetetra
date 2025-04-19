@@ -103,21 +103,40 @@ class AutoDosing:
     
     async def stop(self) -> None:
         """Stop the auto dosing task."""
-        if not self.running:
-            logger.warning("Auto dosing is not running")
-            return
-            
+        logger.info("Stopping auto dosing task: setting flags...")
+        
+        # Make sure we set these flags first before anything else
         self.enabled = False
         self.running = False
         
-        if self.task:
-            logger.info("Stopping auto dosing task")
+        if not self.task:
+            logger.warning("No task to stop - already stopped")
+            return
+            
+        try:
+            logger.info("Cancelling auto dosing task")
             self.task.cancel()
+            
             try:
-                await self.task
+                # Wait with timeout for task to actually stop
+                await asyncio.wait_for(self.task, timeout=5.0)
+                logger.info("Auto dosing task cancelled successfully")
+            except asyncio.TimeoutError:
+                logger.warning("Timeout waiting for task to cancel - forcing completion")
             except asyncio.CancelledError:
-                pass
+                logger.info("Task cancelled normally")
+            except Exception as e:
+                logger.error(f"Error waiting for task cancellation: {e}")
+                
+            # Ensure the task is done regardless
+            if not self.task.done():
+                logger.warning("Task not marked as done after cancellation - this indicates a potential issue")
+                
+        except Exception as e:
+            logger.error(f"Error stopping auto dosing task: {e}")
+        finally:
             self.task = None
+            logger.info("Auto dosing task reference cleared")
     
     async def _monitoring_loop(self) -> None:
         """Main monitoring loop that checks sensor data and triggers dosing."""
@@ -126,8 +145,13 @@ class AutoDosing:
         restart_count = 0
         max_restarts = 5
         
-        while self.enabled:
+        while self.enabled and self.running:
             try:
+                # Double-check these flags at the start of each iteration
+                if not self.enabled or not self.running:
+                    logger.info("Auto dosing has been disabled - exiting monitoring loop")
+                    break
+                    
                 # Check if enough time has passed since the last check
                 current_time = time.time()
                 if current_time - self.last_check_time < self.check_interval:
@@ -255,14 +279,9 @@ class AutoDosing:
                 
             except asyncio.CancelledError:
                 logger.info("Auto dosing task cancelled by external request")
-                # Only break if we've been explicitly cancelled
-                if not self.enabled:
-                    logger.info("Breaking loop because self.enabled is False")
-                    break
-                
-                logger.info("Task was cancelled but enabled flag is still True - attempting to continue")
-                # Don't break the loop or set enabled to False if it's still meant to be running
-                # Just try to continue execution
+                # Break the loop immediately - don't try to continue or restart
+                logger.info("Breaking monitoring loop due to cancellation")
+                break
                 
             except Exception as e:
                 restart_count += 1
