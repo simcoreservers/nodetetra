@@ -21,7 +21,7 @@ import subprocess
 # Improved diagnostic information
 try:
     print("---- Auto Dosing API Command Diagnostics ----", file=sys.stderr)
-    print(f"Running command: {${JSON.stringify(command)}}", file=sys.stderr)
+    print(f"Running command: '{command}'", file=sys.stderr)
     pids = subprocess.run(["pgrep", "-fa", "python.*auto_dosing_integration.py"], capture_output=True, text=True).stdout.strip()
     print(f"Found auto_dosing processes: {pids}", file=sys.stderr)
     
