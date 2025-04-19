@@ -18,7 +18,7 @@ from auto_dosing import AutoDosing
 
 # Set up logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler("auto_dosing_integration.log"),
@@ -85,22 +85,54 @@ def get_sensor_readings() -> Dict[str, float]:
     Returns dict with ph, ec, and waterTemp keys
     """
     try:
-        # Call the sensors API directly instead of trying to import from src
+        logger.debug("Calling sensor API endpoint...")
+        # Call the sensors API directly
+        cmd = ["curl", "-v", "-s", "http://localhost:3000/api/sensors"]
+        logger.debug(f"Running command: {' '.join(cmd)}")
+        
         result = subprocess.run(
-            ["curl", "-s", "http://localhost:3000/api/sensors"],
+            cmd,
             capture_output=True,
             text=True,
-            check=True
+            check=False  # Don't raise exception on non-zero exit
         )
         
+        if result.returncode != 0:
+            logger.error(f"Curl command failed with return code {result.returncode}")
+            logger.error(f"Stderr: {result.stderr}")
+            # Fall back to using default values
+            return {
+                "ph": 7.0,
+                "ec": 1.0,
+                "waterTemp": 20.0
+            }
+        
         # Parse the JSON result
-        response = json.loads(result.stdout.strip())
-        if response.get("status") == "success" and response.get("data"):
-            readings = response["data"]
-            logger.debug(f"Sensor readings: {readings}")
-            return readings
-        else:
-            raise Exception(f"API returned error: {response.get('error', 'Unknown error')}")
+        try:
+            response = json.loads(result.stdout.strip())
+            logger.debug(f"API response: {response}")
+            
+            if response.get("status") == "success" and response.get("data"):
+                readings = response["data"]
+                logger.debug(f"Parsed sensor readings: {readings}")
+                return readings
+            else:
+                logger.error(f"API error: {response.get('error', 'Unknown error')}")
+                # Fall back to using default values
+                return {
+                    "ph": 7.0,
+                    "ec": 1.0,
+                    "waterTemp": 20.0
+                }
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON response: {e}")
+            logger.error(f"Response was: {result.stdout}")
+            # Fall back to using default values
+            return {
+                "ph": 7.0,
+                "ec": 1.0,
+                "waterTemp": 20.0
+            }
     except Exception as e:
         logger.error(f"Error getting sensor readings: {e}")
         # Return some fallback values
@@ -117,22 +149,39 @@ def get_active_profile() -> Dict[str, Any]:
     Returns the profile with targetPh, targetEc, and pumpAssignments
     """
     try:
+        logger.debug("Calling profiles API endpoint...")
         # Call the profiles API to get the active profile
+        cmd = ["curl", "-v", "-s", "http://localhost:3000/api/profiles/active"]
+        logger.debug(f"Running command: {' '.join(cmd)}")
+        
         result = subprocess.run(
-            ["curl", "-s", "http://localhost:3000/api/profiles/active"],
+            cmd,
             capture_output=True,
             text=True,
-            check=True
+            check=False  # Don't raise exception on non-zero exit
         )
         
+        if result.returncode != 0:
+            logger.error(f"Curl command failed with return code {result.returncode}")
+            logger.error(f"Stderr: {result.stderr}")
+            return {}
+        
         # Parse the JSON result
-        response = json.loads(result.stdout.strip())
-        if response.get("status") == "success" and response.get("data"):
-            profile = response["data"]
-            logger.debug(f"Found active profile: {profile.get('name', 'Unknown')}")
-            return profile
-        else:
-            logger.warning(f"No active profile found: {response.get('error', 'Unknown error')}")
+        try:
+            response = json.loads(result.stdout.strip())
+            logger.debug(f"API response: {response}")
+            
+            if response.get("status") == "success" and response.get("data"):
+                profile = response["data"]
+                logger.debug(f"Found active profile: {profile.get('name', 'Unknown')}")
+                return profile
+            else:
+                logger.warning(f"No active profile found: {response.get('error', 'Unknown error')}")
+                logger.warning(f"Full response: {response}")
+                return {}
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON response: {e}")
+            logger.error(f"Response was: {result.stdout}")
             return {}
     except Exception as e:
         logger.error(f"Error getting active profile: {e}")
@@ -149,23 +198,52 @@ def dispense_pump(pump_name: str, amount: float, flow_rate: float):
         flow_rate: Flow rate in ml/s
     """
     try:
-        # Call the pump API instead of trying to import from src
+        logger.debug(f"Dispensing {amount}ml from {pump_name} at {flow_rate}ml/s")
+        # Call the pump API
         data = {
             "pump": pump_name,
             "amount": amount,
             "flowRate": flow_rate
         }
         
+        json_data = json.dumps(data)
+        logger.debug(f"Request data: {json_data}")
+        
         cmd = [
-            "curl", "-s", "-X", "POST", 
+            "curl", "-v", "-s", "-X", "POST", 
             "-H", "Content-Type: application/json", 
-            "-d", json.dumps(data), 
+            "-d", json_data, 
             "http://localhost:3000/api/pumps/dispense"
         ]
         
-        result = subprocess.run(cmd, check=True)
+        logger.debug(f"Running command: {' '.join(cmd)}")
         
-        logger.info(f"Dispensed {amount}ml from {pump_name} at {flow_rate}ml/s")
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False  # Don't raise exception on non-zero exit
+        )
+        
+        if result.returncode != 0:
+            logger.error(f"Curl command failed with return code {result.returncode}")
+            logger.error(f"Stderr: {result.stderr}")
+            raise Exception(f"Failed to dispense from pump {pump_name}: Command failed with code {result.returncode}")
+        
+        # Try to parse response for more detailed logging
+        try:
+            response = json.loads(result.stdout.strip())
+            logger.debug(f"API response: {response}")
+            
+            if response.get("status") != "success":
+                error_msg = response.get("error", "Unknown API error")
+                logger.error(f"API error: {error_msg}")
+                raise Exception(f"Failed to dispense from pump {pump_name}: {error_msg}")
+        except json.JSONDecodeError:
+            # If we can't parse the response, just log what we got back
+            logger.debug(f"Response (not JSON): {result.stdout}")
+        
+        logger.info(f"Successfully dispensed {amount}ml from {pump_name} at {flow_rate}ml/s")
     except Exception as e:
         logger.error(f"Error dispensing from pump {pump_name}: {e}")
         raise
