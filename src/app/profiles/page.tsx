@@ -8,6 +8,7 @@ import { useSidebar } from "../components/SidebarContext";
 import { useProfileData, ProfileSettings } from "../hooks/useProfileData";
 import { usePumpData } from "../hooks/usePumpData";
 import { API_CONFIG } from "../lib/config";
+import { Input } from "@/components/ui/keyboard";
 
 // Define interfaces for type safety
 interface PumpSetting {
@@ -770,12 +771,12 @@ export default function ProfilesPage() {
                 {/* Search bar */}
                 <div className="mb-6">
                   <div className="relative">
-                    <input
+                    <Input
                       type="text"
                       placeholder="Search profiles by name or crop type..."
-                      className="w-full p-3 pl-10 bg-[#1e1e1e] border border-[#333333] rounded-lg"
+                      className="w-full p-3 pl-10 rounded-lg"
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(value) => setSearchTerm(value)}
                     />
                     <div className="absolute left-3 top-3 text-gray-400">
                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -925,11 +926,11 @@ export default function ProfilesPage() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm mb-2">Profile Name</label>
-                      <input 
+                      <Input 
                         type="text" 
-                        className="w-full bg-[#1e1e1e] border border-[#333333] rounded p-2"
+                        className="w-full"
                         value={currentProfile.name}
-                        onChange={(e) => setCurrentProfile({...currentProfile, name: e.target.value})}
+                        onChange={(value) => setCurrentProfile({...currentProfile, name: value})}
                       />
                     </div>
                     <div>
@@ -954,12 +955,12 @@ export default function ProfilesPage() {
                         
                         {/* Show custom input field if "Custom" is selected */}
                         {!categories.includes(currentProfile.cropType) && (
-                          <input 
+                          <Input 
                             type="text" 
-                            className="flex-grow bg-[#1e1e1e] border border-[#333333] rounded p-2"
+                            className="flex-grow"
                             placeholder="Enter custom category"
                             value={currentProfile.cropType}
-                            onChange={(e) => setCurrentProfile({...currentProfile, cropType: e.target.value})}
+                            onChange={(value) => setCurrentProfile({...currentProfile, cropType: value})}
                           />
                         )}
                       </div>
@@ -1748,9 +1749,9 @@ export default function ProfilesPage() {
                             </label>
                           </div>
                           <div className="flex items-center">
-                            <input 
+                            <Input 
                               type="number" 
-                              className={`w-20 bg-[#1e1e1e] border border-[#333333] rounded p-2 text-center mr-2 ${
+                              className={`w-20 text-center mr-2 ${
                                 currentProfile?.pumpAssignments?.find(p => p.pumpName === pump.name)?.isAutoDosage 
                                   ? 'border-[#00a3e0] border-2' 
                                   : ''
@@ -1759,10 +1760,10 @@ export default function ProfilesPage() {
                               min="0"
                               step="0.01"
                               value={currentProfile?.pumpAssignments?.find(p => p.pumpName === pump.name)?.dosage || ""}
-                              onChange={(e) => {
+                              onChange={(value) => {
                                 if (!currentProfile) return;
                                 
-                                const dosage = parseFloat(e.target.value) || 0;
+                                const dosage = parseFloat(value) || 0;
                                 const newProfile = {...currentProfile};
                                 
                                 if (!newProfile.pumpAssignments) {

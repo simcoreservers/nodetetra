@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../components/SidebarContext";
 import { useNutrientData, NutrientBrand, NutrientProduct } from "../hooks/useNutrientData";
+import { Input } from "@/components/ui/keyboard";
 
 export default function NutrientsPage() {
   const [activeSection, setActiveSection] = useState("nutrients");
@@ -480,11 +481,11 @@ export default function NutrientsPage() {
               
               <div className="mb-4">
                 <label className="block text-sm mb-2">Brand Name</label>
-                <input 
+                <Input 
                   type="text" 
-                  className="w-full bg-[#121212] border border-[#333333] rounded p-2"
+                  className="w-full"
                   value={newBrandName}
-                  onChange={(e) => setNewBrandName(e.target.value)}
+                  onChange={(value) => setNewBrandName(value)}
                   placeholder="Enter brand name"
                 />
               </div>
@@ -516,11 +517,11 @@ export default function NutrientsPage() {
               
               <div className="mb-4">
                 <label className="block text-sm mb-2">Brand Name</label>
-                <input 
+                <Input 
                   type="text" 
-                  className="w-full bg-[#121212] border border-[#333333] rounded p-2"
+                  className="w-full"
                   value={newBrandName}
-                  onChange={(e) => setNewBrandName(e.target.value)}
+                  onChange={(value) => setNewBrandName(value)}
                   placeholder="Enter brand name"
                 />
               </div>
@@ -552,34 +553,34 @@ export default function NutrientsPage() {
               
               <div className="mb-4">
                 <label className="block text-sm mb-2">Product Name</label>
-                <input 
+                <Input 
                   type="text" 
-                  className="w-full bg-[#121212] border border-[#333333] rounded p-2"
+                  className="w-full"
                   value={productFormData.name}
-                  onChange={(e) => setProductFormData({...productFormData, name: e.target.value})}
+                  onChange={(value) => setProductFormData({...productFormData, name: value})}
                   placeholder="Enter product name"
                 />
               </div>
               
               <div className="mb-4">
                 <label className="block text-sm mb-2">NPK Values (e.g., 5-2-3)</label>
-                <input 
+                <Input 
                   type="text" 
-                  className="w-full bg-[#121212] border border-[#333333] rounded p-2"
+                  className="w-full"
                   value={productFormData.npk}
-                  onChange={(e) => setProductFormData({...productFormData, npk: e.target.value})}
+                  onChange={(value) => setProductFormData({...productFormData, npk: value})}
                   placeholder="Enter NPK values"
                 />
               </div>
               
               <div className="mb-4">
                 <label className="block text-sm mb-2">Description (optional)</label>
-                <textarea 
-                  className="w-full bg-[#121212] border border-[#333333] rounded p-2"
+                <Input 
+                  type="text" 
+                  className="w-full"
                   value={productFormData.description}
-                  onChange={(e) => setProductFormData({...productFormData, description: e.target.value})}
+                  onChange={(value) => setProductFormData({...productFormData, description: value})}
                   placeholder="Enter description"
-                  rows={3}
                 />
               </div>
               
@@ -610,34 +611,34 @@ export default function NutrientsPage() {
               
               <div className="mb-4">
                 <label className="block text-sm mb-2">Product Name</label>
-                <input 
+                <Input 
                   type="text" 
-                  className="w-full bg-[#121212] border border-[#333333] rounded p-2"
+                  className="w-full"
                   value={productFormData.name}
-                  onChange={(e) => setProductFormData({...productFormData, name: e.target.value})}
+                  onChange={(value) => setProductFormData({...productFormData, name: value})}
                   placeholder="Enter product name"
                 />
               </div>
               
               <div className="mb-4">
                 <label className="block text-sm mb-2">NPK Values (e.g., 5-2-3)</label>
-                <input 
+                <Input 
                   type="text" 
-                  className="w-full bg-[#121212] border border-[#333333] rounded p-2"
+                  className="w-full"
                   value={productFormData.npk}
-                  onChange={(e) => setProductFormData({...productFormData, npk: e.target.value})}
+                  onChange={(value) => setProductFormData({...productFormData, npk: value})}
                   placeholder="Enter NPK values"
                 />
               </div>
               
               <div className="mb-4">
                 <label className="block text-sm mb-2">Description (optional)</label>
-                <textarea 
-                  className="w-full bg-[#121212] border border-[#333333] rounded p-2"
+                <Input 
+                  type="text" 
+                  className="w-full"
                   value={productFormData.description}
-                  onChange={(e) => setProductFormData({...productFormData, description: e.target.value})}
+                  onChange={(value) => setProductFormData({...productFormData, description: value})}
                   placeholder="Enter description"
-                  rows={3}
                 />
               </div>
               

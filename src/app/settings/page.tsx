@@ -6,6 +6,7 @@ import Link from "next/link";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../components/SidebarContext";
 import { useSimulationContext } from "../components/SimulationContext";
+import { Input } from "@/components/ui/keyboard";
 
 // Console log for debugging
 console.log("Settings page loaded");
@@ -188,9 +189,9 @@ export default function SettingsPage() {
                 <div>
                   <label className="block text-sm mb-2">Device Name</label>
                   <div className="flex">
-                    <input 
+                    <Input 
                       type="text" 
-                      className="flex-1 bg-[#1e1e1e] border border-[#333333] rounded-l p-2"
+                      className="flex-1 rounded-l"
                       defaultValue={mockData.systemInfo.deviceName}
                     />
                     <button className="btn rounded-l-none">Update</button>
@@ -285,9 +286,9 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <label className="block text-sm mb-2">WiFi Password</label>
-                  <input 
+                  <Input 
                     type="password" 
-                    className="w-full bg-[#1e1e1e] border border-[#333333] rounded p-2"
+                    className="w-full"
                     placeholder="Enter WiFi password"
                     value="••••••••"
                   />
@@ -366,12 +367,14 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm mb-2">pH Baseline</label>
-                      <input 
+                      <Input 
                         type="number" 
                         name="ph"
-                        className="w-full bg-[#1e1e1e] border border-[#333333] rounded p-2"
+                        className="w-full"
                         value={formState.ph}
-                        onChange={handleInputChange}
+                        onChange={(value) => handleInputChange({
+                          target: { name: 'ph', value }
+                        } as React.ChangeEvent<HTMLInputElement>)}
                         min="0"
                         max="14"
                         step="0.1"
@@ -380,12 +383,14 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="block text-sm mb-2">EC Baseline (mS/cm)</label>
-                      <input 
+                      <Input 
                         type="number" 
                         name="ec"
-                        className="w-full bg-[#1e1e1e] border border-[#333333] rounded p-2"
+                        className="w-full"
                         value={formState.ec}
-                        onChange={handleInputChange}
+                        onChange={(value) => handleInputChange({
+                          target: { name: 'ec', value }
+                        } as React.ChangeEvent<HTMLInputElement>)}
                         min="0"
                         max="5"
                         step="0.1"
@@ -395,12 +400,14 @@ export default function SettingsPage() {
                   </div>
                   <div className="mt-4">
                     <label className="block text-sm mb-2">Temperature Baseline (°C)</label>
-                    <input 
+                    <Input 
                       type="number" 
                       name="waterTemp"
-                      className="w-full bg-[#1e1e1e] border border-[#333333] rounded p-2"
+                      className="w-full"
                       value={formState.waterTemp}
-                      onChange={handleInputChange}
+                      onChange={(value) => handleInputChange({
+                        target: { name: 'waterTemp', value }
+                      } as React.ChangeEvent<HTMLInputElement>)}
                       min="10"
                       max="40"
                       step="0.5"
@@ -471,9 +478,9 @@ export default function SettingsPage() {
                 <div>
                   <label className="block text-sm mb-2">Or Upload Backup File</label>
                   <div className="flex">
-                    <input 
+                    <Input 
                       type="text" 
-                      className="flex-1 bg-[#1e1e1e] border border-[#333333] rounded-l p-2"
+                      className="flex-1 rounded-l"
                       placeholder="Select file"
                       disabled
                     />
@@ -524,9 +531,9 @@ export default function SettingsPage() {
                 <div className="mb-4">
                   <label className="block text-sm mb-2">Firmware File</label>
                   <div className="flex">
-                    <input 
+                    <Input 
                       type="text" 
-                      className="flex-1 bg-[#1e1e1e] border border-[#333333] rounded-l p-2"
+                      className="flex-1 rounded-l"
                       placeholder="Select firmware file"
                       disabled
                     />
