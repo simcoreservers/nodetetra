@@ -21,7 +21,9 @@ const Input: React.FC<InputProps> = ({
   const inputType = type === 'number' ? 'numeric' : 'text';
   
   const handleInputFocus = () => {
+    console.log('Input focused!');
     if (inputRef.current) {
+      console.log('Input ref exists, opening keyboard...');
       // Prevent the mobile keyboard from showing up
       inputRef.current.blur();
       
@@ -31,6 +33,8 @@ const Input: React.FC<InputProps> = ({
         inputRef.current.value,
         inputType
       );
+    } else {
+      console.log('Input ref does not exist');
     }
   };
   

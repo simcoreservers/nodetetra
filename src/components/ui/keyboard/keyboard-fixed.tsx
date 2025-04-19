@@ -22,6 +22,8 @@ export const Keyboard: React.FC<KeyboardProps> = ({ children }) => {
 
 // The keyboard container that renders the actual keyboard
 const KeyboardContainer: React.FC = () => {
+  console.log('Rendering KeyboardContainer');
+  
   const { 
     isOpen, 
     inputType, 
@@ -33,9 +35,22 @@ const KeyboardContainer: React.FC = () => {
   
   const keyboardRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
+  const [portalElement, setPortalElement] = useState<HTMLElement | null>(null);
+  
+  // Set up client-side portal
+  useEffect(() => {
+    setMounted(true);
+    console.log('Keyboard mounted, setting portal element');
+    setPortalElement(document.body);
+    
+    // Log whenever keyboard state changes
+    console.log('Keyboard state updated:', { isOpen, inputType, currentValue });
+  }, [isOpen, inputType, currentValue]); 
   
   // Handle clicking outside the keyboard
   useEffect(() => {
+    if (!mounted) return;
+    
     const handleClickOutside = (event: MouseEvent) => {
       if (
         keyboardRef.current && 
@@ -43,6 +58,7 @@ const KeyboardContainer: React.FC = () => {
         targetRef?.current && 
         !targetRef.current.contains(event.target as Node)
       ) {
+        console.log('Clicked outside keyboard - closing');
         onClose();
       }
     };
@@ -51,25 +67,10 @@ const KeyboardContainer: React.FC = () => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [onClose, targetRef]);
-  
-  // Handle keyboard visibility when user taps in a different area
-  useEffect(() => {
-    setMounted(true);
-    
-    // Set up debugging
-    console.log('Keyboard container mounted');
-    
-    // Log keyboard state changes
-    console.log('Keyboard state:', {
-      isOpen,
-      inputType,
-      currentValue,
-      targetRefExists: !!targetRef?.current
-    });
-  }, [isOpen, inputType, currentValue, targetRef]);
+  }, [onClose, targetRef, mounted]);
   
   const handleKeyboardInput = useCallback((value: string) => {
+    console.log('Keyboard input:', value);
     onValueChange(value);
   }, [onValueChange]);
   
@@ -82,7 +83,15 @@ const KeyboardContainer: React.FC = () => {
       const windowHeight = window.innerHeight;
       
       // Position keyboard below the input field, but ensure it doesn't go off screen
-      const keyboardHeight = inputType === 'numeric' ? 220 : 300; // Approximate heights
+      const keyboardHeight = inputType === 'numeric' ? 250 : 350; // Increased heights to be safe
+      
+      console.log('Positioning keyboard for input at:', {
+        top: rect.top,
+        bottom: rect.bottom,
+        left: rect.left,
+        windowHeight,
+        keyboardHeight
+      });
       
       // If there's not enough space below, position above
       if (rect.bottom + keyboardHeight > windowHeight) {
@@ -92,39 +101,40 @@ const KeyboardContainer: React.FC = () => {
         });
       } else {
         setPosition({
-          top: rect.bottom,
+          top: rect.bottom + 10, // Add a small gap
           left: rect.left
         });
       }
     }
   }, [isOpen, targetRef, inputType]);
   
-  if (!mounted) return null;
+  if (!mounted || !portalElement) {
+    console.log('Not mounted or no portal element yet');
+    return null;
+  }
   
   if (!isOpen) {
-    console.log('Keyboard not open');
+    console.log('Keyboard is not open');
     return null;
   }
   
-  // Make sure we have access to the document body before rendering
-  if (typeof document === 'undefined') {
-    console.log('Document not available yet');
-    return null;
-  }
+  console.log('Rendering keyboard portal with position:', position);
   
   return createPortal(
     <div 
       ref={keyboardRef}
-      className="fixed z-50 bg-[#1e1e1e] border border-[#333333] rounded-md shadow-lg p-2 w-auto"
+      className="fixed z-50 bg-[#1e1e1e] border border-[#333333] rounded-md shadow-lg p-3"
       style={{
         top: `${position.top}px`,
         left: `${position.left}px`,
-        maxWidth: '100vw',
-        maxHeight: '50vh',
-        transition: 'transform 0.3s ease',
-        transform: isOpen ? 'translateY(0)' : 'translateY(100%)'
+        maxWidth: '95vw',
+        transition: 'all 0.3s ease',
       }}
     >
+      <div className="kb-debug" style={{fontSize: '10px', color: '#666', marginBottom: '4px'}}>
+        Type: {inputType} | Value: {currentValue}
+      </div>
+      
       {inputType === 'numeric' ? (
         <NumericKeypad 
           value={currentValue} 
@@ -139,7 +149,7 @@ const KeyboardContainer: React.FC = () => {
         />
       )}
     </div>,
-    document.body
+    portalElement
   );
 };
 

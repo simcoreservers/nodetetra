@@ -6,6 +6,7 @@ import "./globals.css";
 import { SidebarProvider } from "./components/SidebarContext";
 import { SimulationProvider } from "./components/SimulationContext";
 import { KeyboardProvider } from "@/components/ui/keyboard";
+import { Keyboard } from "@/components/ui/keyboard";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,9 +27,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <SidebarProvider>
           <SimulationProvider>
-            <KeyboardProvider>
+            <Keyboard>
               {children}
-            </KeyboardProvider>
+            </Keyboard>
           </SimulationProvider>
         </SidebarProvider>
       </body>

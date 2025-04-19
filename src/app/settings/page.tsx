@@ -7,6 +7,7 @@ import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../components/SidebarContext";
 import { useSimulationContext } from "../components/SimulationContext";
 import { Input } from "@/components/ui/keyboard";
+import KeyboardTest from "@/components/ui/keyboard/KeyboardTest";
 
 // Console log for debugging
 console.log("Settings page loaded");
@@ -118,6 +119,9 @@ export default function SettingsPage() {
             <button className="btn">Check for Updates</button>
           </div>
         </div>
+        
+        {/* Keyboard test component */}
+        <KeyboardTest />
 
         {/* Tabs */}
         <div className="mb-6 border-b border-[#333333]">
