@@ -645,7 +645,7 @@ export default function DosingPage() {
               )}
 
               {activeTab === 'auto' && (
-                <div className="p-6">
+                <div className="space-y-6">
                   <h2 className="text-xl font-bold mb-6">Auto Dosing Configuration</h2>
                   
                   {loadingAutoDosing ? (
@@ -675,14 +675,12 @@ export default function DosingPage() {
                   ) : (
                     <>
                       {/* Auto Dosing Status Card */}
-                      <div className={`mb-6 p-4 rounded-md border ${autoDosing?.enabled ? 'border-green-600 bg-green-900/20' : 'border-gray-600 bg-gray-800/20'}`}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-lg font-semibold flex items-center">
-                              <span className={`h-3 w-3 rounded-full mr-2 ${autoDosing?.enabled && autoDosing?.running ? 'bg-green-500' : 'bg-gray-500'}`}></span>
-                              Auto Dosing Status
-                            </h3>
-                            <p className="text-sm text-gray-300 mt-1">
+                      <div className="card mb-6">
+                        <div className="card-header">
+                          <h2 className="card-title">Auto Dosing Status</h2>
+                          <div className="sensor-status">
+                            <div className={`status-indicator ${autoDosing?.enabled && autoDosing?.running ? 'status-good' : ''}`}></div>
+                            <span>
                               {autoDosing?.enabled ? 
                                 (autoDosing?.running ? 
                                   (autoDosing?.in_cooldown ? 
@@ -690,127 +688,135 @@ export default function DosingPage() {
                                     'Active') : 
                                   'Enabled (Not running)') : 
                                 'Disabled'}
-                            </p>
+                            </span>
                           </div>
-                          
-                          <button
-                            onClick={toggleAutoDosing}
-                            className={`px-4 py-2 rounded font-medium ${
-                              autoDosing?.enabled
-                                ? "bg-red-600 hover:bg-red-700 text-white"
-                                : "bg-green-600 hover:bg-green-700 text-white"
-                            }`}
-                          >
-                            {autoDosing?.enabled ? "Disable" : "Enable"}
-                          </button>
+                        </div>
+                        <div className="p-4">
+                          <div className="flex justify-end">
+                            <button
+                              onClick={toggleAutoDosing}
+                              className={`btn ${
+                                autoDosing?.enabled ? "btn-danger" : "btn-primary"
+                              }`}
+                            >
+                              {autoDosing?.enabled ? "Disable" : "Enable"}
+                            </button>
+                          </div>
                         </div>
                       </div>
                       
                       {/* Configuration Form */}
-                      <div className="bg-card rounded-md border border-[var(--border)] p-4">
-                        <h3 className="text-lg font-semibold mb-4">Configuration</h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Check Interval (seconds)</label>
-                            <div className="flex">
-                              <input
-                                type="number"
-                                value={checkInterval}
-                                onChange={(e) => setCheckInterval(Number(e.target.value))}
-                                className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
-                              />
+                      <div className="card">
+                        <div className="card-header">
+                          <h2 className="card-title">Configuration</h2>
+                        </div>
+                        <div className="card-content p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Check Interval (seconds)</label>
+                              <div className="flex">
+                                <input
+                                  type="number"
+                                  value={checkInterval}
+                                  onChange={(e) => setCheckInterval(Number(e.target.value))}
+                                  className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
+                                />
+                              </div>
+                              <p className="text-xs text-gray-400 mt-1">How often to check sensor readings (seconds)</p>
                             </div>
-                            <p className="text-xs text-gray-400 mt-1">How often to check sensor readings (seconds)</p>
-                          </div>
-                          
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Dosing Cooldown (seconds)</label>
-                            <div className="flex">
-                              <input
-                                type="number"
-                                value={dosingCooldown}
-                                onChange={(e) => setDosingCooldown(Number(e.target.value))}
-                                className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
-                              />
+                            
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Dosing Cooldown (seconds)</label>
+                              <div className="flex">
+                                <input
+                                  type="number"
+                                  value={dosingCooldown}
+                                  onChange={(e) => setDosingCooldown(Number(e.target.value))}
+                                  className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
+                                />
+                              </div>
+                              <p className="text-xs text-gray-400 mt-1">Wait time after dosing before next check (seconds)</p>
                             </div>
-                            <p className="text-xs text-gray-400 mt-1">Wait time after dosing before next check (seconds)</p>
-                          </div>
-                          
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Between Dose Delay (seconds)</label>
-                            <div className="flex">
-                              <input
-                                type="number"
-                                value={betweenDoseDelay}
-                                onChange={(e) => setBetweenDoseDelay(Number(e.target.value))}
-                                className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
-                              />
+                            
+                            <div>
+                              <label className="block text-sm font-medium mb-1">Between Dose Delay (seconds)</label>
+                              <div className="flex">
+                                <input
+                                  type="number"
+                                  value={betweenDoseDelay}
+                                  onChange={(e) => setBetweenDoseDelay(Number(e.target.value))}
+                                  className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
+                                />
+                              </div>
+                              <p className="text-xs text-gray-400 mt-1">Wait time between sequential nutrient doses (seconds)</p>
                             </div>
-                            <p className="text-xs text-gray-400 mt-1">Wait time between sequential nutrient doses (seconds)</p>
-                          </div>
-                          
-                          <div className="col-span-1 md:col-span-2">
-                            <div className="bg-blue-900/20 border border-blue-700 rounded-md p-4 mb-3">
-                              <div className="flex items-start">
-                                <svg className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <div>
-                                  <h4 className="text-blue-300 font-medium mb-1">pH and EC Tolerance Settings</h4>
-                                  <p className="text-sm">
-                                    pH and EC tolerance values are now controlled by your active plant profile. 
-                                    The auto-dosing system uses the buffer/tolerance values from your profile
-                                    to determine when adjustment is needed.
-                                  </p>
-                                  {activeProfile ? (
-                                    <div className="mt-2 text-xs bg-blue-900/40 p-2 rounded">
-                                      <p className="mb-1">
-                                        <span className="font-medium">Active Profile:</span> {activeProfile.name}
-                                      </p>
-                                      <p className="mb-1">
-                                        <span className="font-medium">pH Buffer:</span> ±{activeProfile.targetPh?.buffer || "0.2"}
-                                      </p>
-                                      <p>
-                                        <span className="font-medium">EC Buffer:</span> ±{activeProfile.targetEc?.buffer || "0.2"}
-                                      </p>
-                                    </div>
-                                  ) : (
-                                    <p className="mt-2 text-xs">
-                                      No active profile found. Default tolerance values will be used.
+                            
+                            <div className="col-span-1 md:col-span-2">
+                              <div className="bg-blue-900/20 border border-blue-700 rounded-md p-4 mb-3">
+                                <div className="flex items-start">
+                                  <svg className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                  </svg>
+                                  <div>
+                                    <h4 className="text-blue-300 font-medium mb-1">pH and EC Tolerance Settings</h4>
+                                    <p className="text-sm">
+                                      pH and EC tolerance values are now controlled by your active plant profile. 
+                                      The auto-dosing system uses the buffer/tolerance values from your profile
+                                      to determine when adjustment is needed.
                                     </p>
-                                  )}
+                                    {activeProfile ? (
+                                      <div className="mt-2 text-xs bg-blue-900/40 p-2 rounded">
+                                        <p className="mb-1">
+                                          <span className="font-medium">Active Profile:</span> {activeProfile.name}
+                                        </p>
+                                        <p className="mb-1">
+                                          <span className="font-medium">pH Buffer:</span> ±{activeProfile.targetPh?.buffer || "0.2"}
+                                        </p>
+                                        <p>
+                                          <span className="font-medium">EC Buffer:</span> ±{activeProfile.targetEc?.buffer || "0.2"}
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <p className="mt-2 text-xs">
+                                        No active profile found. Default tolerance values will be used.
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                        
-                        <div className="mt-6 flex justify-end">
-                          <button
-                            onClick={updateAutoDosingConfig}
-                            disabled={updatingConfig}
-                            className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md font-medium disabled:opacity-50"
-                          >
-                            {updatingConfig ? "Updating..." : "Update Configuration"}
-                          </button>
+                          
+                          <div className="mt-6 flex justify-end">
+                            <button
+                              onClick={updateAutoDosingConfig}
+                              disabled={updatingConfig}
+                              className="btn btn-primary disabled:opacity-50"
+                            >
+                              {updatingConfig ? "Updating..." : "Update Configuration"}
+                            </button>
+                          </div>
                         </div>
                       </div>
                       
                       {/* Documentation */}
-                      <div className="mt-6 bg-blue-900/20 border border-blue-700 rounded-md p-4">
-                        <h3 className="text-lg font-semibold text-blue-300 mb-2">How Auto Dosing Works</h3>
-                        <ul className="list-disc pl-5 space-y-2 text-sm text-gray-300">
-                          <li>Auto dosing continuously monitors pH and EC sensor readings.</li>
-                          <li>When pH is outside the target range (using buffer values from the active plant profile), it doses pH Up or pH Down accordingly.</li>
-                          <li>Once pH is within range, if EC is too low, it doses nutrients according to the active profile.</li>
-                          <li>Nutrients are dosed one at a time with the configured delay between doses.</li>
-                          <li>After any dosing action, the system enters a cooldown period to prevent overdosing.</li>
-                          <li>All dosing actions and sensor readings are logged for review.</li>
-                        </ul>
-                        <div className="mt-3 p-2 bg-blue-900/30 rounded text-sm">
-                          <strong className="text-blue-300">Note:</strong> pH and EC target values and tolerance ranges come from your active plant profile. 
-                          To adjust these values, go to the Profiles section and update your active profile's settings.
+                      <div className="card mt-6">
+                        <div className="card-header">
+                          <h2 className="card-title">How Auto Dosing Works</h2>
+                        </div>
+                        <div className="card-content p-4">
+                          <ul className="list-disc pl-5 space-y-2 text-sm text-gray-300">
+                            <li>Auto dosing continuously monitors pH and EC sensor readings.</li>
+                            <li>When pH is outside the target range (using buffer values from the active plant profile), it doses pH Up or pH Down accordingly.</li>
+                            <li>Once pH is within range, if EC is too low, it doses nutrients according to the active profile.</li>
+                            <li>Nutrients are dosed one at a time with the configured delay between doses.</li>
+                            <li>After any dosing action, the system enters a cooldown period to prevent overdosing.</li>
+                            <li>All dosing actions and sensor readings are logged for review.</li>
+                          </ul>
+                          <div className="mt-3 p-2 bg-blue-900/30 rounded text-sm">
+                            <strong className="text-blue-300">Note:</strong> pH and EC target values and tolerance ranges come from your active plant profile. 
+                            To adjust these values, go to the Profiles section and update your active profile's settings.
+                          </div>
                         </div>
                       </div>
                     </>
