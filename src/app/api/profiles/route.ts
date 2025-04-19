@@ -18,30 +18,59 @@ async function ensureDataDir() {
 }
 
 // Helper to read profiles from file
-async function getProfiles(): Promise<ProfileSettings[]> {
+export async function getProfiles(): Promise<ProfileSettings[]> {
   try {
     await ensureDataDir();
     
     // Check if profiles file exists
     if (!existsSync(PROFILES_FILE)) {
-      console.log("Profiles file doesn't exist, creating it with default profile");
+      console.log("Profiles file doesn't exist, creating it with default profiles");
       
-      // Create a default profile
-      const defaultProfile: ProfileSettings = {
-        name: "Default",
-        cropType: "General Hydroponic",
-        targetPh: { min: 5.8, max: 6.2 },
-        targetEc: { min: 1.2, max: 1.6 },
-        notes: "Default profile with general settings for most plants",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      // Create default profiles
+      const defaultProfiles: ProfileSettings[] = [
+        {
+          name: "Lettuce",
+          cropType: "Leafy Greens",
+          targetPh: { target: 6.0, buffer: 0.5, min: 5.5, max: 6.5 },
+          targetEc: { target: 1.0, buffer: 0.2, min: 0.8, max: 1.2 },
+          notes: "Fast-growing leafy green, ideal for beginners",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          name: "Tomatoes",
+          cropType: "Fruiting",
+          targetPh: { target: 6.0, buffer: 0.2, min: 5.8, max: 6.3 },
+          targetEc: { target: 2.8, buffer: 0.7, min: 2.0, max: 3.5 },
+          notes: "Higher EC during fruiting stage",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          name: "Basil",
+          cropType: "Herbs",
+          targetPh: { target: 6.0, buffer: 0.5, min: 5.5, max: 6.5 },
+          targetEc: { target: 1.3, buffer: 0.3, min: 1.0, max: 1.6 },
+          notes: "Aromatic herb that grows well in hydroponics",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          name: "Strawberries",
+          cropType: "Fruiting",
+          targetPh: { target: 5.8, buffer: 0.3, min: 5.5, max: 6.2 },
+          targetEc: { target: 2.0, buffer: 0.5, min: 1.8, max: 2.5 },
+          notes: "Prefers slightly acidic conditions",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
       
-      // Save the default profile
-      await saveProfiles([defaultProfile]);
-      console.log("Created default profile");
+      // Save the default profiles
+      await saveProfiles(defaultProfiles);
+      console.log("Created default profiles");
       
-      return [defaultProfile];
+      return defaultProfiles;
     }
     
     try {

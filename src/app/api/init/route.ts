@@ -3,6 +3,8 @@ import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { initializeServer } from '@/app/lib/server-init';
+import { getAllNutrients } from '@/app/lib/nutrients';
+import { getProfiles } from '@/app/api/profiles/route'; // Import the profiles function
 
 // Path to data files
 const DATA_PATH = path.join(process.cwd(), 'data');
@@ -10,6 +12,7 @@ const PROFILES_FILE = path.join(DATA_PATH, 'profiles.json');
 const ACTIVE_PROFILE_FILE = path.join(DATA_PATH, 'active_profile.json');
 const DOSING_FILE = path.join(DATA_PATH, 'dosing.json');
 const AUTODOSING_FILE = path.join(DATA_PATH, 'autodosing.json');
+const NUTRIENTS_FILE = path.join(DATA_PATH, 'nutrients.json');
 
 /**
  * Ensure all required data files exist with default values
@@ -22,31 +25,21 @@ async function ensureDataFiles() {
       console.log('Created data directory');
     }
     
-    // Create default profiles if needed
-    if (!existsSync(PROFILES_FILE)) {
-      const defaultProfile = {
-        name: "Default",
-        cropType: "General Hydroponic",
-        targetPh: { min: 5.8, max: 6.2 },
-        targetEc: { min: 1.2, max: 1.6 },
-        notes: "Default profile with general settings for most plants",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      await fs.writeFile(
-        PROFILES_FILE,
-        JSON.stringify([defaultProfile], null, 2),
-        'utf8'
-      );
-      console.log('Created default profile');
-    }
+    // Initialize profiles with the updated function
+    // This will create the file with default profiles if it doesn't exist
+    await getProfiles();
+    console.log('Initialized plant profiles');
+    
+    // Initialize nutrients with the updated function
+    // This will create the file with default nutrient brands if it doesn't exist
+    getAllNutrients();
+    console.log('Initialized nutrient database');
     
     // Create active profile reference if needed
     if (!existsSync(ACTIVE_PROFILE_FILE)) {
       await fs.writeFile(
         ACTIVE_PROFILE_FILE,
-        JSON.stringify({ activeName: "Default" }, null, 2),
+        JSON.stringify({ activeName: "Lettuce" }, null, 2),
         'utf8'
       );
       console.log('Created active profile reference');

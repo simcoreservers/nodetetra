@@ -31,10 +31,11 @@ export function getAllNutrients(): NutrientBrand[] {
       fs.mkdirSync(DATA_PATH, { recursive: true });
     }
 
-    // Check if the nutrients file exists, if not create with empty array
+    // Check if the nutrients file exists, if not create with default data
     if (!fs.existsSync(NUTRIENTS_FILE)) {
-      fs.writeFileSync(NUTRIENTS_FILE, '[]', 'utf8');
-      return [];
+      const defaultNutrients = getDefaultNutrients();
+      fs.writeFileSync(NUTRIENTS_FILE, JSON.stringify(defaultNutrients, null, 2), 'utf8');
+      return defaultNutrients;
     }
 
     const rawData = fs.readFileSync(NUTRIENTS_FILE, 'utf8');
@@ -43,6 +44,64 @@ export function getAllNutrients(): NutrientBrand[] {
     console.error('Error getting nutrients:', error);
     throw error;
   }
+}
+
+/**
+ * Returns a set of default nutrient brands and products for first-time setup
+ */
+function getDefaultNutrients(): NutrientBrand[] {
+  const now = Date.now();
+  
+  return [
+    {
+      id: now,
+      brand: "General Hydroponics",
+      products: [
+        {
+          id: now + 1,
+          name: "Flora Micro",
+          npk: "5-0-1",
+          description: "Provides nitrogen, potassium and calcium as well as micronutrients."
+        },
+        {
+          id: now + 2,
+          name: "Flora Gro",
+          npk: "2-1-6",
+          description: "Stimulates structural and vegetative growth."
+        },
+        {
+          id: now + 3,
+          name: "Flora Bloom",
+          npk: "0-5-4",
+          description: "For abundant fruit and flower development."
+        }
+      ]
+    },
+    {
+      id: now + 100,
+      brand: "Advanced Nutrients",
+      products: [
+        {
+          id: now + 101,
+          name: "pH Perfect Grow",
+          npk: "3-0-0",
+          description: "Specialized for vegetative growth."
+        },
+        {
+          id: now + 102,
+          name: "pH Perfect Bloom",
+          npk: "0-4-4",
+          description: "Specialized for bloom phase."
+        },
+        {
+          id: now + 103,
+          name: "pH Perfect Micro",
+          npk: "5-0-0",
+          description: "Provides essential micronutrients."
+        }
+      ]
+    }
+  ];
 }
 
 /**
