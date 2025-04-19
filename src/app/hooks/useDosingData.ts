@@ -107,16 +107,6 @@ export function useDosingData({ refreshInterval = 30000 }: UseDosingDataProps = 
         const profile = await fetchActiveProfile();
         setActiveProfile(profile);
         
-        console.log(`Fetching dosing data... (attempt ${retryCount + 1}/${maxRetries})`);
-        // In a real implementation, this would be a fetch to your API
-        const response = await fetch('/api/dosing', {
-          // Add cache control to avoid stale data issues
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache'
-          }
-        });
-        
         if (!response.ok) {
           console.error(`HTTP error fetching dosing data! status: ${response.status}`);
           throw new Error(`HTTP error! status: ${response.status}`);

@@ -307,9 +307,40 @@ async def main():
         # Start auto dosing
         await start_auto_dosing()
         
+        # Force enable if configured
+        config = load_config()
+        if config.get('enabled', False):
+            logger.info("Auto-dosing enabled in config, force-starting...")
+            if not auto_doser:
+                logger.error("ERROR: auto_doser not initialized properly!")
+            else:
+                # Force start regardless of current state
+                if not auto_doser.running:
+                    logger.info("Auto-doser not running, starting it now...")
+                    await auto_doser.start()
+                    
+                    # Double-check that it started
+                    if auto_doser.running:
+                        logger.info("Auto-doser successfully started!")
+                    else:
+                        logger.error("FAILED to start auto-doser!")
+                else:
+                    logger.info("Auto-doser already running")
+        
         # Keep the process running
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(10)  # Check status every 10 seconds
+            if auto_doser:
+                status = auto_doser.get_status()
+                logger.debug(f"Auto-doser status check: enabled={status['enabled']}, running={status['running']}")
+                
+                # If enabled but not running, try to restart
+                if status['enabled'] and not status['running']:
+                    logger.warning("Auto-doser enabled but not running, attempting restart...")
+                    await auto_doser.start()
+            else:
+                logger.error("auto_doser instance is None! Reinitializing...")
+                await start_auto_dosing()
             
     except asyncio.CancelledError:
         logger.info("Main task cancelled")
@@ -333,25 +364,37 @@ async def enable_auto_dosing():
     
     logger.debug("Enable auto dosing requested")
     
+    # Ensure we have an auto_doser instance
     if not auto_doser:
         logger.debug("No auto_doser instance, creating one")
         await start_auto_dosing()
     
-    if auto_doser and auto_doser.running:
-        logger.info("Auto dosing already running")
-        return
+    if not auto_doser:
+        logger.error("FAILED to create auto_doser instance!")
+        raise RuntimeError("Could not create auto_doser instance")
     
-    # Start auto dosing
-    await auto_doser.start()
+    # Start auto dosing if not already running
+    if not auto_doser.running:
+        logger.info("Starting auto dosing...")
+        await auto_doser.start()
+        
+        # Verify it started
+        if not auto_doser.running:
+            logger.error("FAILED to start auto_doser!")
+            raise RuntimeError("Could not start auto_doser")
+        
+        logger.info("Auto dosing started successfully")
+    else:
+        logger.info("Auto dosing already running")
     
     # Update config to persist enabled state
     config = load_config()
     config['enabled'] = True
     save_config(config)
     
-    logger.info("Auto dosing enabled")
+    logger.info("Auto dosing enabled and configured to start on boot")
     
-    # Ensure the task stays alive by keeping a reference
+    # Return success
     return {"success": True, "message": "Auto dosing enabled"}
 
 
