@@ -107,6 +107,14 @@ export function useDosingData({ refreshInterval = 30000 }: UseDosingDataProps = 
         const profile = await fetchActiveProfile();
         setActiveProfile(profile);
         
+        // Now fetch the auto dosing status
+        const response = await fetch('/api/dosing/auto', {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
         if (!response.ok) {
           console.error(`HTTP error fetching dosing data! status: ${response.status}`);
           throw new Error(`HTTP error! status: ${response.status}`);
