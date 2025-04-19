@@ -112,12 +112,18 @@ def get_sensor_readings() -> Dict[str, float]:
             response = json.loads(result.stdout.strip())
             logger.debug(f"API response: {response}")
             
+            # Check various response formats
             if response.get("status") == "success" and response.get("data"):
+                # Standard format: { status: "success", data: {...} }
                 readings = response["data"]
-                logger.debug(f"Parsed sensor readings: {readings}")
+                logger.debug(f"Parsed sensor readings from data field: {readings}")
                 return readings
+            elif isinstance(response, dict) and all(k in response for k in ["ph", "ec", "waterTemp"]):
+                # Direct format: { ph: X, ec: Y, waterTemp: Z }
+                logger.debug(f"Parsed sensor readings from direct response: {response}")
+                return response
             else:
-                logger.error(f"API error: {response.get('error', 'Unknown error')}")
+                logger.error(f"API error or unexpected format: {response.get('error', 'Unknown error')}")
                 # Fall back to using default values
                 return {
                     "ph": 7.0,
@@ -171,9 +177,14 @@ def get_active_profile() -> Dict[str, Any]:
             response = json.loads(result.stdout.strip())
             logger.debug(f"API response: {response}")
             
-            if response.get("status") == "success" and response.get("data"):
+            # Check if this is a direct profile object (has name, targetPh, targetEc)
+            if isinstance(response, dict) and response.get("name") and response.get("targetPh") and response.get("targetEc"):
+                logger.debug(f"Found active profile directly in response: {response.get('name', 'Unknown')}")
+                return response
+            # Check standard API response format
+            elif response.get("status") == "success" and response.get("data"):
                 profile = response["data"]
-                logger.debug(f"Found active profile: {profile.get('name', 'Unknown')}")
+                logger.debug(f"Found active profile in data field: {profile.get('name', 'Unknown')}")
                 return profile
             else:
                 logger.warning(f"No active profile found: {response.get('error', 'Unknown error')}")
