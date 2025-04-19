@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Tuple, Any, Callable
 
 # Set up logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Change to DEBUG to get more detailed logging
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler("auto_dosing.log"),
@@ -95,6 +95,7 @@ class AutoDosing:
             self.task.add_done_callback(
                 lambda t: logger.warning(f"Auto dosing task completed: {t.exception() if t.exception() else 'No exception'}")
             )
+            logger.info("Auto dosing task created successfully")
         except Exception as e:
             logger.error(f"Error creating auto dosing task: {e}")
             self.enabled = False
@@ -190,18 +191,26 @@ class AutoDosing:
                     
                 else:
                     logger.info(f"No dosing needed. pH={current_ph} (target={target_ph}±{ph_buffer}), EC={current_ec} (target={target_ec}±{ec_buffer})")
+                    # Even when no dosing is needed, we should NOT cancel the task
                 
-                # Wait for next check cycle
+                # Wait for next check cycle - make sure it doesn't exit
+                logger.debug(f"Waiting for {self.check_interval} seconds until next check")
                 await asyncio.sleep(self.check_interval)
+                logger.debug("Completed sleep, continuing monitoring loop")
                 
                 # Reset restart counter on successful cycle
                 restart_count = 0
                 
             except asyncio.CancelledError:
-                logger.info("Auto dosing task cancelled")
-                # Don't break the loop - just continue to allow resumption
-                self.enabled = False
-                break
+                logger.info("Auto dosing task cancelled by external request")
+                # Only break if we've been explicitly cancelled
+                if not self.enabled:
+                    logger.info("Breaking loop because self.enabled is False")
+                    break
+                
+                logger.info("Task was cancelled but enabled flag is still True - attempting to continue")
+                # Don't break the loop or set enabled to False if it's still meant to be running
+                # Just try to continue execution
                 
             except Exception as e:
                 restart_count += 1

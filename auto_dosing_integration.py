@@ -334,9 +334,15 @@ async def main():
                 status = auto_doser.get_status()
                 logger.debug(f"Auto-doser status check: enabled={status['enabled']}, running={status['running']}")
                 
-                # If enabled but not running, try to restart
-                if status['enabled'] and not status['running']:
-                    logger.warning("Auto-doser enabled but not running, attempting restart...")
+                # Check if the task is still alive or if it's completed
+                task_active = auto_doser.task and not auto_doser.task.done() and not auto_doser.task.cancelled()
+                logger.debug(f"Task active check: {task_active}")
+                
+                # If enabled but not running or task is completed, try to restart
+                if status['enabled'] and (not status['running'] or not task_active):
+                    logger.warning("Auto-doser enabled but not running or task completed, attempting restart...")
+                    # Reset running flag to avoid "already running" warning
+                    auto_doser.running = False
                     await auto_doser.start()
             else:
                 logger.error("auto_doser instance is None! Reinitializing...")
@@ -481,6 +487,13 @@ def get_auto_dosing_status():
         logger.debug("Auto-dosing task is active (running=True)")
     else:
         logger.debug(f"Auto-dosing task state: {auto_doser.task}")
+        # If the task is done but enabled is still true, we should restart it
+        if config_enabled and (not auto_doser.task or auto_doser.task.done() or auto_doser.task.cancelled()):
+            logger.info("Auto-dosing task is not running but should be - restarting it")
+            # Set running to false so we don't get a warning about already running
+            auto_doser.running = False
+            # Create a new task to start the auto dosing
+            asyncio.create_task(auto_doser.start())
     
     # Ensure config is always included
     if "config" not in status:
