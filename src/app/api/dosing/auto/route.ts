@@ -11,29 +11,27 @@ const MODULE = 'api:dosing:auto';
  */
 async function runAutoDoseCommand(command: string, args: any = {}): Promise<any> {
   try {
-    // Construct the Python command
-    const pythonCommand = `
-      import sys
-      import json
-      import asyncio
-      ${command === 'update_config' ? 'from auto_dosing_integration import update_auto_dosing_config' : ''}
-      ${command === 'enable' ? 'from auto_dosing_integration import enable_auto_dosing' : ''}
-      ${command === 'disable' ? 'from auto_dosing_integration import disable_auto_dosing' : ''}
-      ${command === 'status' ? 'from auto_dosing_integration import get_auto_dosing_status' : ''}
-      ${command === 'history' ? 'from auto_dosing_integration import get_auto_dosing_history' : ''}
-      
-      async def main():
-          ${command === 'update_config' ? `result = update_auto_dosing_config(${JSON.stringify(args)})` : ''}
-          ${command === 'enable' ? 'await enable_auto_dosing()' : ''}
-          ${command === 'disable' ? 'await disable_auto_dosing()' : ''}
-          ${command === 'status' ? 'result = get_auto_dosing_status()' : ''}
-          ${command === 'history' ? `result = get_auto_dosing_history(${args.limit || 50})` : ''}
-          
-          ${command !== 'enable' && command !== 'disable' ? 'print(json.dumps(result))' : 'print(json.dumps({"success": True}))'}
-      
-      if __name__ == "__main__":
-          asyncio.run(main())
-    `;
+    // Construct the Python command - without indentation to avoid Python syntax errors
+    const pythonCommand = `import sys
+import json
+import asyncio
+${command === 'update_config' ? 'from auto_dosing_integration import update_auto_dosing_config' : ''}
+${command === 'enable' ? 'from auto_dosing_integration import enable_auto_dosing' : ''}
+${command === 'disable' ? 'from auto_dosing_integration import disable_auto_dosing' : ''}
+${command === 'status' ? 'from auto_dosing_integration import get_auto_dosing_status' : ''}
+${command === 'history' ? 'from auto_dosing_integration import get_auto_dosing_history' : ''}
+
+async def main():
+    ${command === 'update_config' ? `result = update_auto_dosing_config(${JSON.stringify(args)})` : ''}
+    ${command === 'enable' ? 'await enable_auto_dosing()' : ''}
+    ${command === 'disable' ? 'await disable_auto_dosing()' : ''}
+    ${command === 'status' ? 'result = get_auto_dosing_status()' : ''}
+    ${command === 'history' ? `result = get_auto_dosing_history(${args.limit || 50})` : ''}
+    
+    ${command !== 'enable' && command !== 'disable' ? 'print(json.dumps(result))' : 'print(json.dumps({"success": True}))'}
+
+if __name__ == "__main__":
+    asyncio.run(main())`;
     
     // Execute the Python script
     const { stdout, stderr } = await execAsync(`python -c '${pythonCommand}'`);
