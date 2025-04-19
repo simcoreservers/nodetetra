@@ -712,11 +712,9 @@ export default function DosingPage() {
                                 value={checkInterval}
                                 onChange={(e) => setCheckInterval(Number(e.target.value))}
                                 className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
-                                min="10"
-                                max="3600"
                               />
                             </div>
-                            <p className="text-xs text-gray-400 mt-1">How often to check sensor readings (10-3600 seconds)</p>
+                            <p className="text-xs text-gray-400 mt-1">How often to check sensor readings (seconds)</p>
                           </div>
                           
                           <div>
@@ -727,11 +725,9 @@ export default function DosingPage() {
                                 value={dosingCooldown}
                                 onChange={(e) => setDosingCooldown(Number(e.target.value))}
                                 className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
-                                min="60"
-                                max="3600"
                               />
                             </div>
-                            <p className="text-xs text-gray-400 mt-1">Wait time after dosing before next check (60-3600 seconds)</p>
+                            <p className="text-xs text-gray-400 mt-1">Wait time after dosing before next check (seconds)</p>
                           </div>
                           
                           <div>
@@ -742,11 +738,9 @@ export default function DosingPage() {
                                 value={betweenDoseDelay}
                                 onChange={(e) => setBetweenDoseDelay(Number(e.target.value))}
                                 className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
-                                min="5"
-                                max="300"
                               />
                             </div>
-                            <p className="text-xs text-gray-400 mt-1">Wait time between sequential nutrient doses (5-300 seconds)</p>
+                            <p className="text-xs text-gray-400 mt-1">Wait time between sequential nutrient doses (seconds)</p>
                           </div>
                           
                           <div>
