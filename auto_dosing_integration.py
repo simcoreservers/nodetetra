@@ -85,22 +85,22 @@ def get_sensor_readings() -> Dict[str, float]:
     Returns dict with ph, ec, and waterTemp keys
     """
     try:
-        # Call the sensors.py script
+        # Call the sensors API directly instead of trying to import from src
         result = subprocess.run(
-            [sys.executable, "-c", 
-             "from src.app.lib.sensors import getAllSensorReadings; " +
-             "import json; " +
-             "readings = getAllSensorReadings(); " +
-             "print(json.dumps(readings))"],
+            ["curl", "-s", "http://localhost:3000/api/sensors"],
             capture_output=True,
             text=True,
             check=True
         )
         
         # Parse the JSON result
-        readings = json.loads(result.stdout.strip())
-        logger.debug(f"Sensor readings: {readings}")
-        return readings
+        response = json.loads(result.stdout.strip())
+        if response.get("status") == "success" and response.get("data"):
+            readings = response["data"]
+            logger.debug(f"Sensor readings: {readings}")
+            return readings
+        else:
+            raise Exception(f"API returned error: {response.get('error', 'Unknown error')}")
     except Exception as e:
         logger.error(f"Error getting sensor readings: {e}")
         # Return some fallback values
@@ -117,38 +117,23 @@ def get_active_profile() -> Dict[str, Any]:
     Returns the profile with targetPh, targetEc, and pumpAssignments
     """
     try:
-        # Read from the active profile file
-        profile_file = os.path.join(DATA_DIR, 'active_profile.json')
+        # Call the profiles API to get the active profile
+        result = subprocess.run(
+            ["curl", "-s", "http://localhost:3000/api/profiles/active"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
         
-        if not os.path.exists(profile_file):
-            logger.warning("No active profile file found")
+        # Parse the JSON result
+        response = json.loads(result.stdout.strip())
+        if response.get("status") == "success" and response.get("data"):
+            profile = response["data"]
+            logger.debug(f"Found active profile: {profile.get('name', 'Unknown')}")
+            return profile
+        else:
+            logger.warning(f"No active profile found: {response.get('error', 'Unknown error')}")
             return {}
-        
-        with open(profile_file, 'r') as f:
-            active_profile_name = json.load(f).get('activeName')
-        
-        if not active_profile_name:
-            logger.warning("No active profile name in file")
-            return {}
-        
-        # Find the profile with this name
-        profiles_file = os.path.join(DATA_DIR, 'profiles.json')
-        
-        if not os.path.exists(profiles_file):
-            logger.warning("No profiles file found")
-            return {}
-        
-        with open(profiles_file, 'r') as f:
-            profiles = json.load(f)
-        
-        # Find the active profile
-        for profile in profiles:
-            if profile.get('name') == active_profile_name:
-                logger.debug(f"Found active profile: {active_profile_name}")
-                return profile
-        
-        logger.warning(f"Active profile '{active_profile_name}' not found in profiles")
-        return {}
     except Exception as e:
         logger.error(f"Error getting active profile: {e}")
         return {}
@@ -164,14 +149,21 @@ def dispense_pump(pump_name: str, amount: float, flow_rate: float):
         flow_rate: Flow rate in ml/s
     """
     try:
-        # Call the pump dispensing function
-        # This imports the function from the pumps.py module
-        subprocess.run(
-            [sys.executable, "-c", 
-             f"from src.app.lib.pumps import dispensePump; " +
-             f"dispensePump('{pump_name}', {amount}, {flow_rate})"],
-            check=True
-        )
+        # Call the pump API instead of trying to import from src
+        data = {
+            "pump": pump_name,
+            "amount": amount,
+            "flowRate": flow_rate
+        }
+        
+        cmd = [
+            "curl", "-s", "-X", "POST", 
+            "-H", "Content-Type: application/json", 
+            "-d", json.dumps(data), 
+            "http://localhost:3000/api/pumps/dispense"
+        ]
+        
+        result = subprocess.run(cmd, check=True)
         
         logger.info(f"Dispensed {amount}ml from {pump_name} at {flow_rate}ml/s")
     except Exception as e:
