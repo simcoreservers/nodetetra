@@ -4,10 +4,68 @@ const next = require('next');
 const path = require('path');
 const fs = require('fs');
 const fetch = require('node-fetch');
+const { spawn } = require('child_process');
 
 const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev });
 const handle = app.getRequestHandler();
+
+// Global reference to the auto dosing process
+let autoDosing = null;
+
+// Function to start the auto dosing system
+function startAutoDosing() {
+  console.log('Starting Auto Dosing system...');
+  
+  // Launch the auto dosing process
+  autoDosing = spawn('python', ['auto_dosing_integration.py'], {
+    detached: false, // Keep the process attached to parent
+    stdio: 'inherit'  // Share stdout/stderr with parent process
+  });
+  
+  // Handle events
+  autoDosing.on('error', (err) => {
+    console.error('Failed to start Auto Dosing process:', err);
+  });
+  
+  autoDosing.on('exit', (code, signal) => {
+    console.log(`Auto Dosing process exited with code ${code} and signal ${signal}`);
+    
+    // If the process exits unexpectedly, restart it after a delay
+    if (code !== 0 && code !== null) {
+      console.log('Auto Dosing process exited unexpectedly, will restart in 10 seconds...');
+      setTimeout(() => {
+        startAutoDosing();
+      }, 10000);
+    }
+    
+    autoDosing = null;
+  });
+  
+  // Ensure the auto dosing process is terminated when the server exits
+  process.on('exit', () => {
+    if (autoDosing) {
+      console.log('Terminating Auto Dosing process...');
+      
+      // If we have detached: true, we would need to kill the process group
+      // But with detached: false, we can simply kill the process
+      autoDosing.kill();
+    }
+  });
+  
+  // Also handle SIGINT and SIGTERM
+  ['SIGINT', 'SIGTERM'].forEach(signal => {
+    process.on(signal, () => {
+      if (autoDosing) {
+        console.log(`Received ${signal}, terminating Auto Dosing process...`);
+        autoDosing.kill();
+      }
+      process.exit(0);
+    });
+  });
+  
+  console.log('Auto Dosing system started');
+}
 
 // Function to discover all page paths recursively
 function discoverPages(directory, basePath = '') {
@@ -65,6 +123,9 @@ function discoverPages(directory, basePath = '') {
 
 app.prepare().then(() => {
   console.log('Next.js app preparing...');
+  
+  // Start the auto dosing system
+  startAutoDosing();
   
   const server = createServer((req, res) => {
     const parsedUrl = parse(req.url, true);

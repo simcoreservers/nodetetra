@@ -15,6 +15,7 @@ import PumpStatusCard from "./components/PumpStatusCard";
 import RecentActivityCard from "./components/RecentActivityCard";
 import ActiveProfileCard from "./components/ActiveProfileCard";
 import SystemMonitorCard from "./components/SystemMonitorCard";
+import AutoDosingStatusCard from "./components/AutoDosingStatusCard";
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -265,17 +266,25 @@ export default function Home() {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Pump Status Card */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* System Monitor Card */}
+          <div className="lg:col-span-2">
+            <SystemMonitorCard refreshInterval={5000} />
+          </div>
+          
+          {/* Auto Dosing Status Card */}
+          <AutoDosingStatusCard className="lg:col-span-1" />
+        </div>
+        
+        {/* Pumps Status */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold mb-4">Pump Status</h2>
           <PumpStatusCard
-            pumpStatus={Array.isArray(effectivePumpData) ? effectivePumpData : effectivePumpData?.pumpStatus || null}
-            isLoading={showLoadingState}
+            pumpStatus={Array.isArray(effectivePumpData) ? effectivePumpData : []}
+            isLoading={pumpsLoading && !streamData}
             hasError={!!pumpError}
             errorMessage={pumpError?.message}
           />
-          
-          {/* System Monitor Card */}
-          <SystemMonitorCard refreshInterval={5000} />
         </div>
 
         {/* Recent Activity Log */}

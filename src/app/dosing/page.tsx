@@ -45,7 +45,11 @@ export default function DosingPage() {
   const tabParam = searchParams.get('tab');
   
   // Only include available tabs
-  const [activeTab, setActiveTab] = useState<string>(tabParam === 'manual' || tabParam === 'settings' || tabParam === 'history' ? tabParam : 'settings');
+  const [activeTab, setActiveTab] = useState<string>(
+    tabParam === 'manual' || tabParam === 'settings' || tabParam === 'history' || tabParam === 'auto' 
+      ? tabParam 
+      : 'settings'
+  );
   const [activeSection, setActiveSection] = useState<string>('dosing');
   const { collapsed } = useSidebar();
   
@@ -262,6 +266,145 @@ export default function DosingPage() {
     }
   };
 
+  // Add these states for auto dosing settings
+  const [autoDosing, setAutoDosing] = useState<{
+    enabled: boolean;
+    running: boolean;
+    initialized?: boolean;
+    in_cooldown?: boolean;
+    cooldown_remaining?: number;
+    last_check_time?: number;
+    last_dosing_time?: number;
+    config?: {
+      check_interval: number;
+      dosing_cooldown: number;
+      between_dose_delay: number;
+      ph_tolerance: number;
+      ec_tolerance: number;
+    };
+  } | null>(null);
+  const [loadingAutoDosing, setLoadingAutoDosing] = useState(true);
+  const [autoDosingError, setAutoDosingError] = useState<string | null>(null);
+
+  // Add these states for auto dosing form values
+  const [checkInterval, setCheckInterval] = useState<number>(60);
+  const [dosingCooldown, setDosingCooldown] = useState<number>(300);
+  const [betweenDoseDelay, setBetweenDoseDelay] = useState<number>(30);
+  const [phTolerance, setPhTolerance] = useState<number>(0.2);
+  const [ecTolerance, setEcTolerance] = useState<number>(0.2);
+  const [updatingConfig, setUpdatingConfig] = useState(false);
+
+  // Add this useEffect to fetch auto dosing status
+  useEffect(() => {
+    if (activeTab === 'auto') {
+      fetchAutoDosingStatus();
+    }
+  }, [activeTab]);
+
+  // Add this function to fetch auto dosing status
+  const fetchAutoDosingStatus = async () => {
+    try {
+      setLoadingAutoDosing(true);
+      setAutoDosingError(null);
+      
+      const response = await fetch("/api/dosing/auto");
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch auto dosing status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.status === "success" && data.data) {
+        setAutoDosing(data.data);
+        
+        // Update form values
+        if (data.data.config) {
+          setCheckInterval(data.data.config.check_interval);
+          setDosingCooldown(data.data.config.dosing_cooldown);
+          setBetweenDoseDelay(data.data.config.between_dose_delay);
+          setPhTolerance(data.data.config.ph_tolerance);
+          setEcTolerance(data.data.config.ec_tolerance);
+        }
+      } else {
+        throw new Error(data.error || "Unknown error fetching auto dosing status");
+      }
+    } catch (err) {
+      console.error("Error fetching auto dosing status:", err);
+      setAutoDosingError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoadingAutoDosing(false);
+    }
+  };
+
+  // Add this function to toggle auto dosing
+  const toggleAutoDosing = async () => {
+    if (!autoDosing) return;
+    
+    try {
+      const action = autoDosing.enabled ? "disable" : "enable";
+      const response = await fetch("/api/dosing/auto", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to ${action} auto dosing: ${response.status}`);
+      }
+      
+      // Refetch status
+      fetchAutoDosingStatus();
+    } catch (err) {
+      console.error(`Error toggling auto dosing:`, err);
+      setAutoDosingError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  // Add this function to update auto dosing config
+  const updateAutoDosingConfig = async () => {
+    try {
+      setUpdatingConfig(true);
+      
+      const config = {
+        check_interval: checkInterval,
+        dosing_cooldown: dosingCooldown,
+        between_dose_delay: betweenDoseDelay,
+        ph_tolerance: phTolerance,
+        ec_tolerance: ecTolerance,
+      };
+      
+      const response = await fetch("/api/dosing/auto", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          action: "updateConfig",
+          config
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update auto dosing config: ${response.status}`);
+      }
+      
+      // Refetch status
+      fetchAutoDosingStatus();
+      
+      // Show success message
+      alert("Auto dosing configuration updated successfully");
+    } catch (err) {
+      console.error(`Error updating auto dosing config:`, err);
+      setAutoDosingError(err instanceof Error ? err.message : String(err));
+      alert(`Error updating auto dosing config: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setUpdatingConfig(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-[#111111]">
       <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
@@ -270,36 +413,31 @@ export default function DosingPage() {
         <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl font-bold mb-6">Dosing Management</h1>
           
-          <div className="mb-6">
-            <div className="border-b border-gray-700">
-              <nav className="-mb-px flex space-x-6">
+          {/* Tabs */}
+          <div className="bg-card rounded-lg shadow-md overflow-hidden mb-8">
+            <div className="border-b border-[var(--border)] px-1">
+              <nav className="flex" aria-label="Tabs">
                 <button
                   onClick={() => setActiveTab('settings')}
-                  className={`py-2 font-medium text-sm ${
-                    activeTab === 'settings'
-                      ? 'border-b-2 border-[#00a3e0] text-[#00a3e0]'
-                      : 'text-gray-400 hover:text-gray-300'
-                  }`}
+                  className={`text-sm font-semibold px-6 py-3 border-b-2 ${activeTab === 'settings' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
                 >
                   Settings
                 </button>
                 <button
+                  onClick={() => setActiveTab('auto')}
+                  className={`text-sm font-semibold px-6 py-3 border-b-2 ${activeTab === 'auto' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
+                >
+                  Auto Dosing
+                </button>
+                <button
                   onClick={() => setActiveTab('manual')}
-                  className={`py-2 font-medium text-sm ${
-                    activeTab === 'manual'
-                      ? 'border-b-2 border-[#00a3e0] text-[#00a3e0]'
-                      : 'text-gray-400 hover:text-gray-300'
-                  }`}
+                  className={`text-sm font-semibold px-6 py-3 border-b-2 ${activeTab === 'manual' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
                 >
                   Manual Control
                 </button>
                 <button
                   onClick={() => setActiveTab('history')}
-                  className={`py-2 font-medium text-sm ${
-                    activeTab === 'history'
-                      ? 'border-b-2 border-[#00a3e0] text-[#00a3e0]'
-                      : 'text-gray-400 hover:text-gray-300'
-                  }`}
+                  className={`text-sm font-semibold px-6 py-3 border-b-2 ${activeTab === 'history' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
                 >
                   History
                 </button>
@@ -496,6 +634,179 @@ export default function DosingPage() {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {activeTab === 'auto' && (
+                <div className="p-6">
+                  <h2 className="text-xl font-bold mb-6">Auto Dosing Configuration</h2>
+                  
+                  {loadingAutoDosing ? (
+                    <div className="animate-pulse">
+                      <div className="h-8 bg-gray-700 rounded w-40 mb-4"></div>
+                      <div className="h-24 bg-gray-700 rounded w-full mb-4"></div>
+                      <div className="h-64 bg-gray-700 rounded w-full"></div>
+                    </div>
+                  ) : autoDosingError ? (
+                    <div className="bg-red-900/30 border border-red-700 rounded-md p-4 mb-6 text-red-200">
+                      <div className="flex items-start">
+                        <svg className="w-6 h-6 mr-2 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                          <h3 className="text-lg font-semibold">Error Loading Auto Dosing Status</h3>
+                          <p>{autoDosingError}</p>
+                          <button
+                            onClick={fetchAutoDosingStatus}
+                            className="mt-2 px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-sm"
+                          >
+                            Try Again
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Auto Dosing Status Card */}
+                      <div className={`mb-6 p-4 rounded-md border ${autoDosing?.enabled ? 'border-green-600 bg-green-900/20' : 'border-gray-600 bg-gray-800/20'}`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold flex items-center">
+                              <span className={`h-3 w-3 rounded-full mr-2 ${autoDosing?.enabled && autoDosing?.running ? 'bg-green-500' : 'bg-gray-500'}`}></span>
+                              Auto Dosing Status
+                            </h3>
+                            <p className="text-sm text-gray-300 mt-1">
+                              {autoDosing?.enabled ? 
+                                (autoDosing?.running ? 
+                                  (autoDosing?.in_cooldown ? 
+                                    `Active (Cooldown: ${Math.round(autoDosing?.cooldown_remaining || 0)}s)` : 
+                                    'Active') : 
+                                  'Enabled (Not running)') : 
+                                'Disabled'}
+                            </p>
+                          </div>
+                          
+                          <button
+                            onClick={toggleAutoDosing}
+                            className={`px-4 py-2 rounded font-medium ${
+                              autoDosing?.enabled
+                                ? "bg-red-600 hover:bg-red-700 text-white"
+                                : "bg-green-600 hover:bg-green-700 text-white"
+                            }`}
+                          >
+                            {autoDosing?.enabled ? "Disable" : "Enable"}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Configuration Form */}
+                      <div className="bg-card rounded-md border border-[var(--border)] p-4">
+                        <h3 className="text-lg font-semibold mb-4">Configuration</h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Check Interval (seconds)</label>
+                            <div className="flex">
+                              <input
+                                type="number"
+                                value={checkInterval}
+                                onChange={(e) => setCheckInterval(Number(e.target.value))}
+                                className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
+                                min="10"
+                                max="3600"
+                              />
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">How often to check sensor readings (10-3600 seconds)</p>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Dosing Cooldown (seconds)</label>
+                            <div className="flex">
+                              <input
+                                type="number"
+                                value={dosingCooldown}
+                                onChange={(e) => setDosingCooldown(Number(e.target.value))}
+                                className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
+                                min="60"
+                                max="3600"
+                              />
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">Wait time after dosing before next check (60-3600 seconds)</p>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium mb-1">Between Dose Delay (seconds)</label>
+                            <div className="flex">
+                              <input
+                                type="number"
+                                value={betweenDoseDelay}
+                                onChange={(e) => setBetweenDoseDelay(Number(e.target.value))}
+                                className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
+                                min="5"
+                                max="300"
+                              />
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">Wait time between sequential nutrient doses (5-300 seconds)</p>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium mb-1">pH Tolerance (±)</label>
+                            <div className="flex">
+                              <input
+                                type="number"
+                                value={phTolerance}
+                                onChange={(e) => setPhTolerance(Number(e.target.value))}
+                                className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
+                                min="0.1"
+                                max="1.0"
+                                step="0.1"
+                              />
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">Acceptable deviation from target pH (0.1-1.0)</p>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium mb-1">EC Tolerance (±)</label>
+                            <div className="flex">
+                              <input
+                                type="number"
+                                value={ecTolerance}
+                                onChange={(e) => setEcTolerance(Number(e.target.value))}
+                                className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
+                                min="0.1"
+                                max="1.0"
+                                step="0.1"
+                              />
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">Acceptable deviation from target EC (0.1-1.0)</p>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-6 flex justify-end">
+                          <button
+                            onClick={updateAutoDosingConfig}
+                            disabled={updatingConfig}
+                            className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-md font-medium disabled:opacity-50"
+                          >
+                            {updatingConfig ? "Updating..." : "Update Configuration"}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Documentation */}
+                      <div className="mt-6 bg-blue-900/20 border border-blue-700 rounded-md p-4">
+                        <h3 className="text-lg font-semibold text-blue-300 mb-2">How Auto Dosing Works</h3>
+                        <ul className="list-disc pl-5 space-y-2 text-sm text-gray-300">
+                          <li>Auto dosing continuously monitors pH and EC sensor readings.</li>
+                          <li>When pH is outside the target range (± tolerance), it doses pH Up or pH Down accordingly.</li>
+                          <li>Once pH is within range, if EC is too low, it doses nutrients according to the active profile.</li>
+                          <li>Nutrients are dosed one at a time with the configured delay between doses.</li>
+                          <li>After any dosing action, the system enters a cooldown period to prevent overdosing.</li>
+                          <li>All dosing actions and sensor readings are logged for review.</li>
+                        </ul>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
