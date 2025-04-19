@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
           
           // Process each product for this brand
           for (const defaultProduct of defaultBrand.products) {
-            // If brand already existed, check if this product exists
+            // If brand already existed, check if this product exists by name (case insensitive)
             if (existingBrand) {
               const productExists = existingBrand.products.some(p => 
                 p.name.toLowerCase() === defaultProduct.name.toLowerCase()
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
               }
             }
             
-            // Add the product
+            // Add the product (the addNutrientProduct function will ensure a unique ID)
             try {
               addNutrientProduct(brandId, {
                 name: defaultProduct.name,

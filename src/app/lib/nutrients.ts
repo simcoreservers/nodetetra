@@ -385,9 +385,22 @@ export function addNutrientProduct(brandId: number, product: Omit<NutrientProduc
       throw new Error(`Product "${product.name}" already exists for this brand`);
     }
 
-    // Create new product with ID
+    // Generate a new unique ID
+    // Collect all existing product IDs across all brands
+    const allExistingIds = nutrients.flatMap(brand => 
+      brand.products.map(product => product.id)
+    );
+    
+    // Find a unique ID that doesn't exist in any brand
+    let newId = Date.now();
+    // Keep incrementing until we find an unused ID
+    while (allExistingIds.includes(newId)) {
+      newId++;
+    }
+
+    // Create new product with the unique ID
     const newProduct: NutrientProduct = {
-      id: Date.now(),
+      id: newId,
       ...product
     };
 

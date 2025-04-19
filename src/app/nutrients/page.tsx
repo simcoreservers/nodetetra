@@ -359,7 +359,7 @@ export default function NutrientsPage() {
                         <tbody key={`brand-${selectedBrand.id}-products`}>
                           {selectedBrand.products.map((product) => (
                             <tr 
-                              key={`product-${product.id}`} 
+                              key={`brand-${selectedBrand.id}-product-${product.id}`} 
                               onClick={() => handleSelectProduct(product)}
                               className={`cursor-pointer border-b border-[#333333] hover:bg-[#1a1a1a] ${selectedProduct?.id === product.id ? 'bg-[#2a2a2a] hover:bg-[#2a2a2a]' : ''}`}
                             >
