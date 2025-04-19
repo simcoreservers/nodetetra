@@ -105,13 +105,13 @@ export default function AutoDosingStatusCard({ className = "" }: AutoDosingStatu
     return new Date(timestamp * 1000).toLocaleTimeString();
   };
 
-  // Determine card status color based on auto dosing state
+  // Determine status indicator color
   const getStatusClass = () => {
-    if (error) return "border-red-500";
-    if (!status || loading) return "border-gray-500";
-    if (status.enabled && status.running) return "border-green-500";
-    if (status.enabled && !status.running) return "border-yellow-500";
-    return "border-gray-500";
+    if (error) return "status-danger";
+    if (!status || loading) return "";
+    if (status.enabled && status.running) return "status-good";
+    if (status.enabled && !status.running) return "status-warning";
+    return "";
   };
 
   // Get status message
@@ -129,63 +129,62 @@ export default function AutoDosingStatusCard({ className = "" }: AutoDosingStatu
   };
 
   return (
-    <div className={`${className} bg-card rounded-lg border-l-4 ${getStatusClass()} shadow-md overflow-hidden`}>
-      <div className="p-4">
-        <h2 className="text-lg font-semibold flex items-center">
-          <span className={`h-3 w-3 rounded-full mr-2 ${status?.enabled && status?.running ? 'bg-green-500' : 'bg-gray-500'}`}></span>
-          Auto Dosing
-        </h2>
-        
-        {loading ? (
-          <div className="animate-pulse my-4">
-            <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-300 rounded w-1/2 mt-2"></div>
-          </div>
-        ) : error ? (
-          <div className="text-red-500 my-2">{error}</div>
-        ) : (
-          <div className="my-2">
-            <div className="text-sm mb-2">
-              <span className="font-medium">Status:</span> {getStatusMessage()}
-            </div>
-            
-            {status && (
-              <>
-                <div className="text-sm mb-2">
-                  <span className="font-medium">Last Check:</span> {formatTime(status.last_check_time)}
-                </div>
-                <div className="text-sm mb-2">
-                  <span className="font-medium">Last Dosing:</span> {formatTime(status.last_dosing_time)}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-        
-        <div className="flex items-center justify-between mt-4">
-          <button
-            onClick={toggleAutoDosing}
-            disabled={loading || toggling || !!error}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md ${
-              status?.enabled
-                ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-green-600 hover:bg-green-700 text-white"
-            } disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
-          >
-            {toggling ? (
-              "Working..."
-            ) : status?.enabled ? (
-              "Disable"
-            ) : (
-              "Enable"
-            )}
-          </button>
-          
-          <Link href="/dosing?tab=auto" className="text-sm text-primary hover:underline">
-            Settings →
-          </Link>
+    <div className={`card ${className}`}>
+      <div className="card-header">
+        <h2 className="card-title">Auto Dosing</h2>
+        <div className="sensor-status">
+          <div className={`status-indicator ${getStatusClass()}`}></div>
+          <span>{getStatusMessage()}</span>
         </div>
       </div>
+      
+      {loading ? (
+        <div className="animate-pulse p-4">
+          <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+          <div className="h-4 bg-gray-300 rounded w-1/2 mt-2"></div>
+        </div>
+      ) : error ? (
+        <div className="text-red-500 p-4">{error}</div>
+      ) : (
+        <div className="p-4">
+          {status && (
+            <>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <span className="text-gray-400 text-sm">Last Check</span>
+                  <div className="font-medium">{formatTime(status.last_check_time)}</div>
+                </div>
+                <div>
+                  <span className="text-gray-400 text-sm">Last Dosing</span>
+                  <div className="font-medium">{formatTime(status.last_dosing_time)}</div>
+                </div>
+              </div>
+            </>
+          )}
+          
+          <div className="flex items-center justify-between mt-4">
+            <button
+              onClick={toggleAutoDosing}
+              disabled={loading || toggling || !!error}
+              className={`btn ${
+                status?.enabled ? "btn-danger" : "btn-primary"
+              } ${(loading || toggling || !!error) ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              {toggling ? (
+                "Working..."
+              ) : status?.enabled ? (
+                "Disable"
+              ) : (
+                "Enable"
+              )}
+            </button>
+            
+            <Link href="/dosing?tab=auto" className="btn btn-secondary text-sm">
+              Settings
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
