@@ -371,9 +371,7 @@ export default function DosingPage() {
       const config = {
         check_interval: checkInterval,
         dosing_cooldown: dosingCooldown,
-        between_dose_delay: betweenDoseDelay,
-        ph_tolerance: phTolerance,
-        ec_tolerance: ecTolerance,
+        between_dose_delay: betweenDoseDelay
       };
       
       console.log("Updating auto dosing configuration:", config);
@@ -752,36 +750,39 @@ export default function DosingPage() {
                             <p className="text-xs text-gray-400 mt-1">Wait time between sequential nutrient doses (seconds)</p>
                           </div>
                           
-                          <div>
-                            <label className="block text-sm font-medium mb-1">pH Tolerance (±)</label>
-                            <div className="flex">
-                              <input
-                                type="number"
-                                value={phTolerance}
-                                onChange={(e) => setPhTolerance(Number(e.target.value))}
-                                className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
-                                min="0.1"
-                                max="1.0"
-                                step="0.1"
-                              />
+                          <div className="col-span-1 md:col-span-2">
+                            <div className="bg-blue-900/20 border border-blue-700 rounded-md p-4 mb-3">
+                              <div className="flex items-start">
+                                <svg className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div>
+                                  <h4 className="text-blue-300 font-medium mb-1">pH and EC Tolerance Settings</h4>
+                                  <p className="text-sm">
+                                    pH and EC tolerance values are now controlled by your active plant profile. 
+                                    The auto-dosing system uses the buffer/tolerance values from your profile
+                                    to determine when adjustment is needed.
+                                  </p>
+                                  {activeProfile ? (
+                                    <div className="mt-2 text-xs bg-blue-900/40 p-2 rounded">
+                                      <p className="mb-1">
+                                        <span className="font-medium">Active Profile:</span> {activeProfile.name}
+                                      </p>
+                                      <p className="mb-1">
+                                        <span className="font-medium">pH Buffer:</span> ±{activeProfile.targetPh?.buffer || "0.2"}
+                                      </p>
+                                      <p>
+                                        <span className="font-medium">EC Buffer:</span> ±{activeProfile.targetEc?.buffer || "0.2"}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <p className="mt-2 text-xs">
+                                      No active profile found. Default tolerance values will be used.
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <p className="text-xs text-gray-400 mt-1">Acceptable deviation from target pH (0.1-1.0)</p>
-                          </div>
-                          
-                          <div>
-                            <label className="block text-sm font-medium mb-1">EC Tolerance (±)</label>
-                            <div className="flex">
-                              <input
-                                type="number"
-                                value={ecTolerance}
-                                onChange={(e) => setEcTolerance(Number(e.target.value))}
-                                className="w-full bg-background border border-[var(--border)] rounded-md px-3 py-2"
-                                min="0.1"
-                                max="1.0"
-                                step="0.1"
-                              />
-                            </div>
-                            <p className="text-xs text-gray-400 mt-1">Acceptable deviation from target EC (0.1-1.0)</p>
                           </div>
                         </div>
                         
@@ -801,12 +802,16 @@ export default function DosingPage() {
                         <h3 className="text-lg font-semibold text-blue-300 mb-2">How Auto Dosing Works</h3>
                         <ul className="list-disc pl-5 space-y-2 text-sm text-gray-300">
                           <li>Auto dosing continuously monitors pH and EC sensor readings.</li>
-                          <li>When pH is outside the target range (± tolerance), it doses pH Up or pH Down accordingly.</li>
+                          <li>When pH is outside the target range (using buffer values from the active plant profile), it doses pH Up or pH Down accordingly.</li>
                           <li>Once pH is within range, if EC is too low, it doses nutrients according to the active profile.</li>
                           <li>Nutrients are dosed one at a time with the configured delay between doses.</li>
                           <li>After any dosing action, the system enters a cooldown period to prevent overdosing.</li>
                           <li>All dosing actions and sensor readings are logged for review.</li>
                         </ul>
+                        <div className="mt-3 p-2 bg-blue-900/30 rounded text-sm">
+                          <strong className="text-blue-300">Note:</strong> pH and EC target values and tolerance ranges come from your active plant profile. 
+                          To adjust these values, go to the Profiles section and update your active profile's settings.
+                        </div>
                       </div>
                     </>
                   )}

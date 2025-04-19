@@ -34,9 +34,7 @@ DEFAULT_CONFIG = {
     "enabled": False,
     "check_interval": 60,     # Check sensors every 60 seconds
     "dosing_cooldown": 300,   # Wait 5 minutes after dosing before checking again
-    "between_dose_delay": 30, # Wait 30 seconds between nutrient doses
-    "ph_tolerance": 0.2,      # Default pH tolerance
-    "ec_tolerance": 0.2       # Default EC tolerance
+    "between_dose_delay": 30  # Wait 30 seconds between nutrient doses
 }
 
 # Global auto doser instance
@@ -274,9 +272,7 @@ async def start_auto_dosing():
         dispense_pump,
         check_interval=config.get('check_interval', 60),
         dosing_cooldown=config.get('dosing_cooldown', 300),
-        between_dose_delay=config.get('between_dose_delay', 30),
-        ph_tolerance=config.get('ph_tolerance', 0.2),
-        ec_tolerance=config.get('ec_tolerance', 0.2)
+        between_dose_delay=config.get('between_dose_delay', 30)
     )
     
     # Start auto dosing if enabled in config
@@ -578,9 +574,7 @@ def get_auto_dosing_status():
             "config": {
                 "check_interval": config.get('check_interval', 60),
                 "dosing_cooldown": config.get('dosing_cooldown', 300),
-                "between_dose_delay": config.get('between_dose_delay', 30),
-                "ph_tolerance": config.get('ph_tolerance', 0.2),
-                "ec_tolerance": config.get('ec_tolerance', 0.2)
+                "between_dose_delay": config.get('between_dose_delay', 30)
             }
         }
     
@@ -631,9 +625,7 @@ def get_auto_dosing_status():
         status["config"] = {
             "check_interval": auto_doser.check_interval,
             "dosing_cooldown": auto_doser.dosing_cooldown,
-            "between_dose_delay": auto_doser.between_dose_delay,
-            "ph_tolerance": auto_doser.ph_tolerance,
-            "ec_tolerance": auto_doser.ec_tolerance
+            "between_dose_delay": auto_doser.between_dose_delay
         }
     
     logger.debug(f"Auto dosing status: {status}")
@@ -658,8 +650,7 @@ def update_auto_dosing_config(new_config):
     global auto_doser
     
     # Validate the config
-    valid_keys = ['check_interval', 'dosing_cooldown', 'between_dose_delay', 
-                 'ph_tolerance', 'ec_tolerance', 'enabled']
+    valid_keys = ['check_interval', 'dosing_cooldown', 'between_dose_delay', 'enabled']
     
     # Load current config
     config = load_config()
@@ -680,9 +671,7 @@ def update_auto_dosing_config(new_config):
     if auto_doser:
         logger.info(f"Updating auto doser configuration: check_interval={config.get('check_interval', 60)}, "
                   f"dosing_cooldown={config.get('dosing_cooldown', 300)}, "
-                  f"between_dose_delay={config.get('between_dose_delay', 30)}, "
-                  f"ph_tolerance={config.get('ph_tolerance', 0.2)}, "
-                  f"ec_tolerance={config.get('ec_tolerance', 0.2)}")
+                  f"between_dose_delay={config.get('between_dose_delay', 30)}")
         
         # Check if it was running
         was_running = auto_doser.running
@@ -691,8 +680,6 @@ def update_auto_dosing_config(new_config):
         auto_doser.check_interval = config.get('check_interval', 60)
         auto_doser.dosing_cooldown = config.get('dosing_cooldown', 300)
         auto_doser.between_dose_delay = config.get('between_dose_delay', 30)
-        auto_doser.ph_tolerance = config.get('ph_tolerance', 0.2)
-        auto_doser.ec_tolerance = config.get('ec_tolerance', 0.2)
         
         # Force a restart if major time-based settings have changed
         # This ensures the monitoring loop uses the new values immediately

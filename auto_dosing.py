@@ -21,6 +21,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("auto_dosing")
 
+# Default constants for pH and EC tolerance
+DEFAULT_PH_BUFFER = 0.2
+DEFAULT_EC_BUFFER = 0.2
+
 class AutoDosing:
     """
     Auto Dosing controller that monitors pH and EC levels and automatically 
@@ -34,9 +38,7 @@ class AutoDosing:
         dispense_pump_func: Callable[[str, float, float], None],
         check_interval: int = 60,
         dosing_cooldown: int = 60,
-        between_dose_delay: int = 30,
-        ph_tolerance: float = 0.2,
-        ec_tolerance: float = 0.2
+        between_dose_delay: int = 30
     ):
         """
         Initialize the auto dosing controller.
@@ -51,8 +53,6 @@ class AutoDosing:
             check_interval: Time in seconds between sensor checks
             dosing_cooldown: Time in seconds to wait after a dosing cycle
             between_dose_delay: Time in seconds to wait between individual doses
-            ph_tolerance: Tolerance range for pH (±)
-            ec_tolerance: Tolerance range for EC (±)
         """
         self.get_sensor_readings = get_sensor_readings_func
         self.get_active_profile = get_active_profile_func
@@ -62,8 +62,6 @@ class AutoDosing:
         self.check_interval = check_interval
         self.dosing_cooldown = dosing_cooldown
         self.between_dose_delay = between_dose_delay
-        self.ph_tolerance = ph_tolerance
-        self.ec_tolerance = ec_tolerance
         
         # State management
         self.enabled = False
@@ -199,7 +197,7 @@ class AutoDosing:
                             target_ph = 6.0
                             
                         # Get pH buffer (tolerance)
-                        ph_buffer = profile.get('targetPh', {}).get('buffer', self.ph_tolerance)
+                        ph_buffer = profile.get('targetPh', {}).get('buffer', DEFAULT_PH_BUFFER)
                         
                         # Same logic for EC
                         target_ec = None
@@ -212,7 +210,7 @@ class AutoDosing:
                         else:
                             target_ec = 1.0
                             
-                        ec_buffer = profile.get('targetEc', {}).get('buffer', self.ec_tolerance)
+                        ec_buffer = profile.get('targetEc', {}).get('buffer', DEFAULT_EC_BUFFER)
                         
                         # Get pump assignments
                         pump_assignments = profile.get('pumpAssignments', [])
@@ -222,9 +220,9 @@ class AutoDosing:
                     except Exception as e:
                         logger.error(f"Error parsing profile values: {e}")
                         target_ph = 6.0
-                        ph_buffer = self.ph_tolerance
+                        ph_buffer = DEFAULT_PH_BUFFER
                         target_ec = 1.0
-                        ec_buffer = self.ec_tolerance
+                        ec_buffer = DEFAULT_EC_BUFFER
                         pump_assignments = []
                 
                     # If we're in cooldown period after dosing, skip this cycle
@@ -240,15 +238,14 @@ class AutoDosing:
                     need_ec_adjustment = False
                     
                     try:
-                        # Use the instance pH tolerance value instead of the local variable
-                        need_ph_adjustment = self._check_ph_adjustment(current_ph, target_ph, self.ph_tolerance)
-                        logger.debug(f"Using ph_tolerance={self.ph_tolerance} (profile buffer was {ph_buffer})")
+                        # Use the profile's buffer values for pH and EC tolerance
+                        need_ph_adjustment = self._check_ph_adjustment(current_ph, target_ph, ph_buffer)
+                        logger.debug(f"Using profile's pH buffer: {ph_buffer}")
                         
                         # Only check EC if pH is in acceptable range
                         if not need_ph_adjustment:
-                            # Use the instance EC tolerance value instead of the local variable
-                            need_ec_adjustment = self._check_ec_adjustment(current_ec, target_ec, self.ec_tolerance)
-                            logger.debug(f"Using ec_tolerance={self.ec_tolerance} (profile buffer was {ec_buffer})")
+                            need_ec_adjustment = self._check_ec_adjustment(current_ec, target_ec, ec_buffer)
+                            logger.debug(f"Using profile's EC buffer: {ec_buffer}")
                     except Exception as e:
                         logger.error(f"Error checking if adjustment needed: {e}")
                      
@@ -487,9 +484,7 @@ class AutoDosing:
             "config": {
                 "check_interval": self.check_interval,
                 "dosing_cooldown": self.dosing_cooldown,
-                "between_dose_delay": self.between_dose_delay,
-                "ph_tolerance": self.ph_tolerance,
-                "ec_tolerance": self.ec_tolerance
+                "between_dose_delay": self.between_dose_delay
             }
         }
     
