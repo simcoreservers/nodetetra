@@ -81,30 +81,30 @@ const AlphaKeyboard: React.FC<AlphaKeyboardProps> = ({ value, onChange, onClose 
   }
 
   return (
-    <div className="w-full" style={{ minWidth: '280px', maxWidth: '600px' }}>
-      <div className="flex justify-between items-center mb-2">
-        <div className="text-sm font-medium">Keyboard</div>
+    <div className="w-full" style={{ minWidth: '300px', maxWidth: '100%' }}>
+      <div className="flex justify-between items-center mb-2 p-2">
+        <div className="text-base font-medium">Keyboard</div>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-[#333333] rounded"
+          className="p-2 hover:bg-[#333333] rounded-full"
           aria-label="Close keyboard"
         >
-          <X size={16} />
+          <X size={20} />
         </button>
       </div>
       
-      <div className="flex bg-[#121212] border border-[#333333] rounded mb-2 p-2">
-        <div className="flex-1 overflow-x-auto whitespace-nowrap">{value}</div>
+      <div className="flex bg-[#121212] border border-[#333333] rounded-md mb-3 p-3">
+        <div className="flex-1 overflow-x-auto whitespace-nowrap text-lg">{value}</div>
       </div>
       
-      <div className="keyboard-rows space-y-1">
+      <div className="keyboard-rows space-y-2">
         {currentLayout.map((row, rowIndex) => (
-          <div key={rowIndex} className="flex justify-center space-x-1">
+          <div key={rowIndex} className="flex justify-center space-x-2">
             {row.map((key) => (
               <button
                 key={key}
                 onClick={() => handleKeyPress(key)}
-                className="bg-[#252525] hover:bg-[#333333] text-white py-2 px-3 min-w-[30px] rounded text-center transition-colors"
+                className="bg-[#252525] hover:bg-[#333333] active:bg-[#444444] text-white py-3 px-2 min-w-[40px] rounded-md text-xl font-medium text-center transition-colors touch-manipulation"
               >
                 {key}
               </button>
@@ -113,37 +113,38 @@ const AlphaKeyboard: React.FC<AlphaKeyboardProps> = ({ value, onChange, onClose 
         ))}
         
         {/* Bottom row with special keys */}
-        <div className="flex justify-between space-x-1">
+        <div className="flex justify-between space-x-2 mt-2">
           <button
             onClick={() => handleKeyPress('shift')}
             className={`${
               isShifted ? 'bg-[#333333]' : 'bg-[#252525]'
-            } hover:bg-[#444444] text-white py-2 px-3 rounded flex items-center justify-center transition-colors`}
-            style={{ minWidth: '50px' }}
+            } hover:bg-[#444444] active:bg-[#555555] text-white py-3 px-3 rounded-md flex items-center justify-center transition-colors touch-manipulation`}
+            style={{ minWidth: '60px' }}
           >
-            <ArrowUp size={18} />
+            <ArrowUp size={20} />
           </button>
           
           <button
             onClick={() => handleKeyPress('symbols')}
             className={`${
               isSymbols ? 'bg-[#333333]' : 'bg-[#252525]'
-            } hover:bg-[#444444] text-white py-2 px-2 rounded transition-colors text-sm`}
+            } hover:bg-[#444444] active:bg-[#555555] text-white py-3 px-3 rounded-md transition-colors text-lg touch-manipulation`}
+            style={{ minWidth: '70px' }}
           >
             {isSymbols ? 'ABC' : '?123'}
           </button>
           
           <button
             onClick={() => handleKeyPress('space')}
-            className="bg-[#252525] hover:bg-[#333333] text-white py-2 px-3 rounded flex-1 transition-colors"
+            className="bg-[#252525] hover:bg-[#333333] active:bg-[#444444] text-white py-3 px-3 rounded-md flex-1 transition-colors text-lg touch-manipulation"
           >
             Space
           </button>
           
           <button
             onClick={() => handleKeyPress('backspace')}
-            className="bg-[#252525] hover:bg-[#333333] text-white py-2 px-3 rounded transition-colors"
-            style={{ minWidth: '60px' }}
+            className="bg-[#252525] hover:bg-[#333333] active:bg-[#444444] text-white py-3 px-3 rounded-md transition-colors text-lg touch-manipulation"
+            style={{ minWidth: '80px' }}
           >
             ← Delete
           </button>

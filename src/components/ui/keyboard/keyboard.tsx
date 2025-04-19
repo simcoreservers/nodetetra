@@ -73,28 +73,48 @@ const KeyboardContainer: React.FC = () => {
     onValueChange(value);
   }, [onValueChange]);
   
-  // Position the keyboard near the input field
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+  // Position the keyboard for optimal touch experience
+  const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
   
   useEffect(() => {
     if (isOpen && targetRef?.current) {
       const rect = targetRef.current.getBoundingClientRect();
       const windowHeight = window.innerHeight;
+      const windowWidth = window.innerWidth;
       
-      // Position keyboard below the input field, but ensure it doesn't go off screen
-      const keyboardHeight = inputType === 'numeric' ? 220 : 300; // Approximate heights
-      
-      // If there's not enough space below, position above
-      if (rect.bottom + keyboardHeight > windowHeight) {
+      // For smaller screens (mobile), use full width keyboard at bottom
+      if (windowWidth <= 768) { // mobile breakpoint
+        const keyboardHeight = inputType === 'numeric' ? 300 : 400; // Approximate heights
+        
         setPosition({
-          top: Math.max(rect.top - keyboardHeight, 0),
-          left: rect.left
+          top: windowHeight - keyboardHeight,
+          left: 0,
+          width: windowWidth
         });
       } else {
-        setPosition({
-          top: rect.bottom,
-          left: rect.left
-        });
+        // For larger screens, position near the input field
+        const keyboardHeight = inputType === 'numeric' ? 280 : 360;
+        const keyboardWidth = Math.min(windowWidth * 0.8, inputType === 'numeric' ? 350 : 600);
+        
+        // Center the keyboard horizontally relative to the input
+        let left = rect.left + (rect.width / 2) - (keyboardWidth / 2);
+        // Keep the keyboard within screen bounds
+        left = Math.max(10, Math.min(left, windowWidth - keyboardWidth - 10));
+        
+        // Position keyboard below or above the input depending on available space
+        if (rect.bottom + keyboardHeight + 10 > windowHeight) {
+          setPosition({
+            top: Math.max(10, rect.top - keyboardHeight - 10),
+            left,
+            width: keyboardWidth
+          });
+        } else {
+          setPosition({
+            top: rect.bottom + 10,
+            left,
+            width: keyboardWidth
+          });
+        }
       }
     }
   }, [isOpen, targetRef, inputType]);
@@ -112,17 +132,21 @@ const KeyboardContainer: React.FC = () => {
     return null;
   }
   
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  
   return createPortal(
     <div 
       ref={keyboardRef}
-      className="fixed z-50 bg-[#1e1e1e] border border-[#333333] rounded-md shadow-lg p-2 w-auto"
+      className={`fixed z-50 ${isMobile ? 'bottom-0 left-0 right-0' : ''} bg-[#1e1e1e] border border-[#333333] rounded-t-lg shadow-lg`}
       style={{
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-        maxWidth: '100vw',
-        maxHeight: '50vh',
+        top: isMobile ? 'auto' : `${position.top}px`,
+        left: isMobile ? 0 : `${position.left}px`,
+        width: isMobile ? '100%' : `${position.width}px`,
+        maxWidth: '100%',
         transition: 'transform 0.3s ease',
-        transform: isOpen ? 'translateY(0)' : 'translateY(100%)'
+        transform: isOpen ? 'translateY(0)' : 'translateY(100%)',
+        padding: isMobile ? '12px 8px 16px 8px' : '8px',
+        boxShadow: '0 -4px 10px rgba(0, 0, 0, 0.3)'
       }}
     >
       {inputType === 'numeric' ? (
