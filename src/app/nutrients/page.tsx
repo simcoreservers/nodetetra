@@ -51,7 +51,10 @@ export default function NutrientsPage() {
 
   // Handle brand selection
   const handleSelectBrand = (brand: NutrientBrand) => {
-    setSelectedBrand(brand);
+    // Force a complete refresh of the brand data
+    // This ensures we're getting a fresh copy of the brand from the nutrients array
+    const freshBrand = nutrients.find(b => b.id === brand.id) || brand;
+    setSelectedBrand(freshBrand);
     setSelectedProduct(null);
   };
 
@@ -353,10 +356,10 @@ export default function NutrientsPage() {
                             <th className="p-3 rounded-tr">Description</th>
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody key={`brand-${selectedBrand.id}-products`}>
                           {selectedBrand.products.map((product) => (
                             <tr 
-                              key={product.id} 
+                              key={`product-${product.id}`} 
                               onClick={() => handleSelectProduct(product)}
                               className={`cursor-pointer border-b border-[#333333] hover:bg-[#1a1a1a] ${selectedProduct?.id === product.id ? 'bg-[#2a2a2a] hover:bg-[#2a2a2a]' : ''}`}
                             >
