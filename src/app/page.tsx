@@ -143,9 +143,9 @@ export default function Home() {
   const showLoadingState = !streamData && sensorsLoading && !initialLoaded;
 
   // Format sensor values for display
-  const phValue = effectiveSensorData ? effectiveSensorData.ph.toFixed(2) : null;
-  const ecValue = effectiveSensorData ? `${effectiveSensorData.ec.toFixed(2)} mS/cm` : null;
-  const tempValue = effectiveSensorData ? `${effectiveSensorData.waterTemp.toFixed(1)}°C` : null;
+  const phValue = effectiveSensorData && effectiveSensorData.ph !== undefined ? effectiveSensorData.ph.toFixed(2) : null;
+  const ecValue = effectiveSensorData && effectiveSensorData.ec !== undefined ? `${effectiveSensorData.ec.toFixed(2)} mS/cm` : null;
+  const tempValue = effectiveSensorData && effectiveSensorData.waterTemp !== undefined ? `${effectiveSensorData.waterTemp.toFixed(1)}°C` : null;
 
   return (
     <div className="flex h-screen bg-[var(--background)]">
