@@ -19,6 +19,7 @@ export default function NutrientsPage() {
     npk: "",
     description: ""
   });
+  const [isFixingIds, setIsFixingIds] = useState(false);
   const { collapsed } = useSidebar();
   
   // Use the nutrient data hook
@@ -211,6 +212,36 @@ export default function NutrientsPage() {
     }
   };
 
+  // Handle fixing duplicate IDs
+  const handleFixDuplicateIds = async () => {
+    try {
+      setIsFixingIds(true);
+      
+      const response = await fetch('/api/init?fix=true');
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fix IDs: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(`Error fixing IDs: ${data.error}`);
+      }
+      
+      // Reload the nutrients data
+      await refresh();
+      
+      alert(`Fixed ${data.fixedCount} duplicate product IDs. Please refresh the page to see the changes.`);
+      
+    } catch (err) {
+      console.error("Error fixing duplicate IDs:", err);
+      alert(`Failed to fix duplicate IDs: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsFixingIds(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-[#121212]">
       {/* Sidebar */}
@@ -221,6 +252,29 @@ export default function NutrientsPage() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold">Nutrient Database</h1>
           <div className="flex gap-3">
+            <button 
+              onClick={handleFixDuplicateIds}
+              disabled={isFixingIds}
+              className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md flex items-center"
+              title="Fix any duplicate product IDs in the database"
+            >
+              {isFixingIds ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Fixing IDs...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Fix Duplicate IDs
+                </>
+              )}
+            </button>
             <button 
               onClick={handleRestoreDefaults}
               disabled={isRestoringDefaults}
@@ -357,9 +411,9 @@ export default function NutrientsPage() {
                           </tr>
                         </thead>
                         <tbody key={`brand-${selectedBrand.id}-products`}>
-                          {selectedBrand.products.map((product) => (
+                          {selectedBrand.products.map((product, index) => (
                             <tr 
-                              key={`brand-${selectedBrand.id}-product-${product.id}`} 
+                              key={`brand-${selectedBrand.id}-product-${product.id}-index-${index}`} 
                               onClick={() => handleSelectProduct(product)}
                               className={`cursor-pointer border-b border-[#333333] hover:bg-[#1a1a1a] ${selectedProduct?.id === product.id ? 'bg-[#2a2a2a] hover:bg-[#2a2a2a]' : ''}`}
                             >
