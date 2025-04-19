@@ -76,18 +76,34 @@ export default function SettingsPage() {
   
   // Apply simulation parameter changes
   const handleApplyChanges = async () => {
-    await updateSimulationConfig({
-      baseline: {
-        ph: formState.ph,
-        ec: formState.ec,
-        waterTemp: formState.waterTemp
-      },
-      variation: {
-        ph: formState.phVariation,
-        ec: formState.ecVariation,
-        waterTemp: formState.waterTempVariation
+    try {
+      // Set up a loading state if not already
+      if (!isLoading) setIsLoading(true);
+      
+      // Update just the baseline values (variations are ignored now)
+      const result = await updateSimulationConfig({
+        baseline: {
+          ph: formState.ph,
+          ec: formState.ec,
+          waterTemp: formState.waterTemp
+        },
+        // Still send variation values to keep the API interface the same
+        // but these won't actually be used in the simulation anymore
+        variation: {
+          ph: formState.phVariation,
+          ec: formState.ecVariation,
+          waterTemp: formState.waterTempVariation
+        }
+      });
+      
+      if (result) {
+        // Show a success message
+        alert("Simulation values updated. The system will now use these exact values for all sensor readings when simulation is enabled.");
       }
-    });
+    } catch (error) {
+      console.error('Error updating simulation values:', error);
+      alert(`Failed to update simulation values: ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   return (
@@ -324,9 +340,18 @@ export default function SettingsPage() {
                 </div>
               </div>
               <p className="text-sm text-gray-400 mb-4">
-                Enable simulation mode to override hardware sensors with simulated data. 
-                This is useful for testing and development without physical sensors.
+                Enable simulation mode to override hardware sensors with static simulated data.
+                The exact values you configure will be used without variation, which is ideal for testing
+                specific scenarios and calibrating your auto-dosing system.
               </p>
+              <div className="bg-green-900/30 border border-green-700 rounded-md p-3 mb-4 text-green-300">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p className="text-sm">Simulation mode now uses static values that won't change over time. Perfect for auto-dosing tests and calibration.</p>
+                </div>
+              </div>
               <div className="space-y-4 mt-6">
                 <div className="border-t border-[#333333] pt-4">
                   <h3 className="text-md font-medium mb-3">Simulation Tools</h3>
@@ -335,8 +360,11 @@ export default function SettingsPage() {
                     onClick={resetSimulation}
                     disabled={isLoading}
                   >
-                    Reset to Baseline Values
+                    Reset to Configured Values
                   </button>
+                  <p className="text-xs text-gray-400 italic mb-2">
+                    This will reset any temporary changes back to your configured baseline values.
+                  </p>
                 </div>
               </div>
             </div>
@@ -393,14 +421,22 @@ export default function SettingsPage() {
                 </div>
                 
                 <div className="border-t border-[#333333] pt-4">
-                  <h3 className="text-md font-medium mb-3">Variation Settings</h3>
+                  <h3 className="text-md font-medium mb-3">Static Value Mode</h3>
                   <p className="text-sm text-gray-400 mb-4">
-                    Control how much the simulated values can vary from baseline.
-                    Lower values create more stable readings.
+                    Simulation values are now set to static mode. The exact values you configure 
+                    above will be used without any variation or drift.
                   </p>
-                  <div className="space-y-3">
+                  <div className="bg-blue-900/30 border border-blue-700 rounded-md p-3 mb-3 text-blue-300">
+                    <div className="flex items-start">
+                      <svg className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      <p className="text-sm">The variation and drift settings are disabled since simulated values are now static.</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3 opacity-50">
                     <div className="flex justify-between">
-                      <span>pH Variation</span>
+                      <span>pH Variation (Disabled)</span>
                       <div className="flex items-center">
                         <span className="text-sm text-gray-400 mr-2">±{formState.phVariation}</span>
                         <input 
@@ -411,12 +447,12 @@ export default function SettingsPage() {
                           step="0.01" 
                           value={formState.phVariation}
                           onChange={handleInputChange}
-                          disabled={isLoading}
+                          disabled={true}
                         />
                       </div>
                     </div>
                     <div className="flex justify-between">
-                      <span>EC Variation</span>
+                      <span>EC Variation (Disabled)</span>
                       <div className="flex items-center">
                         <span className="text-sm text-gray-400 mr-2">±{formState.ecVariation}</span>
                         <input 
@@ -427,12 +463,12 @@ export default function SettingsPage() {
                           step="0.01"
                           value={formState.ecVariation}
                           onChange={handleInputChange}
-                          disabled={isLoading}
+                          disabled={true}
                         />
                       </div>
                     </div>
                     <div className="flex justify-between">
-                      <span>Temperature Variation</span>
+                      <span>Temperature Variation (Disabled)</span>
                       <div className="flex items-center">
                         <span className="text-sm text-gray-400 mr-2">±{formState.waterTempVariation}°C</span>
                         <input 
@@ -443,7 +479,7 @@ export default function SettingsPage() {
                           step="0.1"
                           value={formState.waterTempVariation}
                           onChange={handleInputChange}
-                          disabled={isLoading}
+                          disabled={true}
                         />
                       </div>
                     </div>

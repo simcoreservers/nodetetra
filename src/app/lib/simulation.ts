@@ -209,11 +209,10 @@ export async function updateSimulationConfig(updates: Partial<SimulationConfig>)
       lastUpdated: new Date().toISOString()
     };
     
-    // If enabling simulation or updating baseline values, reset current values to match baseline
-    if (updates.enabled === true && !currentConfig.enabled || updates.baseline) {
-      currentSimulatedValues = { ...updatedConfig.baseline };
-      console.log('Reset simulated values to new baseline:', updatedConfig.baseline);
-    }
+    // Always reset current values to match baseline whenever the configuration is updated
+    // This ensures static values always match what's in the config
+    currentSimulatedValues = { ...updatedConfig.baseline };
+    console.log('Reset simulated values to baseline:', updatedConfig.baseline);
     
     // Ensure directory exists
     if (!fs.existsSync(DATA_DIR)) {
@@ -254,9 +253,8 @@ export async function updateSimulationConfig(updates: Partial<SimulationConfig>)
 }
 
 /**
- * Get simulated sensor readings that mimic realistic values
- * Uses a combination of baseline values with small random variations
- * and slight drift over time to create realistic water chemistry behavior
+ * Get simulated sensor readings with static values
+ * Uses exactly the configured baseline values without any variations or drift
  */
 export async function getSimulatedSensorReadings(): Promise<SensorData> {
   try {
@@ -274,29 +272,14 @@ export async function getSimulatedSensorReadings(): Promise<SensorData> {
       throw new Error('Simulation mode is not enabled');
     }
     
-    // Apply small random variations and drift to current values
+    // Use the exact baseline values without any variation or drift
     currentSimulatedValues = {
-      ph: applyRealisticVariation(
-        currentSimulatedValues.ph, 
-        config.variation.ph, 
-        config.drift.ph,
-        0.0, 14.0 // pH full range 0-14 instead of restricted 5-7 range
-      ),
-      
-      ec: applyRealisticVariation(
-        currentSimulatedValues.ec, 
-        config.variation.ec, 
-        config.drift.ec,
-        0.0, 5.0 // EC full range 0-5 instead of restricted 0.8-2.5 range
-      ),
-      
-      waterTemp: applyRealisticVariation(
-        currentSimulatedValues.waterTemp, 
-        config.variation.waterTemp, 
-        config.drift.waterTemp,
-        0.0, 40.0 // Temperature wider range 0-40 instead of restricted 15-30 range
-      )
+      ph: config.baseline.ph,
+      ec: config.baseline.ec,
+      waterTemp: config.baseline.waterTemp
     };
+    
+    console.log('Using static simulation values:', currentSimulatedValues);
     
     // Return sensor data with current timestamp
     return {
