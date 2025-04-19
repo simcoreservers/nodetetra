@@ -13,6 +13,9 @@ STATUS_FILE = os.path.join(DATA_DIR, 'auto_dosing_status.json')
 # Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
 
+# Get current time
+current_time = time.time()
+
 # Read existing status if available
 if os.path.exists(STATUS_FILE):
     try:
@@ -22,7 +25,14 @@ if os.path.exists(STATUS_FILE):
             
             # Force running status to True
             status_data['running'] = True
-            status_data['timestamp'] = time.time()
+            status_data['timestamp'] = current_time
+            
+            # Update timestamps
+            status_data['last_check_time'] = current_time
+            
+            # Only update last_dosing_time if it doesn't exist
+            if 'last_dosing_time' not in status_data:
+                status_data['last_dosing_time'] = status_data.get('timestamp', current_time)
     except Exception as e:
         print(f"Error reading status file: {e}")
         # Create default status
@@ -30,7 +40,9 @@ if os.path.exists(STATUS_FILE):
             "enabled": True,
             "running": True,
             "pid": os.getpid(),
-            "timestamp": time.time()
+            "timestamp": current_time,
+            "last_check_time": current_time,
+            "last_dosing_time": current_time
         }
 else:
     # Create default status
@@ -38,7 +50,9 @@ else:
         "enabled": True,
         "running": True,
         "pid": os.getpid(),
-        "timestamp": time.time()
+        "timestamp": current_time,
+        "last_check_time": current_time,
+        "last_dosing_time": current_time
     }
     print("Status file not found, creating new one")
 

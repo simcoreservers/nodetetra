@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
           running: fileStatus.running,
           initialized: fileStatus.running, // If running, must be initialized
           last_check_time: fileStatus.timestamp || 0,
-          last_dosing_time: 0,
+          last_dosing_time: fileStatus.last_dosing_time || fileStatus.timestamp || 0, // Use last_dosing_time if available, otherwise use timestamp
           in_cooldown: false,
           cooldown_remaining: 0,
           config: {

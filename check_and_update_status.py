@@ -25,6 +25,9 @@ try:
     print(f"Found auto-dosing processes: {processes}")
     print(f"Auto-dosing is {'running' if running else 'not running'}")
     
+    # Get current time
+    current_time = time.time()
+    
     # Update status file
     if os.path.exists(STATUS_FILE):
         try:
@@ -34,7 +37,19 @@ try:
                 
                 # Update the running status
                 status_data['running'] = running
-                status_data['timestamp'] = time.time()
+                status_data['timestamp'] = current_time
+                
+                # Make sure we have both timestamps
+                if 'last_check_time' not in status_data:
+                    status_data['last_check_time'] = current_time
+                else:
+                    # Update last_check_time when running
+                    if running:
+                        status_data['last_check_time'] = current_time
+                
+                # Preserve last_dosing_time if it exists, otherwise initialize it
+                if 'last_dosing_time' not in status_data:
+                    status_data['last_dosing_time'] = status_data.get('timestamp', current_time)
                 
                 with open(STATUS_FILE, 'w') as f:
                     json.dump(status_data, f, indent=2)
@@ -48,7 +63,9 @@ try:
             "enabled": True,
             "running": running,
             "pid": 0,
-            "timestamp": time.time()
+            "timestamp": current_time,
+            "last_check_time": current_time,
+            "last_dosing_time": current_time
         }
         with open(STATUS_FILE, 'w') as f:
             json.dump(status_data, f, indent=2)
