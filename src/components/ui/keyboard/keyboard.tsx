@@ -94,27 +94,34 @@ const KeyboardContainer: React.FC = () => {
       } else {
         // For larger screens, position near the input field
         const keyboardHeight = inputType === 'numeric' ? 280 : 360;
+        // Limit keyboard width to prevent overflow
         const keyboardWidth = Math.min(windowWidth * 0.8, inputType === 'numeric' ? 350 : 600);
         
         // Center the keyboard horizontally relative to the input
         let left = rect.left + (rect.width / 2) - (keyboardWidth / 2);
-        // Keep the keyboard within screen bounds
+        
+        // Ensure keyboard stays within horizontal screen bounds
         left = Math.max(10, Math.min(left, windowWidth - keyboardWidth - 10));
         
         // Position keyboard below or above the input depending on available space
+        let top;
         if (rect.bottom + keyboardHeight + 10 > windowHeight) {
-          setPosition({
-            top: Math.max(10, rect.top - keyboardHeight - 10),
-            left,
-            width: keyboardWidth
-          });
+          // Position above input if not enough space below
+          top = Math.max(10, rect.top - keyboardHeight - 10);
+          // If there's not enough space above either, position at top of screen with padding
+          if (top < 10) {
+            top = 10;
+          }
         } else {
-          setPosition({
-            top: rect.bottom + 10,
-            left,
-            width: keyboardWidth
-          });
+          // Position below input
+          top = rect.bottom + 10;
         }
+        
+        setPosition({
+          top,
+          left,
+          width: keyboardWidth
+        });
       }
     }
   }, [isOpen, targetRef, inputType]);
@@ -142,7 +149,8 @@ const KeyboardContainer: React.FC = () => {
         top: isMobile ? 'auto' : `${position.top}px`,
         left: isMobile ? 0 : `${position.left}px`,
         width: isMobile ? '100%' : `${position.width}px`,
-        maxWidth: '100%',
+        maxWidth: '100vw', // Ensure it never extends beyond viewport width
+        overflow: 'hidden',
         transition: 'transform 0.3s ease',
         transform: isOpen ? 'translateY(0)' : 'translateY(100%)',
         padding: isMobile ? '12px 8px 16px 8px' : '8px',

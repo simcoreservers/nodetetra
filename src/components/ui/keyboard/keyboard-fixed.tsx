@@ -89,30 +89,47 @@ const KeyboardContainer: React.FC = () => {
     if (isOpen && targetRef?.current) {
       const rect = targetRef.current.getBoundingClientRect();
       const windowHeight = window.innerHeight;
+      const windowWidth = window.innerWidth;
       
       // Position keyboard below the input field, but ensure it doesn't go off screen
-      const keyboardHeight = inputType === 'numeric' ? 250 : 350; // Increased heights to be safe
+      const keyboardHeight = inputType === 'numeric' ? 250 : 350; // Approximate heights
+      // Calculate appropriate width based on input type
+      const keyboardWidth = inputType === 'numeric' ? 
+        Math.min(350, windowWidth - 20) : // Numeric needs less width
+        Math.min(600, windowWidth - 20);  // Text needs more width
       
       console.log('Positioning keyboard for input at:', {
         top: rect.top,
         bottom: rect.bottom,
         left: rect.left,
         windowHeight,
-        keyboardHeight
+        windowWidth,
+        keyboardHeight,
+        keyboardWidth
       });
       
+      // Calculate horizontal position - center relative to input but ensure it stays on screen
+      let left = Math.max(10, Math.min(
+        rect.left + (rect.width / 2) - (keyboardWidth / 2), // Center align
+        windowWidth - keyboardWidth - 10 // Don't go off right edge
+      ));
+      
       // If there's not enough space below, position above
+      let top;
       if (rect.bottom + keyboardHeight > windowHeight) {
-        setPosition({
-          top: Math.max(rect.top - keyboardHeight, 0),
-          left: rect.left
-        });
+        top = Math.max(10, rect.top - keyboardHeight - 10);
+        // If there's not enough space above either, position at top with padding
+        if (top < 10) {
+          top = 10;
+        }
       } else {
-        setPosition({
-          top: rect.bottom + 10, // Add a small gap
-          left: rect.left
-        });
+        top = rect.bottom + 10; // Add a small gap
       }
+      
+      setPosition({
+        top,
+        left
+      });
     }
   }, [isOpen, targetRef, inputType]);
   
@@ -136,6 +153,9 @@ const KeyboardContainer: React.FC = () => {
         top: `${position.top}px`,
         left: `${position.left}px`,
         maxWidth: '95vw',
+        width: inputType === 'numeric' ? '350px' : '600px',
+        maxHeight: '60vh',
+        overflow: 'hidden',
         transition: 'all 0.3s ease',
       }}
     >
