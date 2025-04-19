@@ -11,31 +11,37 @@ interface NumericKeypadProps {
 
 const NumericKeypad: React.FC<NumericKeypadProps> = ({ value, onChange, onClose }) => {
   const handleKeyPress = (key: string) => {
+    console.log('Numeric keypad press:', key);
+    let newValue = value;
+    
     switch (key) {
       case 'backspace':
-        onChange(value.slice(0, -1));
+        newValue = value.slice(0, -1);
         break;
       case 'clear':
-        onChange('');
+        newValue = '';
         break;
       case '.':
         // Only add decimal point if not already present
         if (!value.includes('.')) {
-          onChange(value + key);
+          newValue = value + key;
         }
         break;
       case '-':
         // Only add minus sign if not already present and at beginning
         if (!value.includes('-')) {
-          onChange('-' + value);
+          newValue = '-' + value;
         } else {
-          onChange(value.replace('-', ''));
+          newValue = value.replace('-', '');
         }
         break;
       default:
-        onChange(value + key);
+        newValue = value + key;
         break;
     }
+    
+    console.log('New numeric value:', newValue);
+    onChange(newValue);
   };
 
   return (

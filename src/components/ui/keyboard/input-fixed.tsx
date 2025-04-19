@@ -66,6 +66,26 @@ const Input: React.FC<InputProps> = ({
     }
   };
   
+  // Create an event handler for the keyboard to directly update React state
+  const handleKeyboardChange = useCallback((newValue: string) => {
+    console.log('Keyboard value change handler:', newValue);
+    if (onChange) {
+      onChange(newValue);
+    }
+  }, [onChange]);
+  
+  // Register the callback with the keyboard context
+  useEffect(() => {
+    if (inputRef.current) {
+      // Add a data attribute to store the callback
+      const element = inputRef.current;
+      (element as any)._keyboardChangeHandler = handleKeyboardChange;
+      return () => {
+        (element as any)._keyboardChangeHandler = null;
+      };
+    }
+  }, [handleKeyboardChange]);
+  
   return (
     <input
       ref={inputRef}

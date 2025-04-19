@@ -7,6 +7,8 @@ export const KeyboardTest: React.FC = () => {
   const [textValue, setTextValue] = useState('');
   const [numberValue, setNumberValue] = useState('0');
   
+  console.log('Keyboard test component render, values:', { textValue, numberValue });
+  
   return (
     <div className="bg-[#252525] p-4 rounded-lg mb-6">
       <h3 className="text-xl font-bold mb-4">Keyboard Test Component</h3>
@@ -24,7 +26,7 @@ export const KeyboardTest: React.FC = () => {
             placeholder="Click to open keyboard"
             value={textValue}
             onChange={(value) => {
-              console.log('Text input changed:', value);
+              console.log('Text input changed to:', value);
               setTextValue(value);
             }}
           />
@@ -39,7 +41,7 @@ export const KeyboardTest: React.FC = () => {
             placeholder="0"
             value={numberValue}
             onChange={(value) => {
-              console.log('Number input changed:', value);
+              console.log('Number input changed to:', value);
               setNumberValue(value);
             }}
           />

@@ -71,8 +71,16 @@ const KeyboardContainer: React.FC = () => {
   
   const handleKeyboardInput = useCallback((value: string) => {
     console.log('Keyboard input:', value);
+    
+    // First, try the direct handler if available
+    if (targetRef?.current && (targetRef.current as any)._keyboardChangeHandler) {
+      console.log('Using direct change handler');
+      (targetRef.current as any)._keyboardChangeHandler(value);
+    }
+    
+    // Also update through context for the normal event flow
     onValueChange(value);
-  }, [onValueChange]);
+  }, [onValueChange, targetRef]);
   
   // Position the keyboard near the input field
   const [position, setPosition] = useState({ top: 0, left: 0 });

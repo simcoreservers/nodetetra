@@ -42,18 +42,34 @@ export const KeyboardProvider: React.FC<{children: React.ReactNode}> = ({ childr
   }, []);
   
   const onValueChange = useCallback((value: string) => {
+    console.log('Context value change:', value);
     setCurrentValue(value);
+    
     if (targetRef.current) {
+      console.log('Updating target input:', targetRef.current);
+      
       // Update the input value
       targetRef.current.value = value;
       
-      // Dispatch an input event to trigger any form validation or listeners
-      const event = new Event('input', { bubbles: true });
-      targetRef.current.dispatchEvent(event);
-      
-      // Also dispatch a change event for React form handling
-      const changeEvent = new Event('change', { bubbles: true });
-      targetRef.current.dispatchEvent(changeEvent);
+      // Create and dispatch events using a more compatible approach
+      try {
+        // For React controlled inputs
+        if (targetRef.current.dispatchEvent) {
+          // Input event
+          const inputEvent = new Event('input', { bubbles: true });
+          targetRef.current.dispatchEvent(inputEvent);
+          
+          // Change event
+          const changeEvent = new Event('change', { bubbles: true });
+          targetRef.current.dispatchEvent(changeEvent);
+          
+          console.log('Events dispatched successfully');
+        }
+      } catch (error) {
+        console.error('Error dispatching events:', error);
+      }
+    } else {
+      console.warn('No target ref for value change');
     }
   }, []);
   

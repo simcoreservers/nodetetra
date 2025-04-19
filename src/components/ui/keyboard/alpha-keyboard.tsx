@@ -14,31 +14,37 @@ const AlphaKeyboard: React.FC<AlphaKeyboardProps> = ({ value, onChange, onClose 
   const [isSymbols, setIsSymbols] = useState(false);
   
   const handleKeyPress = (key: string) => {
+    console.log('Alpha keyboard press:', key);
+    let newValue = value;
+    
     switch (key) {
       case 'backspace':
-        onChange(value.slice(0, -1));
+        newValue = value.slice(0, -1);
         break;
       case 'clear':
-        onChange('');
+        newValue = '';
         break;
       case 'shift':
         setIsShifted(!isShifted);
-        break;
+        return; // Return early without triggering onChange
       case 'symbols':
         setIsSymbols(!isSymbols);
         setIsShifted(false);
-        break;
+        return; // Return early without triggering onChange
       case 'space':
-        onChange(value + ' ');
+        newValue = value + ' ';
         break;
       default:
-        onChange(value + key);
+        newValue = value + key;
         // Auto-unshift after a key press
         if (isShifted) {
           setIsShifted(false);
         }
         break;
     }
+    
+    console.log('New alpha value:', newValue);
+    onChange(newValue);
   };
 
   // Define keyboard layouts
