@@ -32,7 +32,9 @@ export default function NutrientsPage() {
     deleteBrand,
     addProduct,
     updateProduct,
-    deleteProduct
+    deleteProduct,
+    restoreDefaults,
+    isRestoringDefaults
   } = useNutrientData();
 
   // When nutrients load, select the first brand if available
@@ -191,6 +193,21 @@ export default function NutrientsPage() {
     }
   };
 
+  // Handle restore defaults
+  const handleRestoreDefaults = async () => {
+    if (!confirm('This will add default nutrient brands and products while preserving your custom entries. Continue?')) {
+      return;
+    }
+    
+    try {
+      const result = await restoreDefaults();
+      alert(`Successfully added ${result.addedBrands} brands and ${result.addedProducts} products from defaults.`);
+    } catch (err) {
+      console.error("Failed to restore defaults:", err);
+      alert(`Failed to restore defaults: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-[#121212]">
       {/* Sidebar */}
@@ -200,9 +217,35 @@ export default function NutrientsPage() {
       <div className={`main-content p-8 ${collapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold">Nutrient Database</h1>
-          <div className="flex items-center">
-            <button className="btn" onClick={refresh}>Refresh</button>
-            <button className="btn ml-3" onClick={handleOpenAddBrand}>Add New Brand</button>
+          <div className="flex gap-3">
+            <button 
+              onClick={handleRestoreDefaults}
+              disabled={isRestoringDefaults}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md flex items-center"
+            >
+              {isRestoringDefaults ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Restoring...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Restore Default Nutrients
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleOpenAddBrand}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md"
+            >
+              Add Brand
+            </button>
           </div>
         </div>
 

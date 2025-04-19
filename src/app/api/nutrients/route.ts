@@ -7,7 +7,8 @@ import {
   addNutrientProduct,
   updateNutrientProduct,
   deleteNutrientProduct,
-  getAllProducts
+  getAllProducts,
+  getDefaultNutrients
 } from '../../lib/nutrients';
 
 /**
@@ -98,6 +99,71 @@ export async function POST(request: NextRequest) {
           product: newProduct,
           status: 'ok',
           message: `Product "${productName}" added successfully`,
+          timestamp: new Date().toISOString()
+        });
+      
+      case 'restoreDefaults':
+        // Get current nutrients
+        const currentNutrients = getAllNutrients();
+        // Get default nutrients
+        const defaultNutrients = getDefaultNutrients();
+        
+        // Track how many items we added
+        let addedBrands = 0;
+        let addedProducts = 0;
+        
+        // Process each default brand
+        for (const defaultBrand of defaultNutrients) {
+          // Check if brand exists (case insensitive)
+          const existingBrand = currentNutrients.find(b => 
+            b.brand.toLowerCase() === defaultBrand.brand.toLowerCase()
+          );
+          
+          let brandId: number;
+          
+          if (!existingBrand) {
+            // Add the brand if it doesn't exist
+            const newBrand = addNutrientBrand(defaultBrand.brand);
+            brandId = newBrand.id;
+            addedBrands++;
+          } else {
+            brandId = existingBrand.id;
+          }
+          
+          // Process each product for this brand
+          for (const defaultProduct of defaultBrand.products) {
+            // If brand already existed, check if this product exists
+            if (existingBrand) {
+              const productExists = existingBrand.products.some(p => 
+                p.name.toLowerCase() === defaultProduct.name.toLowerCase()
+              );
+              
+              if (productExists) {
+                // Skip existing products
+                continue;
+              }
+            }
+            
+            // Add the product
+            try {
+              addNutrientProduct(brandId, {
+                name: defaultProduct.name,
+                npk: defaultProduct.npk,
+                description: defaultProduct.description
+              });
+              addedProducts++;
+            } catch (error) {
+              console.error(`Error adding product ${defaultProduct.name}:`, error);
+              // Continue with other products even if one fails
+            }
+          }
+        }
+        
+        return NextResponse.json({
+          status: 'ok',
+          message: `Restored defaults: Added ${addedBrands} brands and ${addedProducts} products`,
+          addedBrands,
+          addedProducts,
           timestamp: new Date().toISOString()
         });
       

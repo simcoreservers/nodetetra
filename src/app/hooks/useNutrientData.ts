@@ -29,6 +29,7 @@ export function useNutrientData(refreshInterval: number = 0) {
   const [products, setProducts] = useState<FlatProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isRestoringDefaults, setIsRestoringDefaults] = useState(false);
 
   // Fetch all nutrient brands and their products
   const fetchNutrients = useCallback(async () => {
@@ -255,28 +256,62 @@ export function useNutrientData(refreshInterval: number = 0) {
     }
   }, [refresh]);
 
-  // Initial fetch
+  // Restore default nutrient brands and products
+  const restoreDefaults = useCallback(async (): Promise<{addedBrands: number, addedProducts: number}> => {
+    try {
+      setIsRestoringDefaults(true);
+      
+      const response = await fetch('/api/nutrients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'restoreDefaults'
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to restore defaults: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Refresh data after restoring defaults
+      await refresh();
+      
+      return {
+        addedBrands: data.addedBrands,
+        addedProducts: data.addedProducts
+      };
+    } catch (err) {
+      console.error('Error restoring defaults:', err);
+      throw err;
+    } finally {
+      setIsRestoringDefaults(false);
+    }
+  }, [refresh]);
+
+  // Run initial fetch when component mounts
   useEffect(() => {
     fetchNutrients();
     fetchProducts();
-  }, [fetchNutrients, fetchProducts]);
-
-  // Set up polling if refresh interval is provided
-  useEffect(() => {
-    if (refreshInterval <= 0) return;
     
-    const intervalId = setInterval(() => {
-      fetchNutrients();
-      fetchProducts();
-    }, refreshInterval);
-    
-    return () => clearInterval(intervalId);
-  }, [refreshInterval, fetchNutrients, fetchProducts]);
+    // Set up interval refresh if needed
+    if (refreshInterval > 0) {
+      const intervalId = setInterval(() => {
+        fetchNutrients();
+        fetchProducts();
+      }, refreshInterval);
+      
+      return () => clearInterval(intervalId);
+    }
+  }, [fetchNutrients, fetchProducts, refreshInterval]);
 
   return {
     nutrients,
     products,
     isLoading,
+    isRestoringDefaults,
     error,
     refresh,
     addBrand,
@@ -284,6 +319,7 @@ export function useNutrientData(refreshInterval: number = 0) {
     deleteBrand,
     addProduct,
     updateProduct,
-    deleteProduct
+    deleteProduct,
+    restoreDefaults
   };
 } 

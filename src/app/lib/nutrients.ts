@@ -49,7 +49,7 @@ export function getAllNutrients(): NutrientBrand[] {
 /**
  * Returns a set of default nutrient brands and products for first-time setup
  */
-function getDefaultNutrients(): NutrientBrand[] {
+export function getDefaultNutrients(): NutrientBrand[] {
   const now = Date.now();
   
   return [
@@ -74,6 +74,84 @@ function getDefaultNutrients(): NutrientBrand[] {
           name: "Flora Bloom",
           npk: "0-5-4",
           description: "For abundant fruit and flower development."
+        },
+        {
+          id: now + 4,
+          name: "FloraNova Grow",
+          npk: "7-4-8",
+          description: "One-part nutrient for vegetative growth phase."
+        },
+        {
+          id: now + 5,
+          name: "FloraNova Bloom",
+          npk: "4-8-7",
+          description: "One-part nutrient for flowering and fruiting."
+        },
+        {
+          id: now + 6,
+          name: "CALiMAGic",
+          npk: "1-0-0",
+          description: "Calcium-magnesium supplement to prevent deficiencies."
+        },
+        {
+          id: now + 7,
+          name: "Armor Si",
+          npk: "0-0-0",
+          description: "Silica supplement to strengthen cell walls."
+        },
+        {
+          id: now + 8,
+          name: "Liquid KoolBloom",
+          npk: "0-10-10",
+          description: "Flowering enhancer for early to mid-bloom phase."
+        },
+        {
+          id: now + 9,
+          name: "Dry KoolBloom",
+          npk: "2-45-28",
+          description: "Powerful bloom booster for late flowering phase."
+        },
+        {
+          id: now + 10,
+          name: "Flora Nectar",
+          npk: "0-0-1",
+          description: "Sweetening and flavoring enhancer for flowering plants."
+        },
+        {
+          id: now + 11,
+          name: "RapidStart",
+          npk: "1-0.5-1",
+          description: "Root enhancer for seedlings and cuttings."
+        },
+        {
+          id: now + 12,
+          name: "Diamond Black",
+          npk: "0-0-1",
+          description: "Humic acid supplement to improve nutrient uptake."
+        },
+        {
+          id: now + 13,
+          name: "Floralicious Plus",
+          npk: "1-1-1",
+          description: "Organic nutrient supplement with beneficial microbes."
+        },
+        {
+          id: now + 14,
+          name: "MaxiGro",
+          npk: "10-5-14",
+          description: "One-part powdered nutrient for vegetative growth."
+        },
+        {
+          id: now + 15,
+          name: "MaxiBloom",
+          npk: "5-15-14",
+          description: "One-part powdered nutrient for flowering and fruiting."
+        },
+        {
+          id: now + 16,
+          name: "Florablend",
+          npk: "0.5-0.01-0.5",
+          description: "Biologically active organic supplement."
         }
       ]
     },
@@ -98,6 +176,84 @@ function getDefaultNutrients(): NutrientBrand[] {
           name: "pH Perfect Micro",
           npk: "5-0-0",
           description: "Provides essential micronutrients."
+        }
+      ]
+    },
+    {
+      id: now + 200,
+      brand: "Athena",
+      products: [
+        {
+          id: now + 201,
+          name: "Athena Blended",
+          npk: "4-0-1",
+          description: "All-in-one professional grade nutrient solution."
+        },
+        {
+          id: now + 202,
+          name: "Core",
+          npk: "5-15-14",
+          description: "Balanced base nutrient for all growth stages."
+        },
+        {
+          id: now + 203,
+          name: "Grow A",
+          npk: "5-0-3",
+          description: "Part A of two-part complete nutrient system for vegetative growth."
+        },
+        {
+          id: now + 204,
+          name: "Grow B",
+          npk: "0-4-3",
+          description: "Part B of two-part complete nutrient system for vegetative growth."
+        }
+      ]
+    },
+    {
+      id: now + 300,
+      brand: "Fox Farm",
+      products: [
+        {
+          id: now + 301,
+          name: "Grow Big Hydro",
+          npk: "6-4-4",
+          description: "For abundant vegetative growth in hydroponic systems."
+        },
+        {
+          id: now + 302,
+          name: "Tiger Bloom",
+          npk: "2-8-4",
+          description: "High phosphorus fertilizer for flowering and fruiting phase."
+        },
+        {
+          id: now + 303,
+          name: "Big Bloom",
+          npk: "0.01-0.3-0.7",
+          description: "Micronutrient and microbial supplement for all growth phases."
+        }
+      ]
+    },
+    {
+      id: now + 400,
+      brand: "Botanicare",
+      products: [
+        {
+          id: now + 401,
+          name: "Pure Blend Pro Grow",
+          npk: "3-2-4",
+          description: "Vegetative formula for hydroponic systems."
+        },
+        {
+          id: now + 402,
+          name: "Pure Blend Pro Bloom",
+          npk: "2-3-5",
+          description: "Bloom formula for flowering and fruiting plants."
+        },
+        {
+          id: now + 403,
+          name: "Cal-Mag Plus",
+          npk: "2-0-0",
+          description: "Calcium, magnesium and iron supplement to prevent deficiencies."
         }
       ]
     }
