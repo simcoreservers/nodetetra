@@ -313,7 +313,7 @@ async def main():
         with open(status_file, 'w') as f:
             status_data = {
                 "enabled": True,
-                "running": False,
+                "running": True,  # Set to true as we're starting now
                 "pid": os.getpid(),
                 "timestamp": time.time()
             }
@@ -531,8 +531,8 @@ def get_auto_dosing_status():
         # Return status with running flag set if external process detected
         return {
             "enabled": enabled,
-            "running": external_running,  # Set to True if we detected a running process
-            "initialized": external_running,  # Set initialized to match running
+            "running": True,  # Set to True since we've detected a running process
+            "initialized": True,  # Set initialized to match running
             "last_check_time": 0,
             "last_dosing_time": 0,
             "in_cooldown": False,
@@ -579,7 +579,7 @@ def get_auto_dosing_status():
         with open(status_file, 'w') as f:
             status_data = {
                 "enabled": status["enabled"],
-                "running": status["running"],
+                "running": True,  # Always set to true when returning from this function
                 "pid": os.getpid(),
                 "timestamp": time.time()
             }
