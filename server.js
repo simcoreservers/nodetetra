@@ -17,6 +17,51 @@ let autoDosing = null;
 function startAutoDosing() {
   console.log('Starting Auto Dosing system...');
   
+  // Ensure the data directory exists
+  const dataDir = path.join(__dirname, 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+    console.log('Created data directory');
+  }
+  
+  // Make sure auto-dosing is enabled in config
+  const configPath = path.join(dataDir, 'auto_dosing_config.json');
+  let config = {
+    "enabled": true,
+    "check_interval": 60,
+    "dosing_cooldown": 300,
+    "between_dose_delay": 30,
+    "ph_tolerance": 0.5,
+    "ec_tolerance": 0.2
+  };
+  
+  try {
+    if (fs.existsSync(configPath)) {
+      const existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      // Ensure enabled is true, but keep other settings
+      config = { ...existingConfig, enabled: true };
+      console.log('Updated existing auto-dosing config');
+    }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  } catch (error) {
+    console.error('Error setting up auto-dosing config:', error);
+  }
+  
+  // Create or update status file
+  const statusPath = path.join(dataDir, 'auto_dosing_status.json');
+  try {
+    const statusData = {
+      "enabled": true,
+      "running": false,
+      "pid": 0,
+      "timestamp": Date.now() / 1000
+    };
+    fs.writeFileSync(statusPath, JSON.stringify(statusData, null, 2));
+    console.log('Created auto-dosing status file');
+  } catch (error) {
+    console.error('Error creating auto-dosing status file:', error);
+  }
+  
   // Launch the auto dosing process
   autoDosing = spawn('python', ['auto_dosing_integration.py'], {
     detached: false, // Keep the process attached to parent
@@ -30,6 +75,20 @@ function startAutoDosing() {
   
   autoDosing.on('exit', (code, signal) => {
     console.log(`Auto Dosing process exited with code ${code} and signal ${signal}`);
+    
+    // Update status file to indicate process is no longer running
+    try {
+      const statusPath = path.join(__dirname, 'data', 'auto_dosing_status.json');
+      if (fs.existsSync(statusPath)) {
+        const statusData = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+        statusData.running = false;
+        statusData.timestamp = Date.now() / 1000;
+        fs.writeFileSync(statusPath, JSON.stringify(statusData, null, 2));
+        console.log('Updated status file - process no longer running');
+      }
+    } catch (error) {
+      console.error('Error updating status file on exit:', error);
+    }
     
     // If the process exits unexpectedly, restart it after a delay
     if (code !== 0 && code !== null) {
@@ -47,6 +106,21 @@ function startAutoDosing() {
     if (autoDosing) {
       console.log('Terminating Auto Dosing process...');
       
+      // Update status file on shutdown
+      try {
+        const statusPath = path.join(__dirname, 'data', 'auto_dosing_status.json');
+        if (fs.existsSync(statusPath)) {
+          const statusData = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+          statusData.running = false;
+          statusData.enabled = false; // Mark as disabled on clean shutdown
+          statusData.timestamp = Date.now() / 1000;
+          fs.writeFileSync(statusPath, JSON.stringify(statusData, null, 2));
+          console.log('Updated status file for shutdown');
+        }
+      } catch (error) {
+        console.error('Error updating status file on shutdown:', error);
+      }
+      
       // If we have detached: true, we would need to kill the process group
       // But with detached: false, we can simply kill the process
       autoDosing.kill();
@@ -58,6 +132,21 @@ function startAutoDosing() {
     process.on(signal, () => {
       if (autoDosing) {
         console.log(`Received ${signal}, terminating Auto Dosing process...`);
+        
+        // Update status file on signal-triggered shutdown
+        try {
+          const statusPath = path.join(__dirname, 'data', 'auto_dosing_status.json');
+          if (fs.existsSync(statusPath)) {
+            const statusData = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+            statusData.running = false;
+            statusData.timestamp = Date.now() / 1000;
+            fs.writeFileSync(statusPath, JSON.stringify(statusData, null, 2));
+            console.log('Updated status file for signal-triggered shutdown');
+          }
+        } catch (error) {
+          console.error('Error updating status file on signal shutdown:', error);
+        }
+        
         autoDosing.kill();
       }
       process.exit(0);

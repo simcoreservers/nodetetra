@@ -303,6 +303,25 @@ async def main():
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
     
+    # Create status file directory if it doesn't exist
+    ensure_data_dir()
+    
+    # Create initial status file
+    try:
+        import os
+        status_file = os.path.join(DATA_DIR, 'auto_dosing_status.json')
+        with open(status_file, 'w') as f:
+            status_data = {
+                "enabled": True,
+                "running": False,
+                "pid": os.getpid(),
+                "timestamp": time.time()
+            }
+            json.dump(status_data, f)
+            logger.info(f"Created initial status file: {status_data}")
+    except Exception as e:
+        logger.error(f"Error creating initial status file: {e}")
+    
     try:
         # Start auto dosing
         await start_auto_dosing()
@@ -441,6 +460,31 @@ def get_auto_dosing_status():
     """Get current auto dosing status"""
     global auto_doser
     
+    # Add diagnostics to detect running processes
+    import subprocess
+    import os
+    try:
+        # Find all Python processes running auto_dosing_integration.py
+        result = subprocess.run(["pgrep", "-f", "python.*auto_dosing_integration.py"], capture_output=True, text=True)
+        pids = result.stdout.strip().split("\n") if result.stdout.strip() else []
+        current_pid = os.getpid()
+        logger.info(f"Auto-dosing processes: PIDs={pids}, Current PID={current_pid}")
+        
+        # Check status file for externally managed state
+        status_file = os.path.join(DATA_DIR, 'auto_dosing_status.json')
+        if os.path.exists(status_file):
+            try:
+                with open(status_file, 'r') as f:
+                    status_data = json.load(f)
+                    logger.info(f"Found status file: {status_data}")
+                    # If we find a valid status file with a PID that's running, we'll use that state
+                    if status_data.get('pid') and str(status_data.get('pid')) in pids:
+                        logger.info(f"Process with PID={status_data.get('pid')} is running")
+            except Exception as e:
+                logger.error(f"Error reading status file: {e}")
+    except Exception as e:
+        logger.error(f"Error checking processes: {e}")
+    
     logger.debug("Getting auto dosing status")
     
     # Check if auto_doser exists
@@ -451,11 +495,44 @@ def get_auto_dosing_status():
         
         logger.debug(f"No auto_doser instance, using config: enabled={enabled}")
         
-        # Return basic status based on config
+        # Check for external process running
+        import subprocess
+        import os
+        
+        status_file = os.path.join(DATA_DIR, 'auto_dosing_status.json')
+        external_running = False
+        
+        # Check if there's a process running the auto_dosing_integration.py script
+        try:
+            result = subprocess.run(["pgrep", "-fa", "python.*auto_dosing_integration.py"], capture_output=True, text=True)
+            processes = result.stdout.strip()
+            if processes:
+                logger.info(f"Found external auto_dosing processes: {processes}")
+                external_running = True
+        except Exception as e:
+            logger.error(f"Error checking for external processes: {e}")
+        
+        # Check status file as backup method
+        try:
+            if os.path.exists(status_file):
+                with open(status_file, 'r') as f:
+                    status_data = json.load(f)
+                    if status_data.get('running') and status_data.get('pid'):
+                        # Verify PID is still running
+                        try:
+                            os.kill(status_data.get('pid'), 0)  # Check if process exists
+                            external_running = True
+                            logger.info(f"Found running process from status file: PID={status_data.get('pid')}")
+                        except OSError:
+                            logger.info(f"Process in status file (PID={status_data.get('pid')}) is not running")
+        except Exception as e:
+            logger.error(f"Error checking status file: {e}")
+        
+        # Return status with running flag set if external process detected
         return {
             "enabled": enabled,
-            "running": False,
-            "initialized": False,
+            "running": external_running,  # Set to True if we detected a running process
+            "initialized": external_running,  # Set initialized to match running
             "last_check_time": 0,
             "last_dosing_time": 0,
             "in_cooldown": False,
@@ -494,6 +571,22 @@ def get_auto_dosing_status():
             auto_doser.running = False
             # Create a new task to start the auto dosing
             asyncio.create_task(auto_doser.start())
+    
+    # Save status to file for external processes to read
+    try:
+        import os
+        status_file = os.path.join(DATA_DIR, 'auto_dosing_status.json')
+        with open(status_file, 'w') as f:
+            status_data = {
+                "enabled": status["enabled"],
+                "running": status["running"],
+                "pid": os.getpid(),
+                "timestamp": time.time()
+            }
+            json.dump(status_data, f)
+            logger.debug(f"Saved status to file: {status_data}")
+    except Exception as e:
+        logger.error(f"Error saving status file: {e}")
     
     # Ensure config is always included
     if "config" not in status:

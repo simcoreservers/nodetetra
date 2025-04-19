@@ -15,6 +15,27 @@ async function runAutoDoseCommand(command: string, args: any = {}): Promise<any>
     const pythonCommand = `import sys
 import json
 import asyncio
+import os
+import subprocess
+
+# Improved diagnostic information
+try:
+    print("---- Auto Dosing API Command Diagnostics ----", file=sys.stderr)
+    print(f"Running command: {${JSON.stringify(command)}}", file=sys.stderr)
+    pids = subprocess.run(["pgrep", "-fa", "python.*auto_dosing_integration.py"], capture_output=True, text=True).stdout.strip()
+    print(f"Found auto_dosing processes: {pids}", file=sys.stderr)
+    
+    # Check for status file
+    status_file = os.path.join(os.getcwd(), 'data', 'auto_dosing_status.json')
+    if os.path.exists(status_file):
+        with open(status_file, 'r') as f:
+            status_data = json.load(f)
+            print(f"Status file contents: {status_data}", file=sys.stderr)
+    else:
+        print(f"Status file not found at: {status_file}", file=sys.stderr)
+except Exception as e:
+    print(f"Diagnostics error: {e}", file=sys.stderr)
+
 ${command === 'update_config' ? 'from auto_dosing_integration import update_auto_dosing_config' : ''}
 ${command === 'enable' ? 'from auto_dosing_integration import enable_auto_dosing' : ''}
 ${command === 'disable' ? 'from auto_dosing_integration import disable_auto_dosing' : ''}
@@ -37,7 +58,9 @@ if __name__ == "__main__":
     const { stdout, stderr } = await execAsync(`python -c '${pythonCommand}'`);
     
     if (stderr) {
-      warn(MODULE, `Command produced stderr: ${stderr}`);
+      // Log stdout and stderr for debugging
+      info(MODULE, `Command output (stdout): ${stdout}`);
+      info(MODULE, `Command diagnostics (stderr): ${stderr}`);
     }
     
     // Parse the JSON result
@@ -57,6 +80,43 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'status';
     
+    // Additional direct file check for better reliability
+    if (type === 'status') {
+      try {
+        const { promises: fs } = require('fs');
+        const path = require('path');
+        const statusPath = path.join(process.cwd(), 'data', 'auto_dosing_status.json');
+        
+        // Check if the status file exists
+        const fileExists = await fs.stat(statusPath).then(() => true).catch(() => false);
+        if (fileExists) {
+          info(MODULE, `Found status file at ${statusPath}`);
+          const statusData = JSON.parse(await fs.readFile(statusPath, 'utf8'));
+          
+          // Check if the process is actually running
+          if (statusData.pid > 0) {
+            const { exec } = require('child_process');
+            exec(`ps -p ${statusData.pid}`, (error, stdout, stderr) => {
+              if (!error && stdout.includes(String(statusData.pid))) {
+                info(MODULE, `Process with PID ${statusData.pid} is running`);
+              } else {
+                info(MODULE, `Process with PID ${statusData.pid} is not running`);
+                // Update the status file to reflect that process is not running
+                statusData.running = false;
+                fs.writeFile(statusPath, JSON.stringify(statusData, null, 2)).catch(err => {
+                  error(MODULE, `Error updating status file: ${err}`);
+                });
+              }
+            });
+          }
+        } else {
+          info(MODULE, `Status file not found at ${statusPath}`);
+        }
+      } catch (err) {
+        warn(MODULE, `Error checking status file: ${err}`);
+      }
+    }
+    
     if (type === 'history') {
       const limit = parseInt(searchParams.get('limit') || '50', 10);
       const history = await runAutoDoseCommand('history', { limit });
@@ -67,11 +127,83 @@ export async function GET(request: NextRequest) {
       });
     } else {
       // Default to status
-      const status = await runAutoDoseCommand('status');
+      // First try the Python command
+      const pyStatus = await runAutoDoseCommand('status').catch(err => {
+        warn(MODULE, `Error from Python status command: ${err}`);
+        return null;
+      });
+      
+      // Then try direct file access as fallback
+      let fileStatus = null;
+      try {
+        const { promises: fs } = require('fs');
+        const path = require('path');
+        const statusPath = path.join(process.cwd(), 'data', 'auto_dosing_status.json');
+        
+        if (await fs.stat(statusPath).then(() => true).catch(() => false)) {
+          fileStatus = JSON.parse(await fs.readFile(statusPath, 'utf8'));
+          info(MODULE, `Read status directly from file: ${JSON.stringify(fileStatus)}`);
+        }
+      } catch (err) {
+        warn(MODULE, `Error reading status file directly: ${err}`);
+      }
+      
+      // Combine information, with Python command taking precedence
+      let finalStatus;
+      if (pyStatus) {
+        finalStatus = pyStatus;
+        // Enhance with file status if available
+        if (fileStatus && fileStatus.pid > 0) {
+          // Use running status from file if Python doesn't think it's running
+          if (!finalStatus.running && fileStatus.running) {
+            finalStatus.running = true;
+            finalStatus.initialized = true;
+            info(MODULE, 'Using running status from file to override Python response');
+          }
+        }
+      } else if (fileStatus) {
+        // Use file status as fallback
+        finalStatus = {
+          enabled: fileStatus.enabled,
+          running: fileStatus.running,
+          initialized: fileStatus.running, // If running, must be initialized
+          last_check_time: fileStatus.timestamp || 0,
+          last_dosing_time: 0,
+          in_cooldown: false,
+          cooldown_remaining: 0,
+          config: {
+            check_interval: 60,
+            dosing_cooldown: 300,
+            between_dose_delay: 30,
+            ph_tolerance: 0.2,
+            ec_tolerance: 0.2
+          }
+        };
+        info(MODULE, 'Using status file as fallback');
+      } else {
+        // Last resort default values
+        finalStatus = {
+          enabled: false,
+          running: false,
+          initialized: false,
+          last_check_time: 0,
+          last_dosing_time: 0,
+          in_cooldown: false,
+          cooldown_remaining: 0,
+          config: {
+            check_interval: 60,
+            dosing_cooldown: 300,
+            between_dose_delay: 30,
+            ph_tolerance: 0.2,
+            ec_tolerance: 0.2
+          }
+        };
+        warn(MODULE, 'Using default status values - both methods failed');
+      }
       
       return NextResponse.json({
         status: 'success',
-        data: status
+        data: finalStatus
       });
     }
   } catch (err) {
