@@ -331,21 +331,28 @@ async def enable_auto_dosing():
     """Enable auto dosing"""
     global auto_doser
     
+    logger.debug("Enable auto dosing requested")
+    
     if not auto_doser:
+        logger.debug("No auto_doser instance, creating one")
         await start_auto_dosing()
     
-    if auto_doser.running:
+    if auto_doser and auto_doser.running:
         logger.info("Auto dosing already running")
         return
     
+    # Start auto dosing
     await auto_doser.start()
     
-    # Update config
+    # Update config to persist enabled state
     config = load_config()
     config['enabled'] = True
     save_config(config)
     
     logger.info("Auto dosing enabled")
+    
+    # Ensure the task stays alive by keeping a reference
+    return {"success": True, "message": "Auto dosing enabled"}
 
 
 async def disable_auto_dosing():
@@ -370,16 +377,49 @@ def get_auto_dosing_status():
     """Get current auto dosing status"""
     global auto_doser
     
+    logger.debug("Getting auto dosing status")
+    
+    # Check if auto_doser exists
     if not auto_doser:
+        # Try to read from config
+        config = load_config()
+        enabled = config.get('enabled', False)
+        
+        logger.debug(f"No auto_doser instance, using config: enabled={enabled}")
+        
+        # Return basic status based on config
         return {
-            "enabled": False,
+            "enabled": enabled,
             "running": False,
-            "initialized": False
+            "initialized": False,
+            "last_check_time": 0,
+            "last_dosing_time": 0,
+            "in_cooldown": False,
+            "cooldown_remaining": 0,
+            "config": {
+                "check_interval": config.get('check_interval', 60),
+                "dosing_cooldown": config.get('dosing_cooldown', 300),
+                "between_dose_delay": config.get('between_dose_delay', 30),
+                "ph_tolerance": config.get('ph_tolerance', 0.2),
+                "ec_tolerance": config.get('ec_tolerance', 0.2)
+            }
         }
     
+    # Get status from auto_doser instance
     status = auto_doser.get_status()
     status["initialized"] = True
     
+    # Ensure config is always included
+    if "config" not in status:
+        status["config"] = {
+            "check_interval": auto_doser.check_interval,
+            "dosing_cooldown": auto_doser.dosing_cooldown,
+            "between_dose_delay": auto_doser.between_dose_delay,
+            "ph_tolerance": auto_doser.ph_tolerance,
+            "ec_tolerance": auto_doser.ec_tolerance
+        }
+    
+    logger.debug(f"Auto dosing status: {status}")
     return status
 
 

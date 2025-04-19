@@ -88,8 +88,17 @@ class AutoDosing:
         self.running = True
         logger.info("Starting auto dosing task")
         
-        # Create and start the background task
-        self.task = asyncio.create_task(self._monitoring_loop())
+        # Create and start the background task with extra protection
+        try:
+            self.task = asyncio.create_task(self._monitoring_loop())
+            # Ensure we don't lose the task reference
+            self.task.add_done_callback(
+                lambda t: logger.warning(f"Auto dosing task completed: {t.exception() if t.exception() else 'No exception'}")
+            )
+        except Exception as e:
+            logger.error(f"Error creating auto dosing task: {e}")
+            self.enabled = False
+            self.running = False
     
     async def stop(self) -> None:
         """Stop the auto dosing task."""
@@ -112,6 +121,9 @@ class AutoDosing:
     async def _monitoring_loop(self) -> None:
         """Main monitoring loop that checks sensor data and triggers dosing."""
         logger.info("Auto dosing monitoring loop started")
+        
+        restart_count = 0
+        max_restarts = 5
         
         while self.enabled:
             try:
@@ -182,13 +194,27 @@ class AutoDosing:
                 # Wait for next check cycle
                 await asyncio.sleep(self.check_interval)
                 
+                # Reset restart counter on successful cycle
+                restart_count = 0
+                
             except asyncio.CancelledError:
                 logger.info("Auto dosing task cancelled")
+                # Don't break the loop - just continue to allow resumption
+                self.enabled = False
                 break
                 
             except Exception as e:
-                logger.error(f"Error in auto dosing monitoring loop: {str(e)}", exc_info=True)
-                await asyncio.sleep(10)  # Wait a bit before trying again
+                restart_count += 1
+                logger.error(f"Error in auto dosing monitoring loop: {str(e)} (restart {restart_count}/{max_restarts})", exc_info=True)
+                
+                if restart_count >= max_restarts:
+                    logger.error(f"Too many errors ({restart_count}), stopping auto dosing")
+                    self.enabled = False
+                    self.running = False
+                    break
+                    
+                # Wait a bit before retrying, with increasing delay
+                await asyncio.sleep(10 * restart_count)
     
     def _check_ph_adjustment(self, current_ph: float, target_ph: float, buffer: float) -> bool:
         """
