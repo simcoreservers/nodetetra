@@ -145,24 +145,38 @@ class AutoDosing:
                 # Record sensor readings
                 self._log_sensor_reading(current_ph, current_ec, water_temp)
                 
-                # Get active profile
-                profile = self.get_active_profile()
-                if not profile:
-                    logger.warning("No active profile found, skipping auto-dosing check")
-                    await asyncio.sleep(self.check_interval)
-                    continue
-                
-                # Extract target values and pump assignments
-                target_ph = profile.get('targetPh', {}).get('target')
-                ph_buffer = profile.get('targetPh', {}).get('buffer', self.ph_tolerance)
-                target_ec = profile.get('targetEc', {}).get('target')
-                ec_buffer = profile.get('targetEc', {}).get('buffer', self.ec_tolerance)
-                pump_assignments = profile.get('pumpAssignments', [])
-                
-                if not all([target_ph, target_ec]):
-                    logger.warning("Active profile missing target values")
-                    await asyncio.sleep(self.check_interval)
-                    continue
+                try:
+                    # Get active profile
+                    profile = self.get_active_profile()
+                    if not profile:
+                        logger.warning("No active profile found, skipping auto-dosing check but continuing to monitor")
+                        await asyncio.sleep(self.check_interval)
+                        continue
+                    
+                    # Extract target values and pump assignments
+                    try:
+                        target_ph = profile.get('targetPh', {}).get('target') or profile.get('targetPh', {}).get('min', 0) + (
+                            profile.get('targetPh', {}).get('max', 0) - profile.get('targetPh', {}).get('min', 0)) / 2
+                        ph_buffer = profile.get('targetPh', {}).get('buffer', self.ph_tolerance)
+                        target_ec = profile.get('targetEc', {}).get('target') or profile.get('targetEc', {}).get('min', 0) + (
+                            profile.get('targetEc', {}).get('max', 0) - profile.get('targetEc', {}).get('min', 0)) / 2
+                        ec_buffer = profile.get('targetEc', {}).get('buffer', self.ec_tolerance)
+                        pump_assignments = profile.get('pumpAssignments', [])
+                        
+                        logger.debug(f"Extracted from profile: target_ph={target_ph}, ph_buffer={ph_buffer}, "
+                                   f"target_ec={target_ec}, ec_buffer={ec_buffer}, pumps={len(pump_assignments)}")
+                    except Exception as e:
+                        logger.error(f"Error parsing profile values: {e}")
+                        target_ph = 6.0
+                        ph_buffer = self.ph_tolerance
+                        target_ec = 1.0
+                        ec_buffer = self.ec_tolerance
+                        pump_assignments = []
+                    
+                    if not target_ph or not target_ec:
+                        logger.warning("Active profile missing target values, using defaults")
+                        target_ph = target_ph or 6.0
+                        target_ec = target_ec or 1.0
                 
                 # If we're in cooldown period after dosing, skip this cycle
                 if current_time - self.last_dosing_time < self.dosing_cooldown:
@@ -170,33 +184,42 @@ class AutoDosing:
                     await asyncio.sleep(5)  # Check more frequently during cooldown
                     continue
                 
-                # Check if dosing is needed
-                need_ph_adjustment = self._check_ph_adjustment(current_ph, target_ph, ph_buffer)
-                need_ec_adjustment = False
-                
-                # Only check EC if pH is in acceptable range
-                if not need_ph_adjustment:
-                    need_ec_adjustment = self._check_ec_adjustment(current_ec, target_ec, ec_buffer)
-                
-                # Perform dosing if needed
-                if need_ph_adjustment:
-                    logger.info(f"pH adjustment needed: current={current_ph}, target={target_ph}±{ph_buffer}")
-                    await self._adjust_ph(current_ph, target_ph)
-                    self.last_dosing_time = time.time()
+                    # Check if dosing is needed
+                    need_ph_adjustment = False
+                    need_ec_adjustment = False
                     
-                elif need_ec_adjustment and pump_assignments:
-                    logger.info(f"EC adjustment needed: current={current_ec}, target={target_ec}±{ec_buffer}")
-                    await self._adjust_ec(current_ec, target_ec, pump_assignments)
-                    self.last_dosing_time = time.time()
-                    
-                else:
-                    logger.info(f"No dosing needed. pH={current_ph} (target={target_ph}±{ph_buffer}), EC={current_ec} (target={target_ec}±{ec_buffer})")
-                    # Even when no dosing is needed, we should NOT cancel the task
+                    try:
+                        need_ph_adjustment = self._check_ph_adjustment(current_ph, target_ph, ph_buffer)
+                        
+                        # Only check EC if pH is in acceptable range
+                        if not need_ph_adjustment:
+                            need_ec_adjustment = self._check_ec_adjustment(current_ec, target_ec, ec_buffer)
+                    except Exception as e:
+                        logger.error(f"Error checking if adjustment needed: {e}")
+                     
+                    # Perform dosing if needed
+                    if need_ph_adjustment:
+                        logger.info(f"pH adjustment needed: current={current_ph}, target={target_ph}±{ph_buffer}")
+                        await self._adjust_ph(current_ph, target_ph)
+                        self.last_dosing_time = time.time()
+                        
+                    elif need_ec_adjustment and pump_assignments:
+                        logger.info(f"EC adjustment needed: current={current_ec}, target={target_ec}±{ec_buffer}")
+                        await self._adjust_ec(current_ec, target_ec, pump_assignments)
+                        self.last_dosing_time = time.time()
+                        
+                    else:
+                        logger.info(f"No dosing needed. pH={current_ph} (target={target_ph}±{ph_buffer}), EC={current_ec} (target={target_ec}±{ec_buffer})")
+                        # Even when no dosing is needed, we should NOT cancel the task
                 
-                # Wait for next check cycle - make sure it doesn't exit
-                logger.debug(f"Waiting for {self.check_interval} seconds until next check")
-                await asyncio.sleep(self.check_interval)
-                logger.debug("Completed sleep, continuing monitoring loop")
+                    # Wait for next check cycle - make sure it doesn't exit
+                    logger.debug(f"Waiting for {self.check_interval} seconds until next check")
+                    await asyncio.sleep(self.check_interval)
+                    logger.debug("Completed sleep, continuing monitoring loop")
+                except Exception as e:
+                    logger.error(f"Error in monitoring cycle: {e}")
+                    # Continue the monitoring loop despite errors
+                    await asyncio.sleep(30)  # Wait a bit before retrying
                 
                 # Reset restart counter on successful cycle
                 restart_count = 0
