@@ -140,21 +140,6 @@ function loadPumpStates(): void {
     // Read the saved states
     const rawData = fs.readFileSync(PUMP_STATE_FILE, 'utf8');
     const savedStates = JSON.parse(rawData);
-
-    // CRITICAL SAFETY CHANGE: Always ensure all pumps are OFF on server startup
-    // This prevents pumps from running unexpectedly after restart
-    // We'll just log what was in the file but not actually apply any active states
-    for (const pumpName in savedStates) {
-      if (pumpStatus[pumpName as PumpName]) {
-        const isActive = Boolean(savedStates[pumpName].active);
-        if (isActive) {
-          console.log(`Ignoring active state for pump ${pumpName} on startup for safety`);
-          pumpStatus[pumpName as PumpName].active = false;
-        }
-      }
-    }
-
-    console.log('Pump active states loaded but all pumps set to OFF for safe startup');
     
     // Immediately save the OFF state for all pumps
     savePumpStates();
