@@ -259,8 +259,27 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
         
-        const updatedConfig = await runAutoDoseCommand('update_config', config);
-        info(MODULE, 'Auto dosing configuration updated', updatedConfig);
+        info(MODULE, 'Updating auto dosing configuration with values:', config);
+        
+        // Wait a bit longer for this command as it might restart the process
+        const updatedConfig = await runAutoDoseCommand('update_config', config)
+          .catch(err => {
+            error(MODULE, 'Error updating auto dosing config:', err);
+            throw err;
+          });
+          
+        info(MODULE, 'Auto dosing configuration updated successfully', updatedConfig);
+        
+        // Delay before returning to give Python process time to restart if needed
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Fetch the latest status to confirm changes
+        try {
+          const latestStatus = await runAutoDoseCommand('status');
+          info(MODULE, 'Latest auto dosing status after config update:', latestStatus);
+        } catch (err) {
+          warn(MODULE, 'Failed to get status after config update - might be restarting');
+        }
         
         return NextResponse.json({
           status: 'success',

@@ -672,19 +672,58 @@ def update_auto_dosing_config(new_config):
     # Save the updated config
     save_config(config)
     
+    # Keep track of whether we need to restart the doser
+    restart_needed = False
+    was_running = False
+    
     # Update auto doser if it exists
     if auto_doser:
+        logger.info(f"Updating auto doser configuration: check_interval={config.get('check_interval', 60)}, "
+                  f"dosing_cooldown={config.get('dosing_cooldown', 300)}, "
+                  f"between_dose_delay={config.get('between_dose_delay', 30)}, "
+                  f"ph_tolerance={config.get('ph_tolerance', 0.2)}, "
+                  f"ec_tolerance={config.get('ec_tolerance', 0.2)}")
+        
+        # Check if it was running
+        was_running = auto_doser.running
+        
+        # Update the runtime values
         auto_doser.check_interval = config.get('check_interval', 60)
         auto_doser.dosing_cooldown = config.get('dosing_cooldown', 300)
         auto_doser.between_dose_delay = config.get('between_dose_delay', 30)
         auto_doser.ph_tolerance = config.get('ph_tolerance', 0.2)
         auto_doser.ec_tolerance = config.get('ec_tolerance', 0.2)
+        
+        # Force a restart if major time-based settings have changed
+        # This ensures the monitoring loop uses the new values immediately
+        if 'check_interval' in new_config or 'dosing_cooldown' in new_config:
+            restart_needed = True
     
-    # Start or stop based on enabled status
-    if config.get('enabled', False) and auto_doser and not auto_doser.running:
-        asyncio.create_task(enable_auto_dosing())
-    elif not config.get('enabled', True) and auto_doser and auto_doser.running:
-        asyncio.create_task(disable_auto_dosing())
+    # Create a restart task if needed and it was already running
+    if restart_needed and was_running and auto_doser:
+        logger.info("Configuration changes require restart - restarting auto dosing process")
+        # Create a task to stop and then start the auto_doser
+        async def restart_auto_doser():
+            try:
+                # Stop it first
+                await auto_doser.stop()
+                logger.info("Auto dosing stopped for restart")
+                # Brief pause
+                await asyncio.sleep(1)
+                # Start it again
+                await auto_doser.start()
+                logger.info("Auto dosing restarted with new configuration")
+            except Exception as e:
+                logger.error(f"Error restarting auto dosing: {e}")
+        
+        # Create the restart task
+        asyncio.create_task(restart_auto_doser())
+    else:
+        # Standard enable/disable logic if no restart needed
+        if config.get('enabled', False) and auto_doser and not auto_doser.running:
+            asyncio.create_task(enable_auto_dosing())
+        elif not config.get('enabled', True) and auto_doser and auto_doser.running:
+            asyncio.create_task(disable_auto_dosing())
     
     logger.info(f"Auto dosing configuration updated: {config}")
     return config

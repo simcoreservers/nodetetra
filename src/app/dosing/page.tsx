@@ -376,6 +376,8 @@ export default function DosingPage() {
         ec_tolerance: ecTolerance,
       };
       
+      console.log("Updating auto dosing configuration:", config);
+      
       const response = await fetch("/api/dosing/auto", {
         method: "POST",
         headers: {
@@ -391,11 +393,18 @@ export default function DosingPage() {
         throw new Error(`Failed to update auto dosing config: ${response.status}`);
       }
       
-      // Refetch status
-      fetchAutoDosingStatus();
+      const data = await response.json();
+      console.log("Auto dosing update response:", data);
       
       // Show success message
-      alert("Auto dosing configuration updated successfully");
+      alert("Auto dosing configuration updated successfully. The auto dosing process will use these new values immediately.");
+      
+      // Wait a moment to allow the backend to restart if needed
+      setTimeout(() => {
+        // Refetch status to confirm changes
+        fetchAutoDosingStatus();
+      }, 2000);
+      
     } catch (err) {
       console.error(`Error updating auto dosing config:`, err);
       setAutoDosingError(err instanceof Error ? err.message : String(err));

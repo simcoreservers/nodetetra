@@ -228,7 +228,9 @@ class AutoDosing:
                         pump_assignments = []
                 
                     # If we're in cooldown period after dosing, skip this cycle
+                    # Always use the current instance value of dosing_cooldown
                     if current_time - self.last_dosing_time < self.dosing_cooldown:
+                        logger.debug(f"Using current dosing_cooldown value: {self.dosing_cooldown}s")
                         logger.info(f"In cooldown period, {int(self.dosing_cooldown - (current_time - self.last_dosing_time))}s remaining")
                         await asyncio.sleep(5)  # Check more frequently during cooldown
                         continue
@@ -238,11 +240,15 @@ class AutoDosing:
                     need_ec_adjustment = False
                     
                     try:
-                        need_ph_adjustment = self._check_ph_adjustment(current_ph, target_ph, ph_buffer)
+                        # Use the instance pH tolerance value instead of the local variable
+                        need_ph_adjustment = self._check_ph_adjustment(current_ph, target_ph, self.ph_tolerance)
+                        logger.debug(f"Using ph_tolerance={self.ph_tolerance} (profile buffer was {ph_buffer})")
                         
                         # Only check EC if pH is in acceptable range
                         if not need_ph_adjustment:
-                            need_ec_adjustment = self._check_ec_adjustment(current_ec, target_ec, ec_buffer)
+                            # Use the instance EC tolerance value instead of the local variable
+                            need_ec_adjustment = self._check_ec_adjustment(current_ec, target_ec, self.ec_tolerance)
+                            logger.debug(f"Using ec_tolerance={self.ec_tolerance} (profile buffer was {ec_buffer})")
                     except Exception as e:
                         logger.error(f"Error checking if adjustment needed: {e}")
                      
@@ -399,7 +405,8 @@ class AutoDosing:
                                       current_value=current_ec, target_value=target_ec,
                                       product_name=product_name)
                 
-                # Wait between doses
+                # Wait between doses - always use the current instance value
+                logger.debug(f"Using current between_dose_delay value: {self.between_dose_delay}s")
                 await asyncio.sleep(self.between_dose_delay)
                 
             except Exception as e:
