@@ -77,10 +77,7 @@ export default function SettingsPage() {
   // Apply simulation parameter changes
   const handleApplyChanges = async () => {
     try {
-      // Set up a loading state if not already
-      if (!isLoading) setIsLoading(true);
-      
-      // Update just the baseline values (variations are ignored now)
+      // No need to set loading state manually - updateSimulationConfig handles this internally
       const result = await updateSimulationConfig({
         baseline: {
           ph: formState.ph,
@@ -344,14 +341,6 @@ export default function SettingsPage() {
                 The exact values you configure will be used without variation, which is ideal for testing
                 specific scenarios and calibrating your auto-dosing system.
               </p>
-              <div className="bg-green-900/30 border border-green-700 rounded-md p-3 mb-4 text-green-300">
-                <div className="flex items-start">
-                  <svg className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <p className="text-sm">Simulation mode now uses static values that won't change over time. Perfect for auto-dosing tests and calibration.</p>
-                </div>
-              </div>
               <div className="space-y-4 mt-6">
                 <div className="border-t border-[#333333] pt-4">
                   <h3 className="text-md font-medium mb-3">Simulation Tools</h3>
@@ -417,72 +406,6 @@ export default function SettingsPage() {
                       step="0.5"
                       disabled={isLoading}
                     />
-                  </div>
-                </div>
-                
-                <div className="border-t border-[#333333] pt-4">
-                  <h3 className="text-md font-medium mb-3">Static Value Mode</h3>
-                  <p className="text-sm text-gray-400 mb-4">
-                    Simulation values are now set to static mode. The exact values you configure 
-                    above will be used without any variation or drift.
-                  </p>
-                  <div className="bg-blue-900/30 border border-blue-700 rounded-md p-3 mb-3 text-blue-300">
-                    <div className="flex items-start">
-                      <svg className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                      <p className="text-sm">The variation and drift settings are disabled since simulated values are now static.</p>
-                    </div>
-                  </div>
-                  <div className="space-y-3 opacity-50">
-                    <div className="flex justify-between">
-                      <span>pH Variation (Disabled)</span>
-                      <div className="flex items-center">
-                        <span className="text-sm text-gray-400 mr-2">±{formState.phVariation}</span>
-                        <input 
-                          type="range" 
-                          name="phVariation"
-                          min="0.01" 
-                          max="0.2" 
-                          step="0.01" 
-                          value={formState.phVariation}
-                          onChange={handleInputChange}
-                          disabled={true}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>EC Variation (Disabled)</span>
-                      <div className="flex items-center">
-                        <span className="text-sm text-gray-400 mr-2">±{formState.ecVariation}</span>
-                        <input 
-                          type="range" 
-                          name="ecVariation"
-                          min="0.01" 
-                          max="0.2" 
-                          step="0.01"
-                          value={formState.ecVariation}
-                          onChange={handleInputChange}
-                          disabled={true}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Temperature Variation (Disabled)</span>
-                      <div className="flex items-center">
-                        <span className="text-sm text-gray-400 mr-2">±{formState.waterTempVariation}°C</span>
-                        <input 
-                          type="range" 
-                          name="waterTempVariation"
-                          min="0.1" 
-                          max="1" 
-                          step="0.1"
-                          value={formState.waterTempVariation}
-                          onChange={handleInputChange}
-                          disabled={true}
-                        />
-                      </div>
-                    </div>
                   </div>
                 </div>
                 
