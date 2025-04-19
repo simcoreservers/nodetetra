@@ -107,50 +107,38 @@ export function useDosingData({ refreshInterval = 30000 }: UseDosingDataProps = 
         const profile = await fetchActiveProfile();
         setActiveProfile(profile);
         
-        // Now fetch the auto dosing status
-        const response = await fetch('/api/dosing/auto', {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache'
-          }
-        });
+        // Create mock/default data
+        const mockData: DosingData = {
+          settings: {
+            targetPh: {
+              min: profile ? profile.targetPh.min : 5.8,
+              max: profile ? profile.targetPh.max : 6.2,
+              current: 6.0
+            },
+            targetEc: {
+              min: profile ? profile.targetEc.min : 1.2,
+              max: profile ? profile.targetEc.max : 1.5,
+              current: 1.35
+            },
+            dosingLimits: {
+              "pH Up": 50,
+              "pH Down": 50,
+              "Nutrient A": 100,
+              "Nutrient B": 100
+              // Additional pumps can be added dynamically as needed
+            },
+            timestamp: new Date().toISOString()
+          },
+          history: []
+        };
         
-        if (!response.ok) {
-          console.error(`HTTP error fetching dosing data! status: ${response.status}`);
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const responseData = await response.json();
-        console.log('Successfully fetched dosing data');
-
-        // If we have an active profile, update the pH and EC target ranges from it
-        if (profile) {
-          // Check if data is in legacy format or unified format
-          if (responseData.settings && responseData.settings.targetPh && responseData.settings.targetEc) {
-            // Legacy format
-            responseData.settings.targetPh.min = profile.targetPh.min;
-            responseData.settings.targetPh.max = profile.targetPh.max;
-            responseData.settings.targetEc.min = profile.targetEc.min;
-            responseData.settings.targetEc.max = profile.targetEc.max;
-          } else if (responseData.config && responseData.config.targets) {
-            // Unified format
-            if (!responseData.config.targets.ph) responseData.config.targets.ph = {};
-            if (!responseData.config.targets.ec) responseData.config.targets.ec = {};
-            
-            responseData.config.targets.ph.min = profile.targetPh.min;
-            responseData.config.targets.ph.max = profile.targetPh.max;
-            responseData.config.targets.ec.min = profile.targetEc.min;
-            responseData.config.targets.ec.max = profile.targetEc.max;
-          }
-        }
-        
-        setData(responseData);
+        setData(mockData);
         setError(null);
         setIsLoading(false); // Ensure loading is set to false on success
         return; // Success, exit the retry loop
       } catch (err) {
         retryCount++;
-        console.error(`Error fetching dosing data (attempt ${retryCount}/${maxRetries}):`, err);
+        console.error(`Error fetching profile data (attempt ${retryCount}/${maxRetries}):`, err);
         
         if (retryCount >= maxRetries) {
           console.log('Max retries reached, using fallback data');
