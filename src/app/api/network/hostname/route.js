@@ -11,66 +11,22 @@ const execPromise = promisify(exec);
 
 // Function to update system hostname
 async function updateSystemHostname(hostname) {
-  const platform = process.platform;
-  
   try {
-    if (platform === 'win32') {
-      // Windows implementation
-      await execPromise(`wmic computersystem where name="${os.hostname()}" call rename name="${hostname}"`);
+    // Linux implementation
+    // Try hostnamectl first (modern systems)
+    try {
+      await execPromise(`hostnamectl set-hostname ${hostname}`);
+    } catch (error) {
+      // Fallback methods for different Linux distributions
+      console.log('hostnamectl failed, trying alternative methods');
       
-      // Windows generally requires a reboot for hostname changes to take effect
-      return {
-        success: true,
-        message: `Hostname updated to ${hostname}. A system restart may be required for changes to take effect.`,
-        hostname,
-        rebootRequired: true
-      };
-    } else if (platform === 'linux') {
-      // Linux implementation
-      // Try hostnamectl first (modern systems)
-      try {
-        await execPromise(`hostnamectl set-hostname ${hostname}`);
-      } catch (error) {
-        // Fallback methods for different Linux distributions
-        console.log('hostnamectl failed, trying alternative methods');
-        
-        // Update /etc/hostname file
-        await fs.writeFile('/etc/hostname', hostname);
-        
-        // Update current hostname
-        await execPromise(`hostname ${hostname}`);
-        
-        // Update /etc/hosts file to include the new hostname
-        try {
-          const hostsContent = await fs.readFile('/etc/hosts', 'utf8');
-          const localIpRegex = new RegExp(`(127\\.0\\.0\\.1[\\s\\t]+)${os.hostname()}`, 'g');
-          
-          if (localIpRegex.test(hostsContent)) {
-            const updatedHosts = hostsContent.replace(
-              localIpRegex, 
-              `$1${hostname}`
-            );
-            await fs.writeFile('/etc/hosts', updatedHosts);
-          }
-        } catch (hostsError) {
-          console.error('Error updating /etc/hosts:', hostsError);
-          // Continue even if this fails
-        }
-      }
+      // Update /etc/hostname file
+      await fs.writeFile('/etc/hostname', hostname);
       
-      return {
-        success: true,
-        message: `Hostname updated to ${hostname}`,
-        hostname,
-        rebootRequired: false
-      };
-    } else if (platform === 'darwin') {
-      // macOS implementation
-      await execPromise(`sudo scutil --set HostName ${hostname}`);
-      await execPromise(`sudo scutil --set LocalHostName ${hostname}`);
-      await execPromise(`sudo scutil --set ComputerName ${hostname}`);
+      // Update current hostname
+      await execPromise(`hostname ${hostname}`);
       
-      // Update /etc/hosts file
+      // Update /etc/hosts file to include the new hostname
       try {
         const hostsContent = await fs.readFile('/etc/hosts', 'utf8');
         const localIpRegex = new RegExp(`(127\\.0\\.0\\.1[\\s\\t]+)${os.hostname()}`, 'g');
@@ -86,19 +42,16 @@ async function updateSystemHostname(hostname) {
         console.error('Error updating /etc/hosts:', hostsError);
         // Continue even if this fails
       }
-      
-      return {
-        success: true,
-        message: `Hostname updated to ${hostname}`,
-        hostname,
-        rebootRequired: false
-      };
-    } else {
-      // Unsupported OS
-      throw new Error(`Changing hostname on ${platform} is not supported`);
     }
+    
+    return {
+      success: true,
+      message: `Hostname updated to ${hostname}`,
+      hostname,
+      rebootRequired: false
+    };
   } catch (error) {
-    console.error(`Error updating hostname on ${platform}:`, error);
+    console.error(`Error updating hostname:`, error);
     throw error;
   }
 }
