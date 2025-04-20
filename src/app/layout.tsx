@@ -5,6 +5,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { SidebarProvider } from "./components/SidebarContext";
 import { SimulationProvider } from "./components/SimulationContext";
+import { NetworkProvider } from "./components/NetworkContext";
 import { KeyboardProvider } from "@/components/ui/keyboard";
 import { Keyboard } from "@/components/ui/keyboard";
 
@@ -27,9 +28,11 @@ export default function RootLayout({
       <body className={inter.className}>
         <SidebarProvider>
           <SimulationProvider>
-            <Keyboard>
-              {children}
-            </Keyboard>
+            <NetworkProvider>
+              <Keyboard>
+                {children}
+              </Keyboard>
+            </NetworkProvider>
           </SimulationProvider>
         </SidebarProvider>
       </body>

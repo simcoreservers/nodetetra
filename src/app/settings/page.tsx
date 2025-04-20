@@ -191,14 +191,22 @@ export default function SettingsPage() {
               <h2 className="card-title mb-4">Device Configuration</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm mb-2">Device Name</label>
+                  <label className="block text-sm mb-2">Hostname</label>
                   <div className="flex">
-                    <Input 
-                      type="text" 
-                      className="flex-1 rounded-l"
-                      defaultValue={mockData.systemInfo.deviceName}
-                    />
-                    <button className="btn rounded-l-none">Update</button>
+                  <Input 
+                  type="text" 
+                  className="flex-1 rounded-l"
+                  value={networkFormState.hostname}
+                    onChange={(value) => setNetworkFormState(prev => ({ ...prev, hostname: value }))}
+                    placeholder="nutetra"
+                      />
+                      <button 
+                        className="btn rounded-l-none"
+                        onClick={handleHostnameUpdate}
+                        disabled={!networkFormState.hostname || networkLoading}
+                      >
+                        {networkLoading ? 'Updating...' : 'Update'}
+                      </button>
                   </div>
                 </div>
                 <div>
@@ -280,13 +288,27 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="mb-4">
                   <label className="block text-sm mb-2">WiFi Networks</label>
-                  <select className="w-full bg-[#1e1e1e] border border-[#333333] rounded p-2 mb-2">
-                    <option>Greenhouse_Network</option>
-                    <option>Home_WiFi</option>
-                    <option>Office_Network</option>
-                    <option>Guest_Network</option>
+                  <select 
+                    className="w-full bg-[#1e1e1e] border border-[#333333] rounded p-2 mb-2"
+                    name="ssid"
+                    value={networkFormState.ssid}
+                    onChange={handleNetworkInputChange}
+                    disabled={isScanning || isConnecting}
+                  >
+                    <option value="">Select a network...</option>
+                    {availableNetworks.map((network) => (
+                      <option key={network.ssid} value={network.ssid}>
+                        {network.ssid} {network.connected ? '(Connected)' : ''} - Signal: {Math.abs(network.signalStrength)}dBm
+                      </option>
+                    ))}
                   </select>
-                  <button className="btn btn-secondary w-full">Scan for Networks</button>
+                  <button 
+                    className="btn btn-secondary w-full"
+                    onClick={scanForNetworks}
+                    disabled={isScanning || isConnecting}
+                  >
+                    {isScanning ? 'Scanning...' : 'Scan for Networks'}
+                  </button>
                 </div>
                 <div>
                   <label className="block text-sm mb-2">WiFi Password</label>
@@ -294,24 +316,117 @@ export default function SettingsPage() {
                     type="password" 
                     className="w-full"
                     placeholder="Enter WiFi password"
-                    value="••••••••"
+                    name="password"
+                    value={networkFormState.password}
+                    onChange={(value) => setNetworkFormState(prev => ({ ...prev, password: value }))}
+                    disabled={isConnecting}
                   />
                 </div>
                 <div>
                   <label className="block text-sm mb-2">IP Configuration</label>
                   <div className="space-y-2">
                     <label className="flex items-center">
-                      <input type="radio" name="ipConfig" defaultChecked className="mr-2" />
+                      <input 
+                        type="radio" 
+                        name="ipConfig" 
+                        value="dhcp" 
+                        checked={networkFormState.ipConfig === "dhcp"} 
+                        onChange={handleNetworkInputChange} 
+                        className="mr-2" 
+                      />
                       <span>DHCP (Automatic)</span>
                     </label>
                     <label className="flex items-center">
-                      <input type="radio" name="ipConfig" className="mr-2" />
+                      <input 
+                        type="radio" 
+                        name="ipConfig" 
+                        value="static" 
+                        checked={networkFormState.ipConfig === "static"} 
+                        onChange={handleNetworkInputChange} 
+                        className="mr-2" 
+                      />
                       <span>Static IP</span>
                     </label>
                   </div>
                 </div>
+                
+                {networkFormState.ipConfig === "static" && (
+                  <div className="space-y-3 mt-2 p-3 border border-[#333333] rounded">
+                    <div>
+                      <label className="block text-sm mb-1">IP Address</label>
+                      <Input
+                        type="text"
+                        name="ipAddress"
+                        className="w-full"
+                        placeholder="192.168.1.x"
+                        value={networkFormState.staticIp.ipAddress}
+                        onChange={(value) => 
+                          setNetworkFormState(prev => ({
+                            ...prev,
+                            staticIp: { ...prev.staticIp, ipAddress: value }
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Gateway</label>
+                      <Input
+                        type="text"
+                        name="gateway"
+                        className="w-full"
+                        placeholder="192.168.1.1"
+                        value={networkFormState.staticIp.gateway}
+                        onChange={(value) => 
+                          setNetworkFormState(prev => ({
+                            ...prev,
+                            staticIp: { ...prev.staticIp, gateway: value }
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">Subnet Mask</label>
+                      <Input
+                        type="text"
+                        name="subnet"
+                        className="w-full"
+                        placeholder="255.255.255.0"
+                        value={networkFormState.staticIp.subnet}
+                        onChange={(value) => 
+                          setNetworkFormState(prev => ({
+                            ...prev,
+                            staticIp: { ...prev.staticIp, subnet: value }
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1">DNS Server</label>
+                      <Input
+                        type="text"
+                        name="dns"
+                        className="w-full"
+                        placeholder="8.8.8.8"
+                        value={networkFormState.staticIp.dns}
+                        onChange={(value) => 
+                          setNetworkFormState(prev => ({
+                            ...prev,
+                            staticIp: { ...prev.staticIp, dns: value }
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+                
                 <div className="pt-4 flex justify-end">
-                  <button className="btn">Connect</button>
+                  <button 
+                    className="btn"
+                    onClick={handleWifiConnect}
+                    disabled={isConnecting || !networkFormState.ssid}
+                  >
+                    {isConnecting ? 'Connecting...' : 'Connect'}
+                  </button>
                 </div>
               </div>
             </div>
