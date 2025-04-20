@@ -102,6 +102,16 @@ export default function SettingsPage() {
     }
   }, [config]);
   
+  // Trigger a WiFi scan when switching to the network tab
+  useEffect(() => {
+    if (activeTab === 'network') {
+      console.log('Network tab selected, scanning for networks...');
+      scanForNetworks().catch(error => {
+        console.error('Failed to scan for networks:', error);
+      });
+    }
+  }, [activeTab, scanForNetworks]);
+  
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -427,21 +437,39 @@ export default function SettingsPage() {
                     ))}
                   </select>
                   <button 
-                    className="btn btn-secondary w-full"
+                    className="btn w-full bg-blue-600 hover:bg-blue-700 text-white"
                     onClick={scanForNetworks}
-                    disabled={isScanning || isConnecting}
+                    disabled={isScanning}
                   >
                     {isScanning ? (
                       <span className="flex items-center justify-center">
-                        <span className="animate-spin h-4 w-4 mr-2 border-t-2 border-b-2 border-blue-500 rounded-full"></span>
-                        Scanning...
+                        <span className="animate-spin h-4 w-4 mr-2 border-t-2 border-b-2 border-white rounded-full"></span>
+                        Scanning for Networks...
                       </span>
-                    ) : 'Scan for Networks'}
+                    ) : (
+                      <span className="flex items-center justify-center">
+                        <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M8.5 12.5C8.5 10.5 10 9 12 9C14 9 15.5 10.5 15.5 12.5C15.5 14.5 14 16 12 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M12 16V19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M12 9C8.13401 9 5 12.134 5 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M12 5C14.1217 5 16.1566 5.84285 17.6569 7.34315C19.1571 8.84344 20 10.8783 20 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M4 13C4 9.5 6 6.5 9 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Scan for WiFi Networks
+                      </span>
+                    )}
                   </button>
                   {availableNetworks.length === 0 && !isScanning && (
-                    <p className="text-xs text-gray-400 mt-2">
-                      No networks found. Click "Scan for Networks" to search for available WiFi networks.
-                    </p>
+                    <div className="mt-2 p-3 border border-yellow-600 bg-yellow-600/20 rounded">
+                      <p className="text-yellow-500 text-sm flex items-center">
+                        <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 9V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M12 17.01L12.01 16.9989" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        No WiFi networks found. Make sure WiFi is enabled and click "Scan for WiFi Networks" button to search for available networks.
+                      </p>
+                    </div>
                   )}
                 </div>
                 <div>
