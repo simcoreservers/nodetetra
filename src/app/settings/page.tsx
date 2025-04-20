@@ -225,9 +225,6 @@ export default function SettingsPage() {
             <button className="btn">Check for Updates</button>
           </div>
         </div>
-        
-        {/* Keyboard test component */}
-        <KeyboardTest />
 
         {/* Tabs */}
         <div className="mb-6 border-b border-[#333333]">
