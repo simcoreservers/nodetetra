@@ -43,7 +43,26 @@ auto_doser = None
 
 def ensure_data_dir():
     """Ensure the data directory exists"""
-    os.makedirs(DATA_DIR, exist_ok=True)
+    try:
+        if not os.path.exists(DATA_DIR):
+            logger.info(f"Creating data directory at {DATA_DIR}")
+            os.makedirs(DATA_DIR, exist_ok=True)
+            logger.info(f"Data directory created successfully")
+        else:
+            logger.debug(f"Data directory already exists at {DATA_DIR}")
+        
+        # Test write permissions by creating a test file
+        test_file = os.path.join(DATA_DIR, '.test_write')
+        try:
+            with open(test_file, 'w') as f:
+                f.write('test')
+            os.remove(test_file)
+            logger.debug(f"Data directory is writable")
+        except Exception as e:
+            logger.warning(f"Data directory exists but might not be writable: {e}")
+    except Exception as e:
+        logger.error(f"Failed to create or verify data directory: {e}")
+        # We'll continue and let individual operations handle their errors
 
 
 def load_config() -> Dict[str, Any]:
@@ -425,69 +444,88 @@ async def disable_auto_dosing():
     
     logger.debug("Disable auto dosing requested")
     
-    # First update the config to prevent auto-restart
-    config = load_config()
-    config['enabled'] = False
-    save_config(config)
-    logger.info("Auto dosing disabled in configuration")
-    
-    # Update status file immediately to reflect disabled state
     try:
-        import os
-        status_file = os.path.join(DATA_DIR, 'auto_dosing_status.json')
-        if os.path.exists(status_file):
-            with open(status_file, 'r') as f:
-                status_data = json.load(f)
-            status_data['enabled'] = False
-            status_data['running'] = False
-            status_data['timestamp'] = time.time()
-            with open(status_file, 'w') as f:
-                json.dump(status_data, f)
-            logger.info("Updated status file to disabled state")
-    except Exception as e:
-        logger.error(f"Error updating status file: {e}")
-    
-    # Force kill any existing auto-dosing processes except the current one
-    try:
-        import os
-        import subprocess
-        current_pid = os.getpid()
-        logger.info(f"Current process PID: {current_pid}")
+        # First ensure data directory exists
+        ensure_data_dir()
         
-        # Find all auto-dosing processes
-        result = subprocess.run(["pgrep", "-f", "python.*auto_dosing_integration.py"], 
-                              capture_output=True, text=True)
-        if result.returncode == 0:
-            pids = [int(pid.strip()) for pid in result.stdout.strip().split('\n') if pid.strip()]
-            for pid in pids:
-                if pid != current_pid:  # Don't kill ourselves
-                    logger.info(f"Attempting to terminate external auto-dosing process: {pid}")
-                    try:
-                        subprocess.run(["kill", str(pid)], check=False)
-                    except Exception as kill_error:
-                        logger.error(f"Error terminating process {pid}: {kill_error}")
-    except Exception as proc_error:
-        logger.error(f"Error managing processes: {proc_error}")
-    
-    # Then stop the running process if it exists
-    if auto_doser:
-        if auto_doser.running:
-            logger.info("Stopping running auto dosing task")
-            await auto_doser.stop()
-            logger.info("Auto dosing task stopped")
+        # Update the config to prevent auto-restart
+        config = load_config()
+        config['enabled'] = False
+        save_config(config)
+        logger.info("Auto dosing disabled in configuration")
+        
+        # Update status file immediately to reflect disabled state
+        try:
+            status_file = os.path.join(DATA_DIR, 'auto_dosing_status.json')
+            if os.path.exists(status_file):
+                with open(status_file, 'r') as f:
+                    status_data = json.load(f)
+                status_data['enabled'] = False
+                status_data['running'] = False
+                status_data['timestamp'] = time.time()
+                with open(status_file, 'w') as f:
+                    json.dump(status_data, f)
+                logger.info("Updated status file to disabled state")
+            else:
+                # Create a new status file if it doesn't exist
+                status_data = {
+                    'enabled': False,
+                    'running': False,
+                    'pid': 0,
+                    'timestamp': time.time()
+                }
+                with open(status_file, 'w') as f:
+                    json.dump(status_data, f)
+                logger.info("Created new status file with disabled state")
+        except Exception as e:
+            logger.error(f"Error updating status file: {e}")
+            # Continue execution - don't let status file issues stop the disabling process
+        
+        # Force kill any existing auto-dosing processes except the current one
+        try:
+            current_pid = os.getpid()
+            logger.info(f"Current process PID: {current_pid}")
+            
+            # Find all auto-dosing processes
+            result = subprocess.run(["pgrep", "-f", "python.*auto_dosing_integration.py"], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                pids = [int(pid.strip()) for pid in result.stdout.strip().split('\n') if pid.strip()]
+                for pid in pids:
+                    if pid != current_pid:  # Don't kill ourselves
+                        logger.info(f"Attempting to terminate external auto-dosing process: {pid}")
+                        try:
+                            subprocess.run(["kill", str(pid)], check=False)
+                        except Exception as kill_error:
+                            logger.error(f"Error terminating process {pid}: {kill_error}")
+                            # Continue execution - don't let process killing issues stop the disabling
+        except Exception as proc_error:
+            logger.error(f"Error managing processes: {proc_error}")
+            # Continue execution - don't let process management issues stop the disabling
+        
+        # Then stop the running process if it exists
+        if auto_doser:
+            if auto_doser.running:
+                logger.info("Stopping running auto dosing task")
+                await auto_doser.stop()
+                logger.info("Auto dosing task stopped")
+            else:
+                logger.info("Auto dosing task not running")
         else:
-            logger.info("Auto dosing task not running")
-    else:
-        logger.info("No auto_doser instance exists")
-    
-    # Double check that task is really stopped
-    if auto_doser and auto_doser.task:
-        if not auto_doser.task.done() and not auto_doser.task.cancelled():
-            logger.warning("Auto dosing task still appears to be running, forcing cancellation")
-            auto_doser.task.cancel()
-    
-    # Return success response
-    return {"success": True, "message": "Auto dosing disabled"}
+            logger.info("No auto_doser instance exists")
+        
+        # Double check that task is really stopped
+        if auto_doser and auto_doser.task:
+            if not auto_doser.task.done() and not auto_doser.task.cancelled():
+                logger.warning("Auto dosing task still appears to be running, forcing cancellation")
+                auto_doser.task.cancel()
+        
+        # Return success response
+        return {"success": True, "message": "Auto dosing disabled"}
+    except Exception as e:
+        logger.error(f"Fatal error disabling auto dosing: {e}")
+        # Re-raise with a clearer message that will help in debugging
+        raise Exception(f"Failed to disable auto dosing: {str(e)}")
 
 
 def get_auto_dosing_status():

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { error, info, debug, warn } from '@/app/lib/logger';
+import { ChildProcess } from 'child_process';
 
 const execAsync = promisify(exec);
 const MODULE = 'api:dosing:auto';
@@ -243,13 +244,62 @@ export async function POST(request: NextRequest) {
         });
         
       case 'disable':
-        await runAutoDoseCommand('disable');
-        info(MODULE, 'Auto dosing disabled');
-        
-        return NextResponse.json({
-          status: 'success',
-          message: 'Auto dosing disabled'
-        });
+        try {
+          // Create data directory if it doesn't exist yet
+          try {
+            const { promises: fs } = require('fs');
+            const path = require('path');
+            const dataDir = path.join(process.cwd(), 'data');
+            await fs.mkdir(dataDir, { recursive: true });
+            info(MODULE, `Ensured data directory exists at ${dataDir}`);
+          } catch (dirErr: unknown) {
+            warn(MODULE, `Could not create data directory: ${dirErr}`);
+            // Continue anyway, the Python script should handle this
+          }
+          
+          // Run the disable command with extra error handling
+          await runAutoDoseCommand('disable').catch((disableErr: unknown) => {
+            error(MODULE, `Error from Python disable command: ${disableErr}`);
+            // Continue and try to help recover
+            
+            // Try to create a status file directly if the command failed
+            try {
+              const { promises: fs } = require('fs');
+              const path = require('path');
+              const statusPath = path.join(process.cwd(), 'data', 'auto_dosing_status.json');
+              
+              const statusData = {
+                enabled: false,
+                running: false,
+                pid: 0,
+                timestamp: Date.now() / 1000
+              };
+              
+              fs.writeFile(statusPath, JSON.stringify(statusData, null, 2)).catch((writeErr: unknown) => {
+                error(MODULE, `Error creating backup status file: ${writeErr}`);
+              });
+            } catch (fileErr: unknown) {
+              error(MODULE, `Error in backup status file creation: ${fileErr}`);
+            }
+            
+            // No need to re-throw, we'll handle gracefully
+          });
+          
+          info(MODULE, 'Auto dosing disabled');
+          
+          return NextResponse.json({
+            status: 'success',
+            message: 'Auto dosing disabled'
+          });
+        } catch (err: unknown) {
+          error(MODULE, 'Critical error in disable action:', err);
+          return NextResponse.json({
+            status: 'error',
+            error: 'Failed to disable auto dosing',
+            message: err instanceof Error ? err.message : String(err),
+            details: 'The system may be in an inconsistent state'
+          }, { status: 500 });
+        }
         
       case 'updateConfig':
         if (!config) {
