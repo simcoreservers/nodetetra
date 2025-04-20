@@ -100,9 +100,15 @@ async function connectToWiFiLinux(ssid, password) {
         const wpaConfigPath = '/etc/wpa_supplicant/wpa_supplicant.conf';
         
         // Check if the file exists and is writable
+        let canWriteToSystemConfig = false;
         try {
           await fs.access(wpaConfigPath, fs.constants.W_OK);
+          canWriteToSystemConfig = true;
         } catch (accessError) {
+          canWriteToSystemConfig = false;
+        }
+        
+        if (!canWriteToSystemConfig) {
           // If not writable, we'll need to create a temporary config
           console.log('Cannot write to system wpa_supplicant.conf, creating temporary config');
           const tmpConfigPath = path.join('/tmp', 'wpa_supplicant.conf');

@@ -7,9 +7,21 @@ import { promisify } from 'util';
 
 const execPromise = promisify(exec);
 
+// Cache to store scan results and reduce unnecessary scans
+let cachedNetworks = null;
+let lastScanTime = 0;
+const SCAN_CACHE_DURATION = 10000; // 10 seconds in milliseconds
+
 // Function to scan for WiFi networks on Raspberry Pi / Linux
-async function scanWifiNetworks() {
+async function scanWifiNetworks(forceScan = false) {
   try {
+    // Check if we have recent cached results
+    const now = Date.now();
+    if (!forceScan && cachedNetworks && (now - lastScanTime < SCAN_CACHE_DURATION)) {
+      console.log('Returning cached scan results, age:', (now - lastScanTime) / 1000, 'seconds');
+      return cachedNetworks;
+    }
+    
     console.log('Scanning for WiFi networks on Raspberry Pi / Linux');
     let networks = [];
     let command = '';
@@ -178,7 +190,7 @@ async function scanWifiNetworks() {
     // If no networks found or execution failed, provide fallback message
     if (networks.length === 0) {
       console.warn('Failed to scan for networks using system commands.');
-      return [
+      networks = [
         { 
           ssid: "No WiFi networks found", 
           signalStrength: 0, 
@@ -191,6 +203,10 @@ async function scanWifiNetworks() {
     
     // Sort networks by signal strength
     networks.sort((a, b) => b.signalStrength - a.signalStrength);
+    
+    // Update the cache with new results
+    cachedNetworks = networks;
+    lastScanTime = now;
     
     return networks;
   } catch (error) {
@@ -209,20 +225,24 @@ async function scanWifiNetworks() {
 }
 
 // GET handler for WiFi scanning
-export async function GET() {
+export async function GET(request) {
   try {
+    // Check for force scan query parameter
+    const url = new URL(request.url);
+    const forceScan = url.searchParams.get('force') === 'true';
+    
     // First attempt
-    let networks = await scanWifiNetworks();
+    let networks = await scanWifiNetworks(forceScan);
     
     // If no networks found, try again after a short delay
-    if (networks.length === 1 && networks[0].error) {
+    if (networks.length === 1 && networks[0].error && !cachedNetworks) {
       console.log("No networks found in first attempt, trying again after delay...");
       
       // Wait for 2 seconds
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Try again
-      networks = await scanWifiNetworks();
+      // Try again with force scan
+      networks = await scanWifiNetworks(true);
     }
     
     return NextResponse.json(networks);

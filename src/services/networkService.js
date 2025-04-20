@@ -24,10 +24,11 @@ export async function getNetworkStatus() {
 }
 
 // Function to scan for available WiFi networks
-export async function scanWifiNetworks() {
+export async function scanWifiNetworks(forceScan = false) {
   try {
     // Call the API endpoint to scan for WiFi networks
-    const response = await fetch('/api/network/scan');
+    const url = forceScan ? '/api/network/scan?force=true' : '/api/network/scan';
+    const response = await fetch(url);
     
     if (!response.ok) {
       const errorData = await response.json();

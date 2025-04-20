@@ -102,16 +102,6 @@ export default function SettingsPage() {
     }
   }, [config]);
   
-  // Trigger a WiFi scan when switching to the network tab
-  useEffect(() => {
-    if (activeTab === 'network') {
-      console.log('Network tab selected, scanning for networks...');
-      scanForNetworks().catch(error => {
-        console.error('Failed to scan for networks:', error);
-      });
-    }
-  }, [activeTab, scanForNetworks]);
-  
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
