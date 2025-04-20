@@ -57,10 +57,13 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())`;
     
-    // Fix for string interpolation in Python command
-    // Make sure all quotes are properly escaped, especially in the diagnostic section
-    const safePythonCommand = pythonCommand.replace(/os\.path\.join\(os\.getcwd\(\), ['']?data['']?, ['']?auto_dosing_status\.json['']?\)/g, 
-      "os.path.join(os.getcwd(), 'data', 'auto_dosing_status.json')");
+    // Fix for string interpolation in Python command - much more targeted replacement
+    // This addresses the issue where 'data' and 'auto_dosing_status.json' are losing their quotes
+    let safePythonCommand = pythonCommand
+      .replace(/data_dir = data/g, "data_dir = 'data'")
+      .replace(/status_filename = auto_dosing_status\.json/g, "status_filename = 'auto_dosing_status.json'")
+      .replace(/os\.path\.join\(os\.getcwd\(\), ['']?data['']?, ['']?auto_dosing_status\.json['']?\)/g, 
+        "os.path.join(os.getcwd(), 'data', 'auto_dosing_status.json')");
     
     // Execute the Python script with fixed command
     const { stdout, stderr } = await execAsync(`python -c '${safePythonCommand}'`);
@@ -257,9 +260,8 @@ export async function POST(request: NextRequest) {
           // Kill any existing auto-dosing processes before starting new one
           try {
             const { execSync } = require('child_process');
-            info(MODULE, 'Cleaning up any existing auto-dosing processes');
-            // This command finds and kills any existing auto_dosing_integration.py processes
-            execSync(`pkill -f "python.*auto_dosing_integration\.py"`, { stdio: 'ignore' });
+            info(MODULE, 'Forcefully cleaning all existing auto-dosing processes');
+            execSync('pkill -9 -f "python.*auto_dosing_integration\.py"', { stdio: 'ignore' });
             // Give the system time to clean up processes
             await new Promise(resolve => setTimeout(resolve, 1000));
           } catch (killErr: unknown) {
@@ -267,51 +269,85 @@ export async function POST(request: NextRequest) {
             debug(MODULE, `Process cleanup result: ${killErr}`);
           }
           
-          // Now enable auto-dosing with a clean system state
+          // Update config file directly to ensure it's enabled
           try {
-            await runAutoDoseCommand('enable');
-            info(MODULE, 'Auto dosing enabled');
-          } catch (enableError) {
-            error(MODULE, 'Error in Python enable_auto_dosing command:', enableError);
-            // Continue with the process - we'll still try to update the status file directly
+            const { promises: fs } = require('fs');
+            const path = require('path');
+            const configPath = path.join(process.cwd(), 'data', 'auto_dosing_config.json');
+            
+            if (await fs.stat(configPath).then(() => true).catch(() => false)) {
+              // Read and update the config file
+              const configData = JSON.parse(await fs.readFile(configPath, 'utf8'));
+              configData.enabled = true;
+              await fs.writeFile(configPath, JSON.stringify(configData, null, 2));
+              info(MODULE, 'Updated config file directly to enabled state');
+            } else {
+              // Create a new config file if it doesn't exist
+              const configData = {
+                enabled: true,
+                check_interval: 60,
+                dosing_cooldown: 300,
+                between_dose_delay: 30
+              };
+              await fs.writeFile(configPath, JSON.stringify(configData, null, 2));
+              info(MODULE, 'Created new config file with enabled state');
+            }
+          } catch (configErr) {
+            warn(MODULE, `Error updating config file: ${configErr}`);
           }
           
-          // Double check the status file
+          // Now try the Python command to enable
+          let pythonSuccess = false;
+          try {
+            await runAutoDoseCommand('enable');
+            info(MODULE, 'Auto dosing enabled via Python command');
+            pythonSuccess = true;
+          } catch (enableError) {
+            error(MODULE, 'Error in Python enable_auto_dosing command:', enableError);
+            // We'll continue with direct process creation as fallback
+          }
+          
+          // If Python command failed or we want to ensure a clean process, create one directly
+          if (!pythonSuccess) {
+            try {
+              const { spawn } = require('child_process');
+              info(MODULE, 'Creating a new auto_dosing process directly');
+              
+              // Use spawn to start a completely new process
+              const child = spawn('python', ['auto_dosing_integration.py'], {
+                detached: true,
+                stdio: 'ignore',
+                cwd: process.cwd()
+              });
+              child.unref();
+              info(MODULE, `Started new auto_dosing_integration.py process with PID ${child.pid}`);
+              
+              // Give it a moment to initialize
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            } catch (spawnErr) {
+              error(MODULE, `Error creating auto-dosing process directly: ${spawnErr}`);
+              // Even if direct process creation fails, we've updated the config file,
+              // so it should start on next system boot
+            }
+          }
+          
+          // Double check/update the status file
           try {
             const { promises: fs } = require('fs');
             const path = require('path');
             const statusPath = path.join(process.cwd(), 'data', 'auto_dosing_status.json');
             
-            if (await fs.stat(statusPath).then(() => true).catch(() => false)) {
-              const statusData = JSON.parse(await fs.readFile(statusPath, 'utf8'));
-              if (!statusData.enabled) {
-                info(MODULE, 'Status file shows auto-dosing as disabled, updating to enabled');
-                statusData.enabled = true;
-                statusData.running = true;
-                statusData.timestamp = Date.now() / 1000;
-                await fs.writeFile(statusPath, JSON.stringify(statusData, null, 2));
-                
-                // Try to create a new auto-dosing process directly
-                try {
-                  const { spawn } = require('child_process');
-                  info(MODULE, 'Spawning a new auto_dosing_integration.py process');
-                  // Use spawn instead of exec to create a detached process
-                  const child = spawn('python', ['auto_dosing_integration.py'], {
-                    detached: true,
-                    stdio: 'ignore',
-                    cwd: process.cwd()
-                  });
-                  // Unref the child to allow the parent to exit independently
-                  child.unref();
-                  info(MODULE, `Spawned auto_dosing_integration.py with PID ${child.pid}`);
-                } catch (spawnErr) {
-                  warn(MODULE, `Error spawning auto_dosing_integration.py: ${spawnErr}`);
-                  // Continue anyway - the config is updated, so it will start on next system boot
-                }
-              }
-            }
+            // Always create/update the status file with enabled=true state
+            const statusData = {
+              enabled: true,
+              running: true,
+              pid: 0,  // We don't know the actual PID from the spawned process
+              timestamp: Date.now() / 1000
+            };
+            await fs.writeFile(statusPath, JSON.stringify(statusData, null, 2));
+            info(MODULE, 'Updated/created status file with enabled=true state');
           } catch (fileErr: unknown) {
-            warn(MODULE, `Error checking/updating status file: ${fileErr}`);
+            warn(MODULE, `Error updating status file: ${fileErr}`);
           }
           
           return NextResponse.json({

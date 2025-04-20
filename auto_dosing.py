@@ -155,7 +155,7 @@ class AutoDosing:
         restart_count = 0
         max_restarts = 5
         
-        while self.enabled and self.running:
+        while True:
             try:
                 # Double-check these flags at the start of each iteration
                 if not self.enabled or not self.running:
