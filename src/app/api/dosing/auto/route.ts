@@ -26,8 +26,10 @@ try:
     pids = subprocess.run(["pgrep", "-fa", "python.*auto_dosing_integration.py"], capture_output=True, text=True).stdout.strip()
     print(f"Found auto_dosing processes: {pids}", file=sys.stderr)
     
-    # Check for status file
-    status_file = os.path.join(os.getcwd(), 'data', 'auto_dosing_status.json')
+    # Check for status file - ensure strings are properly quoted
+    data_dir = 'data'  # Define as string variable to avoid quoting issues
+    status_filename = 'auto_dosing_status.json'  # Define as string variable to avoid quoting issues
+    status_file = os.path.join(os.getcwd(), data_dir, status_filename)
     if os.path.exists(status_file):
         with open(status_file, 'r') as f:
             status_data = json.load(f)
@@ -55,8 +57,13 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())`;
     
-    // Execute the Python script
-    const { stdout, stderr } = await execAsync(`python -c '${pythonCommand}'`);
+    // Fix for string interpolation in Python command
+    // Make sure all quotes are properly escaped, especially in the diagnostic section
+    const safePythonCommand = pythonCommand.replace(/os\.path\.join\(os\.getcwd\(\), ['']?data['']?, ['']?auto_dosing_status\.json['']?\)/g, 
+      "os.path.join(os.getcwd(), 'data', 'auto_dosing_status.json')");
+    
+    // Execute the Python script with fixed command
+    const { stdout, stderr } = await execAsync(`python -c '${safePythonCommand}'`);
     
     if (stderr) {
       // Log stdout and stderr for debugging
