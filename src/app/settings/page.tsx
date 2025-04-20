@@ -75,8 +75,15 @@ export default function SettingsPage() {
       scanForNetworks().catch(error => {
         console.error("Failed to scan for networks:", error);
       });
+      
+      // Also refresh network status when selecting network tab
+      if (!networkStatus) {
+        refreshNetworkStatus().catch(error => {
+          console.error("Failed to refresh network status:", error);
+        });
+      }
     }
-  }, [activeTab, availableNetworks.length, isScanning, scanForNetworks]);
+  }, [activeTab, availableNetworks.length, isScanning, scanForNetworks, networkStatus, refreshNetworkStatus]);
   
   // Update network form state when network status changes
   useEffect(() => {
@@ -367,31 +374,31 @@ export default function SettingsPage() {
                   <div className="space-y-3">
                     <div className="flex justify-between border-b border-[#333333] pb-2">
                       <span className="text-gray-400">Hostname</span>
-                      <span>{networkStatus.hostname}</span>
+                      <span>{networkStatus.hostname || 'Unknown'}</span>
                     </div>
                     <div className="flex justify-between border-b border-[#333333] pb-2">
                       <span className="text-gray-400">IP Address</span>
-                      <span>{networkStatus.ipAddress}</span>
+                      <span>{networkStatus.ipAddress || 'Not connected'}</span>
                     </div>
                     <div className="flex justify-between border-b border-[#333333] pb-2">
                       <span className="text-gray-400">MAC Address</span>
-                      <span>{networkStatus.macAddress}</span>
+                      <span>{networkStatus.macAddress || 'Unknown'}</span>
                     </div>
                     <div className="flex justify-between border-b border-[#333333] pb-2">
                       <span className="text-gray-400">Connection Type</span>
-                      <span>{networkStatus.connectionType}</span>
+                      <span>{networkStatus.connectionType || 'Not connected'}</span>
                     </div>
                     <div className="flex justify-between border-b border-[#333333] pb-2">
                       <span className="text-gray-400">WiFi Network (SSID)</span>
-                      <span>{networkStatus.ssid}</span>
+                      <span>{networkStatus.ssid || 'Not connected'}</span>
                     </div>
                     <div className="flex justify-between border-b border-[#333333] pb-2">
                       <span className="text-gray-400">Signal Strength</span>
-                      <span>{networkStatus.signalStrength}</span>
+                      <span>{networkStatus.signalStrength || 'Unknown'}</span>
                     </div>
                     <div className="flex justify-between border-b border-[#333333] pb-2">
                       <span className="text-gray-400">Last Updated</span>
-                      <span>{new Date(networkStatus.lastUpdated).toLocaleString()}</span>
+                      <span>{networkStatus.lastUpdated ? new Date(networkStatus.lastUpdated).toLocaleString() : 'Unknown'}</span>
                     </div>
                   </div>
                   <div className="mt-4">

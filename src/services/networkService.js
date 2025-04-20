@@ -16,7 +16,19 @@ export async function getNetworkStatus() {
       throw new Error(errorData.error || 'Failed to fetch network status');
     }
     
-    return await response.json();
+    const data = await response.json();
+    
+    // Map API response to expected NetworkStatus format
+    return {
+      hostname: data.system?.hostname || 'Unknown',
+      ipAddress: data.wifi?.ipAddress || 'Not connected',
+      macAddress: data.system?.macAddress || 'Unknown',
+      connectionType: data.wifi?.networkType || 'Not connected',
+      ssid: data.wifi?.ssid || 'Not connected',
+      signalStrength: data.wifi?.signalStrength ? `${data.wifi.signalStrength} dBm` : 'Unknown',
+      connected: data.wifi?.connected || false,
+      lastUpdated: new Date().toISOString()
+    };
   } catch (error) {
     console.error('Error fetching network status:', error);
     throw error;
