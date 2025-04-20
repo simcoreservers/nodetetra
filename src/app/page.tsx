@@ -245,7 +245,7 @@ export default function Home() {
           
           {/* EC Sensor Card */}
           <SensorCard
-            title="EC / PPM"
+            title="EC"
             value={ecValue}
             target={activeProfile ? `${activeProfile.targetEc.target} mS/cm (±${activeProfile.targetEc.buffer})` : "1.4 mS/cm (±0.2)"}
             status={ecStatus}
@@ -278,7 +278,6 @@ export default function Home() {
         
         {/* Pumps Status */}
         <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4">Pump Status</h2>
           <PumpStatusCard
             pumpStatus={Array.isArray(effectivePumpData) ? effectivePumpData : []}
             isLoading={pumpsLoading && !streamData}
