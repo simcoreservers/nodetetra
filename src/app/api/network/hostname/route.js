@@ -1,20 +1,107 @@
 // API route for updating hostname
-// In a real production application, this would interact with the system's hostname configuration
+// Implementation uses system commands to update the actual system hostname
 
 import { NextResponse } from 'next/server';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs/promises';
+import os from 'os';
 
-// Reference to the network status in the status endpoint (for demo purposes)
-// In a real app, this would interact with the OS
-let networkStatus = {
-  hostname: "nutetra-system",
-  ipAddress: "192.168.1.105",
-  macAddress: "A1:B2:C3:D4:E5:F6",
-  connectionType: "WiFi",
-  ssid: "Greenhouse_Network",
-  signalStrength: "Excellent",
-  connected: true,
-  lastUpdated: new Date().toISOString()
-};
+const execPromise = promisify(exec);
+
+// Function to update system hostname
+async function updateSystemHostname(hostname) {
+  const platform = process.platform;
+  
+  try {
+    if (platform === 'win32') {
+      // Windows implementation
+      await execPromise(`wmic computersystem where name="${os.hostname()}" call rename name="${hostname}"`);
+      
+      // Windows generally requires a reboot for hostname changes to take effect
+      return {
+        success: true,
+        message: `Hostname updated to ${hostname}. A system restart may be required for changes to take effect.`,
+        hostname,
+        rebootRequired: true
+      };
+    } else if (platform === 'linux') {
+      // Linux implementation
+      // Try hostnamectl first (modern systems)
+      try {
+        await execPromise(`hostnamectl set-hostname ${hostname}`);
+      } catch (error) {
+        // Fallback methods for different Linux distributions
+        console.log('hostnamectl failed, trying alternative methods');
+        
+        // Update /etc/hostname file
+        await fs.writeFile('/etc/hostname', hostname);
+        
+        // Update current hostname
+        await execPromise(`hostname ${hostname}`);
+        
+        // Update /etc/hosts file to include the new hostname
+        try {
+          const hostsContent = await fs.readFile('/etc/hosts', 'utf8');
+          const localIpRegex = new RegExp(`(127\\.0\\.0\\.1[\\s\\t]+)${os.hostname()}`, 'g');
+          
+          if (localIpRegex.test(hostsContent)) {
+            const updatedHosts = hostsContent.replace(
+              localIpRegex, 
+              `$1${hostname}`
+            );
+            await fs.writeFile('/etc/hosts', updatedHosts);
+          }
+        } catch (hostsError) {
+          console.error('Error updating /etc/hosts:', hostsError);
+          // Continue even if this fails
+        }
+      }
+      
+      return {
+        success: true,
+        message: `Hostname updated to ${hostname}`,
+        hostname,
+        rebootRequired: false
+      };
+    } else if (platform === 'darwin') {
+      // macOS implementation
+      await execPromise(`sudo scutil --set HostName ${hostname}`);
+      await execPromise(`sudo scutil --set LocalHostName ${hostname}`);
+      await execPromise(`sudo scutil --set ComputerName ${hostname}`);
+      
+      // Update /etc/hosts file
+      try {
+        const hostsContent = await fs.readFile('/etc/hosts', 'utf8');
+        const localIpRegex = new RegExp(`(127\\.0\\.0\\.1[\\s\\t]+)${os.hostname()}`, 'g');
+        
+        if (localIpRegex.test(hostsContent)) {
+          const updatedHosts = hostsContent.replace(
+            localIpRegex, 
+            `$1${hostname}`
+          );
+          await fs.writeFile('/etc/hosts', updatedHosts);
+        }
+      } catch (hostsError) {
+        console.error('Error updating /etc/hosts:', hostsError);
+        // Continue even if this fails
+      }
+      
+      return {
+        success: true,
+        message: `Hostname updated to ${hostname}`,
+        hostname,
+        rebootRequired: false
+      };
+    } else {
+      // Unsupported OS
+      throw new Error(`Changing hostname on ${platform} is not supported`);
+    }
+  } catch (error) {
+    console.error(`Error updating hostname on ${platform}:`, error);
+    throw error;
+  }
+}
 
 // PUT handler for updating hostname
 export async function PUT(req) {
@@ -39,26 +126,29 @@ export async function PUT(req) {
       );
     }
     
-    // In a production environment, this would use OS-specific commands or libraries
-    // to update the system's hostname
+    // Additional validation
+    if (hostname.length > 63) {
+      return NextResponse.json(
+        { error: 'Hostname must be 63 characters or less' },
+        { status: 400 }
+      );
+    }
     
-    // For example, on Linux you might use:
-    // - hostnamectl set-hostname [HOSTNAME]
-    // - Update /etc/hostname file
+    if (hostname.startsWith('-') || hostname.endsWith('-')) {
+      return NextResponse.json(
+        { error: 'Hostname cannot start or end with a hyphen' },
+        { status: 400 }
+      );
+    }
     
-    // For demonstration, we'll update our simulated network status
-    networkStatus.hostname = hostname;
-    networkStatus.lastUpdated = new Date().toISOString();
+    // Update the system hostname
+    const result = await updateSystemHostname(hostname);
     
-    return NextResponse.json({
-      success: true,
-      message: `Hostname updated to ${hostname}`,
-      hostname
-    });
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error updating hostname:', error);
     return NextResponse.json(
-      { error: 'Failed to update hostname' },
+      { error: `Failed to update hostname: ${error.message}` },
       { status: 500 }
     );
   }
