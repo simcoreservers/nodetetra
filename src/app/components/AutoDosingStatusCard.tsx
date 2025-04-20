@@ -72,7 +72,15 @@ export default function AutoDosingStatusCard({ className = "" }: AutoDosingStatu
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to ${action} auto dosing: ${response.status}`);
+        // Get the error message from the response if possible
+        let errorMsg = `Failed to ${action} auto dosing: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.error) {
+            errorMsg = `${errorMsg} - ${errorData.error}`;
+          }
+        } catch {}
+        throw new Error(errorMsg);
       }
       
       // Optimistically update UI state

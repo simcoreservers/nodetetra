@@ -268,8 +268,13 @@ export async function POST(request: NextRequest) {
           }
           
           // Now enable auto-dosing with a clean system state
-          await runAutoDoseCommand('enable');
-          info(MODULE, 'Auto dosing enabled');
+          try {
+            await runAutoDoseCommand('enable');
+            info(MODULE, 'Auto dosing enabled');
+          } catch (enableError) {
+            error(MODULE, 'Error in Python enable_auto_dosing command:', enableError);
+            // Continue with the process - we'll still try to update the status file directly
+          }
           
           // Double check the status file
           try {
@@ -285,6 +290,24 @@ export async function POST(request: NextRequest) {
                 statusData.running = true;
                 statusData.timestamp = Date.now() / 1000;
                 await fs.writeFile(statusPath, JSON.stringify(statusData, null, 2));
+                
+                // Try to create a new auto-dosing process directly
+                try {
+                  const { spawn } = require('child_process');
+                  info(MODULE, 'Spawning a new auto_dosing_integration.py process');
+                  // Use spawn instead of exec to create a detached process
+                  const child = spawn('python', ['auto_dosing_integration.py'], {
+                    detached: true,
+                    stdio: 'ignore',
+                    cwd: process.cwd()
+                  });
+                  // Unref the child to allow the parent to exit independently
+                  child.unref();
+                  info(MODULE, `Spawned auto_dosing_integration.py with PID ${child.pid}`);
+                } catch (spawnErr) {
+                  warn(MODULE, `Error spawning auto_dosing_integration.py: ${spawnErr}`);
+                  // Continue anyway - the config is updated, so it will start on next system boot
+                }
               }
             }
           } catch (fileErr: unknown) {

@@ -308,7 +308,30 @@ async def start_auto_dosing():
     # Load configuration
     config = load_config()
     
+    # If we already have an auto_doser instance that's running, don't create a new one
+    if auto_doser and auto_doser.running:
+        logger.info("Auto-doser already running, not creating a new instance")
+        return
+        
+    # Kill any existing instance if it exists but isn't running properly
+    if auto_doser and not auto_doser.running:
+        logger.info("Existing auto_doser instance found but not running, cleaning up")
+        try:
+            if auto_doser.task and not auto_doser.task.done() and not auto_doser.task.cancelled():
+                logger.info("Cancelling existing task")
+                auto_doser.task.cancel()
+                try:
+                    # Wait with timeout for the task to actually stop
+                    await asyncio.wait_for(asyncio.shield(auto_doser.task), timeout=3.0)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    pass
+        except Exception as e:
+            logger.error(f"Error cleaning up existing task: {e}")
+        # Reset the instance to None so we create a fresh one
+        auto_doser = None
+    
     # Create auto doser instance
+    logger.info("Creating new AutoDosing instance")
     auto_doser = AutoDosing(
         get_sensor_readings,
         get_active_profile,
