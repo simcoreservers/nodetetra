@@ -96,6 +96,30 @@ def save_config(config: Dict[str, Any]):
         logger.error(f"Error saving config: {e}")
 
 
+def update_status_file(enabled: bool, running: bool, pid: int = 0):
+    """Update the auto dosing status file"""
+    ensure_data_dir()
+    
+    status_file = os.path.join(DATA_DIR, 'auto_dosing_status.json')
+    
+    try:
+        status_data = {
+            "enabled": enabled,
+            "running": running,
+            "pid": pid or os.getpid() if running else 0,
+            "timestamp": time.time()
+        }
+        
+        with open(status_file, 'w') as f:
+            json.dump(status_data, f, indent=2)
+            
+        logger.info(f"Updated status file: {status_data}")
+        return True
+    except Exception as e:
+        logger.error(f"Error updating status file: {e}")
+        return False
+
+
 def get_sensor_readings() -> Dict[str, float]:
     """
     Get sensor readings from the Atlas Scientific sensors
@@ -321,21 +345,10 @@ async def main():
     # Create status file directory if it doesn't exist
     ensure_data_dir()
     
-    # Create initial status file
-    try:
-        import os
-        status_file = os.path.join(DATA_DIR, 'auto_dosing_status.json')
-        with open(status_file, 'w') as f:
-            status_data = {
-                "enabled": True,
-                "running": True,  # Set to true as we're starting now
-                "pid": os.getpid(),
-                "timestamp": time.time()
-            }
-            json.dump(status_data, f)
-            logger.info(f"Created initial status file: {status_data}")
-    except Exception as e:
-        logger.error(f"Error creating initial status file: {e}")
+    # Create initial status file using our helper function
+    config = load_config() 
+    enabled_in_config = config.get('enabled', False)
+    update_status_file(enabled=enabled_in_config, running=enabled_in_config)
     
     try:
         # Start auto dosing
@@ -404,6 +417,38 @@ async def enable_auto_dosing():
     
     logger.debug("Enable auto dosing requested")
     
+    # First ensure data directory exists
+    ensure_data_dir()
+    
+    # First, update the config file to make sure it's marked as enabled
+    config = load_config()
+    config['enabled'] = True
+    save_config(config)
+    logger.info("Auto dosing enabled in configuration")
+    
+    # Force cleanup other processes
+    try:
+        import subprocess
+        current_pid = os.getpid()
+        logger.info(f"Current process PID: {current_pid}")
+        
+        # Find any other auto-dosing processes and terminate them
+        result = subprocess.run(["pgrep", "-f", "python.*auto_dosing_integration.py"], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            pids = [pid.strip() for pid in result.stdout.strip().split('\n') if pid.strip()]
+            for pid in pids:
+                if int(pid) != current_pid:
+                    logger.info(f"Terminating other auto-dosing process: {pid}")
+                    try:
+                        subprocess.run(["kill", "-9", pid], check=False)
+                        # Wait a bit to ensure process is terminated
+                        await asyncio.sleep(0.5)
+                    except Exception as kill_error:
+                        logger.error(f"Error terminating process {pid}: {kill_error}")
+    except Exception as proc_error:
+        logger.error(f"Error managing processes: {proc_error}")
+    
     # Ensure we have an auto_doser instance
     if not auto_doser:
         logger.debug("No auto_doser instance, creating one")
@@ -432,6 +477,9 @@ async def enable_auto_dosing():
     config['enabled'] = True
     save_config(config)
     
+    # Update the status file to reflect enabled state
+    update_status_file(enabled=True, running=True)
+    
     logger.info("Auto dosing enabled and configured to start on boot")
     
     # Return success
@@ -455,31 +503,7 @@ async def disable_auto_dosing():
         logger.info("Auto dosing disabled in configuration")
         
         # Update status file immediately to reflect disabled state
-        try:
-            status_file = os.path.join(DATA_DIR, 'auto_dosing_status.json')
-            if os.path.exists(status_file):
-                with open(status_file, 'r') as f:
-                    status_data = json.load(f)
-                status_data['enabled'] = False
-                status_data['running'] = False
-                status_data['timestamp'] = time.time()
-                with open(status_file, 'w') as f:
-                    json.dump(status_data, f)
-                logger.info("Updated status file to disabled state")
-            else:
-                # Create a new status file if it doesn't exist
-                status_data = {
-                    'enabled': False,
-                    'running': False,
-                    'pid': 0,
-                    'timestamp': time.time()
-                }
-                with open(status_file, 'w') as f:
-                    json.dump(status_data, f)
-                logger.info("Created new status file with disabled state")
-        except Exception as e:
-            logger.error(f"Error updating status file: {e}")
-            # Continue execution - don't let status file issues stop the disabling process
+        update_status_file(enabled=False, running=False, pid=0)
         
         # Force kill any existing auto-dosing processes except the current one
         try:
@@ -642,21 +666,8 @@ def get_auto_dosing_status():
             # Create a new task to start the auto dosing
             asyncio.create_task(auto_doser.start())
     
-    # Save status to file for external processes to read
-    try:
-        import os
-        status_file = os.path.join(DATA_DIR, 'auto_dosing_status.json')
-        with open(status_file, 'w') as f:
-            status_data = {
-                "enabled": status["enabled"],
-                "running": True,  # Always set to true when returning from this function
-                "pid": os.getpid(),
-                "timestamp": time.time()
-            }
-            json.dump(status_data, f)
-            logger.debug(f"Saved status to file: {status_data}")
-    except Exception as e:
-        logger.error(f"Error saving status file: {e}")
+    # Save status to file for external processes to read using our helper function
+    update_status_file(enabled=status["enabled"], running=True)
     
     # Ensure config is always included
     if "config" not in status:

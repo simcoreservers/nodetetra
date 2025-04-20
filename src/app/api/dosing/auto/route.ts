@@ -242,13 +242,67 @@ export async function POST(request: NextRequest) {
     
     switch (action) {
       case 'enable':
-        await runAutoDoseCommand('enable');
-        info(MODULE, 'Auto dosing enabled');
-        
-        return NextResponse.json({
-          status: 'success',
-          message: 'Auto dosing enabled'
-        });
+        try {
+          // Create data directory if it doesn't exist yet
+          try {
+            const { promises: fs } = require('fs');
+            const path = require('path');
+            const dataDir = path.join(process.cwd(), 'data');
+            await fs.mkdir(dataDir, { recursive: true });
+            info(MODULE, `Ensured data directory exists at ${dataDir}`);
+          } catch (dirErr: unknown) {
+            warn(MODULE, `Could not create data directory: ${dirErr}`);
+          }
+          
+          // Kill any existing auto-dosing processes before starting new one
+          try {
+            const { execSync } = require('child_process');
+            info(MODULE, 'Cleaning up any existing auto-dosing processes');
+            // This command finds and kills any existing auto_dosing_integration.py processes
+            execSync(`pkill -f "python.*auto_dosing_integration\.py"`, { stdio: 'ignore' });
+            // Give the system time to clean up processes
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (killErr: unknown) {
+            // Ignore errors - might just mean no processes were found
+            debug(MODULE, `Process cleanup result: ${killErr}`);
+          }
+          
+          // Now enable auto-dosing with a clean system state
+          await runAutoDoseCommand('enable');
+          info(MODULE, 'Auto dosing enabled');
+          
+          // Double check the status file
+          try {
+            const { promises: fs } = require('fs');
+            const path = require('path');
+            const statusPath = path.join(process.cwd(), 'data', 'auto_dosing_status.json');
+            
+            if (await fs.stat(statusPath).then(() => true).catch(() => false)) {
+              const statusData = JSON.parse(await fs.readFile(statusPath, 'utf8'));
+              if (!statusData.enabled) {
+                info(MODULE, 'Status file shows auto-dosing as disabled, updating to enabled');
+                statusData.enabled = true;
+                statusData.running = true;
+                statusData.timestamp = Date.now() / 1000;
+                await fs.writeFile(statusPath, JSON.stringify(statusData, null, 2));
+              }
+            }
+          } catch (fileErr: unknown) {
+            warn(MODULE, `Error checking/updating status file: ${fileErr}`);
+          }
+          
+          return NextResponse.json({
+            status: 'success',
+            message: 'Auto dosing enabled'
+          });
+        } catch (err: unknown) {
+          error(MODULE, 'Critical error in enable action:', err);
+          return NextResponse.json({
+            status: 'error',
+            error: 'Failed to enable auto dosing',
+            message: err instanceof Error ? err.message : String(err)
+          }, { status: 500 });
+        }
         
       case 'disable':
         try {

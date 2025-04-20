@@ -88,11 +88,23 @@ class AutoDosing:
         
         # Create and start the background task with extra protection
         try:
+            # Cancel any existing task first
+            if self.task and not self.task.done() and not self.task.cancelled():
+                logger.warning("Found existing task that's still active - cancelling it first")
+                self.task.cancel()
+                try:
+                    await asyncio.wait_for(self.task, timeout=3.0)
+                except (asyncio.CancelledError, asyncio.TimeoutError):
+                    pass
+            
+            # Reset fields
             self.task = asyncio.create_task(self._monitoring_loop())
             # Ensure we don't lose the task reference
             self.task.add_done_callback(
                 lambda t: logger.warning(f"Auto dosing task completed: {t.exception() if t.exception() else 'No exception'}")
             )
+            # Wait a moment to ensure the task has actually started
+            await asyncio.sleep(1)
             logger.info("Auto dosing task created successfully")
         except Exception as e:
             logger.error(f"Error creating auto dosing task: {e}")
