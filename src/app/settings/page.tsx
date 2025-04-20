@@ -6,6 +6,7 @@ import Link from "next/link";
 import Sidebar from "../components/Sidebar";
 import { useSidebar } from "../components/SidebarContext";
 import { useSimulationContext } from "../components/SimulationContext";
+import { useNetwork } from "../components/NetworkContext";
 import { Input } from "@/components/ui/keyboard";
 import KeyboardTest from "@/components/ui/keyboard/KeyboardTest";
 
@@ -41,7 +42,8 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState("settings");
   const [activeTab, setActiveTab] = useState("system");
   const { collapsed } = useSidebar();
-  const { isEnabled, isLoading, toggleSimulation, resetSimulation, config, updateSimulationConfig } = useSimulationContext();
+  const { isEnabled, isLoading: simLoading, toggleSimulation, resetSimulation, config, updateSimulationConfig } = useSimulationContext();
+  const { networkStatus, availableNetworks, isLoading: networkLoading, isScanning, isConnecting, scanForNetworks, connectToNetwork, updateDeviceHostname } = useNetwork();
   
   // Form state for simulation parameters
   const [formState, setFormState] = useState({
@@ -52,6 +54,30 @@ export default function SettingsPage() {
     ecVariation: 0.03,
     waterTempVariation: 0.2
   });
+  
+  // Network form state
+  const [networkFormState, setNetworkFormState] = useState({
+    hostname: networkStatus?.hostname || "",
+    ssid: "",
+    password: "",
+    ipConfig: "dhcp",
+    staticIp: {
+      ipAddress: "",
+      gateway: "",
+      subnet: "",
+      dns: ""
+    }
+  });
+  
+  // Update network form state when network status changes
+  useEffect(() => {
+    if (networkStatus) {
+      setNetworkFormState(prev => ({
+        ...prev,
+        hostname: networkStatus.hostname
+      }));
+    }
+  }, [networkStatus]);
   
   // Update form with configuration from context when available
   useEffect(() => {
@@ -74,6 +100,50 @@ export default function SettingsPage() {
       ...prev,
       [name]: parseFloat(value)
     }));
+  };
+  
+  // Handle network form input changes
+  const handleNetworkInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setNetworkFormState(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Handle hostname update
+  const handleHostnameUpdate = async () => {
+    if (!networkFormState.hostname) return;
+    
+    try {
+      await updateDeviceHostname(networkFormState.hostname);
+      alert("Hostname updated successfully");
+    } catch (error) {
+      console.error("Failed to update hostname:", error);
+      alert("Failed to update hostname");
+    }
+  };
+  
+  // Handle WiFi connect
+  const handleWifiConnect = async () => {
+    if (!networkFormState.ssid) return;
+    
+    try {
+      const useStaticIp = networkFormState.ipConfig === "static";
+      const staticIpConfig = useStaticIp ? networkFormState.staticIp : undefined;
+      
+      await connectToNetwork(
+        networkFormState.ssid,
+        networkFormState.password,
+        useStaticIp,
+        staticIpConfig
+      );
+      
+      alert(`Successfully connected to ${networkFormState.ssid}`);
+    } catch (error) {
+      console.error("Failed to connect to network:", error);
+      alert("Failed to connect to network");
+    }
   };
   
   // Apply simulation parameter changes
@@ -446,7 +516,7 @@ export default function SettingsPage() {
                       isEnabled ? 'bg-green-500' : 'bg-gray-700'
                     }`}
                     onClick={toggleSimulation}
-                    disabled={isLoading}
+                    disabled={simLoading}
                   >
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${
@@ -467,7 +537,7 @@ export default function SettingsPage() {
                   <button 
                     className="btn btn-secondary w-full mb-2"
                     onClick={resetSimulation}
-                    disabled={isLoading}
+                    disabled={simLoading}
                   >
                     Reset to Configured Values
                   </button>
@@ -497,7 +567,7 @@ export default function SettingsPage() {
                         min="0"
                         max="14"
                         step="0.1"
-                        disabled={isLoading}
+                        disabled={simLoading}
                       />
                     </div>
                     <div>
@@ -513,7 +583,7 @@ export default function SettingsPage() {
                         min="0"
                         max="5"
                         step="0.1"
-                        disabled={isLoading}
+                        disabled={simLoading}
                       />
                     </div>
                   </div>
@@ -530,7 +600,7 @@ export default function SettingsPage() {
                       min="10"
                       max="40"
                       step="0.5"
-                      disabled={isLoading}
+                      disabled={simLoading}
                     />
                   </div>
                 </div>
@@ -539,7 +609,7 @@ export default function SettingsPage() {
                   <button 
                     className="btn w-full"
                     onClick={handleApplyChanges}
-                    disabled={isLoading}
+                    disabled={simLoading}
                   >
                     Apply Changes
                   </button>
