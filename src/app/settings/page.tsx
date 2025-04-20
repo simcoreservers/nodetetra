@@ -43,7 +43,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("system");
   const { collapsed } = useSidebar();
   const { isEnabled, isLoading: simLoading, toggleSimulation, resetSimulation, config, updateSimulationConfig } = useSimulationContext();
-  const { networkStatus, availableNetworks, isLoading: networkLoading, isScanning, isConnecting, scanForNetworks, connectToNetwork, updateDeviceHostname } = useNetwork();
+  const { networkStatus, availableNetworks, isLoading: networkLoading, isScanning, isConnecting, scanForNetworks, connectToNetwork, updateDeviceHostname, refreshNetworkStatus } = useNetwork();
   
   // Form state for simulation parameters
   const [formState, setFormState] = useState({
@@ -68,6 +68,15 @@ export default function SettingsPage() {
       dns: ""
     }
   });
+  
+  // Scan for networks on initial load
+  useEffect(() => {
+    if (activeTab === 'network' && availableNetworks.length === 0 && !isScanning) {
+      scanForNetworks().catch(error => {
+        console.error("Failed to scan for networks:", error);
+      });
+    }
+  }, [activeTab, availableNetworks.length, isScanning, scanForNetworks]);
   
   // Update network form state when network status changes
   useEffect(() => {
@@ -139,10 +148,19 @@ export default function SettingsPage() {
         staticIpConfig
       );
       
+      // Refresh network status to show the new connection
+      await refreshNetworkStatus();
+      
+      // Clear the password field after successful connection
+      setNetworkFormState(prev => ({
+        ...prev,
+        password: ""
+      }));
+      
       alert(`Successfully connected to ${networkFormState.ssid}`);
     } catch (error) {
       console.error("Failed to connect to network:", error);
-      alert("Failed to connect to network");
+      alert(`Failed to connect to network: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
   
@@ -172,6 +190,17 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error updating simulation values:', error);
       alert(`Failed to update simulation values: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  // Handle refresh network status
+  const handleRefreshNetworkStatus = async () => {
+    try {
+      await refreshNetworkStatus();
+      await scanForNetworks();
+    } catch (error) {
+      console.error("Failed to refresh network status:", error);
+      alert("Failed to refresh network status");
     }
   };
 
@@ -322,35 +351,60 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="card">
               <h2 className="card-title mb-4">Current Network Status</h2>
-              <div className="space-y-3">
-                <div className="flex justify-between border-b border-[#333333] pb-2">
-                  <span className="text-gray-400">Hostname</span>
-                  <span>{mockData.network.hostname}</span>
+              {networkLoading ? (
+                <div className="flex justify-center items-center h-48">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
                 </div>
-                <div className="flex justify-between border-b border-[#333333] pb-2">
-                  <span className="text-gray-400">IP Address</span>
-                  <span>{mockData.network.ipAddress}</span>
+              ) : !networkStatus ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-400 mb-4">Network status unavailable</p>
+                  <button className="btn w-full" onClick={handleRefreshNetworkStatus}>
+                    Refresh Network Status
+                  </button>
                 </div>
-                <div className="flex justify-between border-b border-[#333333] pb-2">
-                  <span className="text-gray-400">MAC Address</span>
-                  <span>{mockData.network.macAddress}</span>
-                </div>
-                <div className="flex justify-between border-b border-[#333333] pb-2">
-                  <span className="text-gray-400">Connection Type</span>
-                  <span>{mockData.network.connectionType}</span>
-                </div>
-                <div className="flex justify-between border-b border-[#333333] pb-2">
-                  <span className="text-gray-400">WiFi Network (SSID)</span>
-                  <span>{mockData.network.ssid}</span>
-                </div>
-                <div className="flex justify-between border-b border-[#333333] pb-2">
-                  <span className="text-gray-400">Signal Strength</span>
-                  <span>{mockData.network.signalStrength}</span>
-                </div>
-              </div>
-              <div className="mt-4">
-                <button className="btn w-full">Refresh Network Status</button>
-              </div>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    <div className="flex justify-between border-b border-[#333333] pb-2">
+                      <span className="text-gray-400">Hostname</span>
+                      <span>{networkStatus.hostname}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-[#333333] pb-2">
+                      <span className="text-gray-400">IP Address</span>
+                      <span>{networkStatus.ipAddress}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-[#333333] pb-2">
+                      <span className="text-gray-400">MAC Address</span>
+                      <span>{networkStatus.macAddress}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-[#333333] pb-2">
+                      <span className="text-gray-400">Connection Type</span>
+                      <span>{networkStatus.connectionType}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-[#333333] pb-2">
+                      <span className="text-gray-400">WiFi Network (SSID)</span>
+                      <span>{networkStatus.ssid}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-[#333333] pb-2">
+                      <span className="text-gray-400">Signal Strength</span>
+                      <span>{networkStatus.signalStrength}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-[#333333] pb-2">
+                      <span className="text-gray-400">Last Updated</span>
+                      <span>{new Date(networkStatus.lastUpdated).toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <button 
+                      className="btn w-full" 
+                      onClick={handleRefreshNetworkStatus}
+                      disabled={networkLoading}
+                    >
+                      {networkLoading ? 'Refreshing...' : 'Refresh Network Status'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="card">
@@ -377,8 +431,18 @@ export default function SettingsPage() {
                     onClick={scanForNetworks}
                     disabled={isScanning || isConnecting}
                   >
-                    {isScanning ? 'Scanning...' : 'Scan for Networks'}
+                    {isScanning ? (
+                      <span className="flex items-center justify-center">
+                        <span className="animate-spin h-4 w-4 mr-2 border-t-2 border-b-2 border-blue-500 rounded-full"></span>
+                        Scanning...
+                      </span>
+                    ) : 'Scan for Networks'}
                   </button>
+                  {availableNetworks.length === 0 && !isScanning && (
+                    <p className="text-xs text-gray-400 mt-2">
+                      No networks found. Click "Scan for Networks" to search for available WiFi networks.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm mb-2">WiFi Password</label>
@@ -389,7 +453,7 @@ export default function SettingsPage() {
                     name="password"
                     value={networkFormState.password}
                     onChange={(value) => setNetworkFormState(prev => ({ ...prev, password: value }))}
-                    disabled={isConnecting}
+                    disabled={isConnecting || !networkFormState.ssid}
                   />
                 </div>
                 <div>
@@ -403,6 +467,7 @@ export default function SettingsPage() {
                         checked={networkFormState.ipConfig === "dhcp"} 
                         onChange={handleNetworkInputChange} 
                         className="mr-2" 
+                        disabled={isConnecting || !networkFormState.ssid}
                       />
                       <span>DHCP (Automatic)</span>
                     </label>
@@ -414,6 +479,7 @@ export default function SettingsPage() {
                         checked={networkFormState.ipConfig === "static"} 
                         onChange={handleNetworkInputChange} 
                         className="mr-2" 
+                        disabled={isConnecting || !networkFormState.ssid}
                       />
                       <span>Static IP</span>
                     </label>
@@ -436,6 +502,7 @@ export default function SettingsPage() {
                             staticIp: { ...prev.staticIp, ipAddress: value }
                           }))
                         }
+                        disabled={isConnecting || !networkFormState.ssid}
                       />
                     </div>
                     <div>
@@ -452,6 +519,7 @@ export default function SettingsPage() {
                             staticIp: { ...prev.staticIp, gateway: value }
                           }))
                         }
+                        disabled={isConnecting || !networkFormState.ssid}
                       />
                     </div>
                     <div>
@@ -468,6 +536,7 @@ export default function SettingsPage() {
                             staticIp: { ...prev.staticIp, subnet: value }
                           }))
                         }
+                        disabled={isConnecting || !networkFormState.ssid}
                       />
                     </div>
                     <div>
@@ -484,6 +553,7 @@ export default function SettingsPage() {
                             staticIp: { ...prev.staticIp, dns: value }
                           }))
                         }
+                        disabled={isConnecting || !networkFormState.ssid}
                       />
                     </div>
                   </div>
@@ -495,7 +565,12 @@ export default function SettingsPage() {
                     onClick={handleWifiConnect}
                     disabled={isConnecting || !networkFormState.ssid}
                   >
-                    {isConnecting ? 'Connecting...' : 'Connect'}
+                    {isConnecting ? (
+                      <span className="flex items-center justify-center">
+                        <span className="animate-spin h-4 w-4 mr-2 border-t-2 border-b-2 border-blue-500 rounded-full"></span>
+                        Connecting...
+                      </span>
+                    ) : 'Connect'}
                   </button>
                 </div>
               </div>
